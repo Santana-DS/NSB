@@ -47,6 +47,7 @@ export default function App() {
   }, [])
 
   const activeWorkouts = useMemo(() => workouts.filter((workout) => !workout.deletedAt), [workouts])
+  const archivedWorkouts = useMemo(() => workouts.filter((workout) => workout.deletedAt), [workouts])
   const visibleWorkouts = useMemo(() => filterByPeriod(activeWorkouts, period), [activeWorkouts, period])
   const totalReps = useMemo(() => visibleWorkouts.reduce((total, workout) => total + workout.targetReps, 0), [visibleWorkouts])
   const currentSetTotal = getSetGroupTotal(setGroups)
@@ -252,7 +253,8 @@ export default function App() {
               <input className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} />
             </label>
           </div>
-          <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {workouts.filter((workout) => workout.deletedAt).length} na lixeira</p>
+          <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {archivedWorkouts.length} na lixeira</p>
+          {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} />}
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
           {error && <p className="error-message" role="alert">{error}</p>}
         </section>
@@ -278,10 +280,14 @@ export default function App() {
 
   async function restoreWorkout() {
     if (!undoWorkout) return
-    const restored = { ...undoWorkout, deletedAt: undefined, updatedAt: new Date().toISOString() }
+    await restoreArchivedWorkout(undoWorkout)
+    setUndoWorkout(null)
+  }
+
+  async function restoreArchivedWorkout(workout: Workout) {
+    const restored = { ...workout, deletedAt: undefined, updatedAt: new Date().toISOString() }
     await saveWorkout(restored)
     setWorkouts((current) => current.map((item) => item.id === restored.id ? restored : item))
-    setUndoWorkout(null)
     setSaveStatus('Treino restaurado.')
   }
 
@@ -345,6 +351,15 @@ function WorkoutList({ workouts, emptyText, onArchive }: { workouts: Workout[]; 
       </li>
     ))}
   </ol>
+}
+
+function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onRestore: (workout: Workout) => void }) {
+  return <section className="trash-section" aria-labelledby="trash-title">
+    <div className="section-heading"><div><p className="eyebrow">Lixeira</p><h2 id="trash-title">Treinos arquivados</h2></div></div>
+    <ol className="workout-list">
+      {workouts.map((workout) => <li key={workout.id}><div><strong>{workout.targetReps} NSBs</strong><span>{dateLabel(workout.performedAt)}</span></div><button type="button" className="secondary-action" onClick={() => onRestore(workout)}>Restaurar</button></li>)}
+    </ol>
+  </section>
 }
 
 function bestTimeFor(workouts: Workout[], target: RepTarget): string | null {
