@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listWorkouts, saveWorkout } from './lib/db'
-import { createWorkout, formatDuration, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
+import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
 import { REP_TARGETS, type RepTarget, type SetGroup, type Workout } from './types'
 
 type Screen = 'home' | 'new' | 'history'
+type Period = 'month' | 'year' | 'all'
+type HistoryView = 'list' | 'chart'
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -32,6 +34,8 @@ export default function App() {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [period, setPeriod] = useState<Period>('month')
+  const [historyView, setHistoryView] = useState<HistoryView>('list')
 
   useEffect(() => {
     listWorkouts()
@@ -39,7 +43,8 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  const totalReps = useMemo(() => workouts.reduce((total, workout) => total + workout.targetReps, 0), [workouts])
+  const visibleWorkouts = useMemo(() => filterByPeriod(workouts, period), [workouts, period])
+  const totalReps = useMemo(() => visibleWorkouts.reduce((total, workout) => total + workout.targetReps, 0), [visibleWorkouts])
   const currentSetTotal = getSetGroupTotal(setGroups)
 
   function resetForm() {
@@ -122,17 +127,23 @@ export default function App() {
 
           <div className="summary-grid" aria-label="Resumo do histórico">
             <article>
-              <span>Total acumulado</span>
+              <span>Volume {periodLabel(period).toLowerCase()}</span>
               <strong>{totalReps.toLocaleString('pt-BR')} <small>NSBs</small></strong>
             </article>
             <article>
-              <span>Treinos registrados</span>
-              <strong>{workouts.length}</strong>
+              <span>Treinos no período</span>
+              <strong>{visibleWorkouts.length}</strong>
             </article>
             <article>
               <span>Melhor tempo em 100</span>
-              <strong>{bestTimeFor(workouts, 100) ?? '—'}</strong>
+              <strong>{bestTimeFor(visibleWorkouts, 100) ?? '—'}</strong>
             </article>
+          </div>
+
+          <div className="period-picker" role="group" aria-label="Período do resumo">
+            {(['month', 'year', 'all'] as const).map((option) => (
+              <button key={option} type="button" className={period === option ? 'selected' : ''} onClick={() => setPeriod(option)}>{periodLabel(option)}</button>
+            ))}
           </div>
 
           <section className="recent-section" aria-labelledby="recent-title">
@@ -170,7 +181,7 @@ export default function App() {
               </label>
               <label>
                 <span>Tempo total</span>
-                <input inputMode="numeric" placeholder="18:42" value={duration} onChange={(event) => setDuration(event.target.value)} required aria-describedby="duration-help" />
+                <input inputMode="numeric" maxLength={5} placeholder="18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required aria-describedby="duration-help" />
                 <small id="duration-help">Formato mm:ss</small>
               </label>
             </div>
@@ -209,11 +220,32 @@ export default function App() {
         <section className="content" aria-labelledby="history-title">
           <p className="eyebrow">Todos os registros</p>
           <h1 id="history-title">Histórico de treino</h1>
-          {loading ? <p>Carregando dados locais…</p> : <WorkoutList workouts={workouts} emptyText="Nenhum treino registrado ainda." />}
+          <div className="view-picker" role="group" aria-label="Forma de visualizar o histórico">
+            <button type="button" className={historyView === 'list' ? 'selected' : ''} onClick={() => setHistoryView('list')}>Lista</button>
+            <button type="button" className={historyView === 'chart' ? 'selected' : ''} onClick={() => setHistoryView('chart')}>Gráfico</button>
+          </div>
+          {loading ? <p>Carregando dados locais…</p> : historyView === 'list' ? <WorkoutList workouts={workouts} emptyText="Nenhum treino registrado ainda." /> : <MonthlyVolumeChart workouts={workouts} />}
         </section>
       )}
     </main>
   )
+}
+
+function filterByPeriod(workouts: Workout[], period: Period): Workout[] {
+  if (period === 'all') return workouts
+  const now = new Date()
+  return workouts.filter((workout) => {
+    const date = new Date(workout.performedAt)
+    return period === 'month'
+      ? date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
+      : date.getFullYear() === now.getFullYear()
+  })
+}
+
+function periodLabel(period: Period): string {
+  if (period === 'month') return 'Este mês'
+  if (period === 'year') return 'Este ano'
+  return 'Todo o período'
 }
 
 function WorkoutList({ workouts, emptyText }: { workouts: Workout[]; emptyText: string }) {
@@ -234,4 +266,37 @@ function WorkoutList({ workouts, emptyText }: { workouts: Workout[]; emptyText: 
 function bestTimeFor(workouts: Workout[], target: RepTarget): string | null {
   const times = workouts.filter((workout) => workout.targetReps === target).map((workout) => workout.durationSeconds)
   return times.length > 0 ? formatDuration(Math.min(...times)) : null
+}
+
+function MonthlyVolumeChart({ workouts }: { workouts: Workout[] }) {
+  const months = useMemo(() => {
+    const now = new Date()
+    return Array.from({ length: 6 }, (_, offset) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - offset), 1)
+      const total = workouts
+        .filter((workout) => {
+          const performed = new Date(workout.performedAt)
+          return performed.getFullYear() === date.getFullYear() && performed.getMonth() === date.getMonth()
+        })
+        .reduce((sum, workout) => sum + workout.targetReps, 0)
+      return { label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date).replace('.', ''), total }
+    })
+  }, [workouts])
+  const highest = Math.max(...months.map((month) => month.total), 1)
+
+  if (workouts.length === 0) return <p className="empty-state">Registre treinos para visualizar seu volume mensal.</p>
+  return (
+    <section className="volume-chart" aria-labelledby="chart-title">
+      <div className="section-heading"><div><p className="eyebrow">Volume</p><h2 id="chart-title">NSBs por mês</h2></div><span className="chart-unit">NSBs</span></div>
+      <ol>
+        {months.map((month) => (
+          <li key={month.label} aria-label={`${month.label}: ${month.total} NSBs`}>
+            <span className="bar-value">{month.total || '—'}</span>
+            <div className="bar-track"><div className="bar" style={{ height: `${Math.max((month.total / highest) * 100, month.total ? 5 : 0)}%` }} /></div>
+            <span className="bar-label">{month.label}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
 }

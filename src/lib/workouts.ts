@@ -27,6 +27,12 @@ export function formatDuration(seconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
 }
 
+export function formatDurationInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 4)
+  if (digits.length <= 2) return digits
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`
+}
+
 export function formatSetGroups(groups: SetGroup[]): string {
   if (groups.length === 0) return 'Estrutura não informada'
   return groups.map((group) => `${group.setCount} × ${group.repsPerSet}`).join(' + ')
