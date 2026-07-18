@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
-import { listWorkouts, saveWorkout, saveWorkouts } from './lib/db'
+import { createLegacyDailyVolumes, mergeLegacyDailyVolumes, parseLegacyDailyCsv, parseLegacyMonthlyCsv, validateMonthlyTotals, type LegacyMonthlyTotal } from './lib/legacy-csv'
+import { listLegacyDailyVolumes, listWorkouts, saveLegacyDailyVolumes, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type RepTarget, type SetGroup, type Workout } from './types'
+import { REP_TARGETS, type LegacyDailyVolume, type RepTarget, type SetGroup, type Workout } from './types'
 
 type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
 type HistoryView = 'list' | 'chart'
+interface VolumeRecord { date: string; reps: number }
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -27,6 +29,7 @@ function dateLabel(iso: string): string {
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [workouts, setWorkouts] = useState<Workout[]>([])
+  const [legacyDailyVolumes, setLegacyDailyVolumes] = useState<LegacyDailyVolume[]>([])
   const [loading, setLoading] = useState(true)
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
@@ -39,17 +42,27 @@ export default function App() {
   const [historyView, setHistoryView] = useState<HistoryView>('list')
   const [homeView, setHomeView] = useState<HistoryView>('list')
   const [undoWorkout, setUndoWorkout] = useState<Workout | null>(null)
+  const [legacyDailyFile, setLegacyDailyFile] = useState<File | null>(null)
+  const [legacyMonthlyTotals, setLegacyMonthlyTotals] = useState<LegacyMonthlyTotal[] | null>(null)
 
   useEffect(() => {
-    listWorkouts()
-      .then((stored) => setWorkouts(stored.sort((a, b) => b.performedAt.localeCompare(a.performedAt))))
+    Promise.all([listWorkouts(), listLegacyDailyVolumes()])
+      .then(([storedWorkouts, storedVolumes]) => {
+        setWorkouts(storedWorkouts.sort((a, b) => b.performedAt.localeCompare(a.performedAt)))
+        setLegacyDailyVolumes(storedVolumes.sort((a, b) => b.date.localeCompare(a.date)))
+      })
       .finally(() => setLoading(false))
   }, [])
 
   const activeWorkouts = useMemo(() => workouts.filter((workout) => !workout.deletedAt), [workouts])
   const archivedWorkouts = useMemo(() => workouts.filter((workout) => workout.deletedAt), [workouts])
+  const allVolumeRecords = useMemo<VolumeRecord[]>(() => [
+    ...activeWorkouts.map((workout) => ({ date: workout.performedAt, reps: workout.targetReps })),
+    ...legacyDailyVolumes.map((volume) => ({ date: `${volume.date}T12:00:00.000Z`, reps: volume.reps })),
+  ], [activeWorkouts, legacyDailyVolumes])
+  const visibleVolumeRecords = useMemo(() => filterByPeriod(allVolumeRecords, period), [allVolumeRecords, period])
   const visibleWorkouts = useMemo(() => filterByPeriod(activeWorkouts, period), [activeWorkouts, period])
-  const totalReps = useMemo(() => visibleWorkouts.reduce((total, workout) => total + workout.targetReps, 0), [visibleWorkouts])
+  const totalReps = useMemo(() => visibleVolumeRecords.reduce((total, record) => total + record.reps, 0), [visibleVolumeRecords])
   const currentSetTotal = getSetGroupTotal(setGroups)
 
   function resetForm() {
@@ -149,15 +162,15 @@ export default function App() {
                 <strong>{totalReps.toLocaleString('pt-BR')} <small>NSBs</small></strong>
               </article>
               <article>
-                <span>Treinos no período</span>
-                <strong>{visibleWorkouts.length}</strong>
+                <span>Registros no período</span>
+                <strong>{visibleVolumeRecords.length}</strong>
               </article>
               <article>
                 <span>Melhor tempo em 100</span>
                 <strong>{bestTimeFor(visibleWorkouts, 100) ?? '—'}</strong>
               </article>
             </div>
-          ) : <PeriodVolumeChart workouts={visibleWorkouts} period={period} />}
+          ) : <PeriodVolumeChart records={visibleVolumeRecords} period={period} />}
 
           <section className="recent-section" aria-labelledby="recent-title">
             <div className="section-heading">
@@ -237,7 +250,7 @@ export default function App() {
             <button type="button" className={historyView === 'list' ? 'selected' : ''} onClick={() => setHistoryView('list')}>Lista</button>
             <button type="button" className={historyView === 'chart' ? 'selected' : ''} onClick={() => setHistoryView('chart')}>Gráfico</button>
           </div>
-          {loading ? <p>Carregando dados locais…</p> : historyView === 'list' ? <WorkoutList workouts={activeWorkouts} emptyText="Nenhum treino registrado ainda." onArchive={archiveWorkout} /> : <MonthlyVolumeChart workouts={activeWorkouts} />}
+          {loading ? <p>Carregando dados locais…</p> : historyView === 'list' ? <WorkoutList workouts={activeWorkouts} emptyText="Nenhum treino registrado ainda." onArchive={archiveWorkout} /> : <MonthlyVolumeChart records={allVolumeRecords} />}
         </section>
       )}
 
@@ -247,13 +260,23 @@ export default function App() {
           <h1 id="data-title">Backup e restauração</h1>
           <p className="lead">Exporte uma cópia completa do seu histórico. Uma importação segura combina registros pelo identificador e mantém a versão mais recente.</p>
           <div className="data-actions">
-            <button className="primary-action" onClick={() => downloadBackup(workouts)}>Exportar backup JSON</button>
+            <button className="primary-action" onClick={() => downloadBackup(workouts, legacyDailyVolumes)}>Exportar backup JSON</button>
             <label className="secondary-action import-label">
               Importar backup
               <input className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} />
             </label>
           </div>
-          <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {archivedWorkouts.length} na lixeira</p>
+          <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {legacyDailyVolumes.length} dia(s) de histórico importado · {archivedWorkouts.length} na lixeira</p>
+          <section className="legacy-import" aria-labelledby="legacy-title">
+            <div className="section-heading"><div><p className="eyebrow">Importação única</p><h2 id="legacy-title">Histórico CSV antigo</h2></div></div>
+            <p>O CSV diário cria volumes históricos sem inventar tempo ou sets. O CSV mensal é apenas uma conferência contra o total diário.</p>
+            <div className="data-actions">
+              <label className="secondary-action import-label">Selecionar CSV diário<input className="sr-only" type="file" accept=".csv,text/csv" onChange={selectLegacyDailyFile} /></label>
+              <label className="secondary-action import-label">Validar com CSV mensal<input className="sr-only" type="file" accept=".csv,text/csv" onChange={selectLegacyMonthlyFile} /></label>
+              <button className="primary-action" disabled={!legacyDailyFile} onClick={importLegacyHistory}>Importar histórico</button>
+            </div>
+            <p className="data-summary">{legacyDailyFile ? `Diário: ${legacyDailyFile.name}` : 'Nenhum CSV diário selecionado.'}{legacyMonthlyTotals ? ' · Totais mensais carregados para conferência.' : ''}</p>
+          </section>
           {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} />}
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
           {error && <p className="error-message" role="alert">{error}</p>}
@@ -291,8 +314,8 @@ export default function App() {
     setSaveStatus('Treino restaurado.')
   }
 
-  function downloadBackup(currentWorkouts: Workout[]) {
-    const blob = new Blob([createBackup(currentWorkouts)], { type: 'application/json' })
+  function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[]) {
+    const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -309,23 +332,78 @@ export default function App() {
     if (!file) return
     try {
       const imported = parseBackup(await file.text())
-      const merged = mergeWorkouts(workouts, imported)
-      await saveWorkouts(merged)
-      setWorkouts(merged)
+      const mergedWorkouts = mergeWorkouts(workouts, imported.workouts)
+      const mergedLegacyVolumes = mergeLegacyDailyVolumes(legacyDailyVolumes, imported.legacyDailyVolumes)
+      await Promise.all([saveWorkouts(mergedWorkouts), saveLegacyDailyVolumes(mergedLegacyVolumes)])
+      setWorkouts(mergedWorkouts)
+      setLegacyDailyVolumes(mergedLegacyVolumes)
       setError(null)
-      setSaveStatus(`${imported.length} treino(s) foram lidos do backup; o histórico foi combinado com segurança.`)
+      setSaveStatus(`${imported.workouts.length} treino(s) e ${imported.legacyDailyVolumes.length} volume(s) históricos foram lidos do backup.`)
     } catch (importError) {
       setSaveStatus(null)
       setError(importError instanceof Error ? importError.message : 'Não foi possível importar este arquivo.')
     }
   }
+
+  async function selectLegacyDailyFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      parseLegacyDailyCsv(await file.text())
+      setLegacyDailyFile(file)
+      setError(null)
+      setSaveStatus('CSV diário validado e pronto para importação.')
+    } catch (importError) {
+      setLegacyDailyFile(null)
+      setSaveStatus(null)
+      setError(importError instanceof Error ? importError.message : 'Não foi possível ler o CSV diário.')
+    }
+  }
+
+  async function selectLegacyMonthlyFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      setLegacyMonthlyTotals(parseLegacyMonthlyCsv(await file.text()))
+      setError(null)
+      setSaveStatus('CSV mensal carregado para conferência.')
+    } catch (importError) {
+      setLegacyMonthlyTotals(null)
+      setSaveStatus(null)
+      setError(importError instanceof Error ? importError.message : 'Não foi possível ler o CSV mensal.')
+    }
+  }
+
+  async function importLegacyHistory() {
+    if (!legacyDailyFile) return
+    try {
+      const dailyRecords = parseLegacyDailyCsv(await legacyDailyFile.text())
+      const mismatches = legacyMonthlyTotals ? validateMonthlyTotals(dailyRecords, legacyMonthlyTotals) : []
+      if (mismatches.length > 0) {
+        setError(`Os totais mensais não conferem: ${mismatches.slice(0, 3).join('; ')}.`)
+        return
+      }
+      const merged = mergeLegacyDailyVolumes(legacyDailyVolumes, createLegacyDailyVolumes(dailyRecords))
+      await saveLegacyDailyVolumes(merged)
+      setLegacyDailyVolumes(merged)
+      setLegacyDailyFile(null)
+      setLegacyMonthlyTotals(null)
+      setError(null)
+      setSaveStatus(`${dailyRecords.length} dia(s) históricos foram importados sem duplicar o volume mensal.`)
+    } catch (importError) {
+      setSaveStatus(null)
+      setError(importError instanceof Error ? importError.message : 'Não foi possível importar o histórico CSV.')
+    }
+  }
 }
 
-function filterByPeriod(workouts: Workout[], period: Period): Workout[] {
-  if (period === 'all') return workouts
+function filterByPeriod<T extends { date?: string; performedAt?: string }>(records: T[], period: Period): T[] {
+  if (period === 'all') return records
   const now = new Date()
-  return workouts.filter((workout) => {
-    const date = new Date(workout.performedAt)
+  return records.filter((record) => {
+    const date = new Date(record.performedAt ?? record.date ?? '')
     return period === 'month'
       ? date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
       : date.getFullYear() === now.getFullYear()
@@ -367,23 +445,23 @@ function bestTimeFor(workouts: Workout[], target: RepTarget): string | null {
   return times.length > 0 ? formatDuration(Math.min(...times)) : null
 }
 
-function MonthlyVolumeChart({ workouts }: { workouts: Workout[] }) {
+function MonthlyVolumeChart({ records }: { records: VolumeRecord[] }) {
   const months = useMemo(() => {
     const now = new Date()
     return Array.from({ length: 6 }, (_, offset) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (5 - offset), 1)
-      const total = workouts
-        .filter((workout) => {
-          const performed = new Date(workout.performedAt)
+      const total = records
+        .filter((record) => {
+          const performed = new Date(record.date)
           return performed.getFullYear() === date.getFullYear() && performed.getMonth() === date.getMonth()
         })
-        .reduce((sum, workout) => sum + workout.targetReps, 0)
+        .reduce((sum, record) => sum + record.reps, 0)
       return { label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date).replace('.', ''), total }
     })
-  }, [workouts])
+  }, [records])
   const highest = Math.max(...months.map((month) => month.total), 1)
 
-  if (workouts.length === 0) return <p className="empty-state">Registre treinos para visualizar seu volume mensal.</p>
+  if (records.length === 0) return <p className="empty-state">Registre ou importe dados para visualizar seu volume mensal.</p>
   return (
     <section className="volume-chart" aria-labelledby="chart-title">
       <div className="section-heading"><div><p className="eyebrow">Volume</p><h2 id="chart-title">NSBs por mês</h2></div><span className="chart-unit">NSBs</span></div>
@@ -400,11 +478,11 @@ function MonthlyVolumeChart({ workouts }: { workouts: Workout[] }) {
   )
 }
 
-function PeriodVolumeChart({ workouts, period }: { workouts: Workout[]; period: Period }) {
-  const bins = useMemo(() => getPeriodBins(workouts, period), [workouts, period])
+function PeriodVolumeChart({ records, period }: { records: VolumeRecord[]; period: Period }) {
+  const bins = useMemo(() => getPeriodBins(records, period), [records, period])
   const highest = Math.max(...bins.map((bin) => bin.total), 1)
 
-  if (workouts.length === 0) return <p className="empty-state chart-empty">Registre treinos neste período para visualizar o gráfico.</p>
+  if (records.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados neste período para visualizar o gráfico.</p>
   return (
     <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
       <div className="section-heading"><div><p className="eyebrow">{periodLabel(period)}</p><h2 id="home-chart-title">Volume de NSBs</h2></div><span className="chart-unit">NSBs</span></div>
@@ -421,7 +499,7 @@ function PeriodVolumeChart({ workouts, period }: { workouts: Workout[]; period: 
   )
 }
 
-function getPeriodBins(workouts: Workout[], period: Period): Array<{ key: string; label: string; total: number }> {
+function getPeriodBins(records: VolumeRecord[], period: Period): Array<{ key: string; label: string; total: number }> {
   const now = new Date()
   const formatMonth = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
   const bins = period === 'month'
@@ -446,6 +524,6 @@ function getPeriodBins(workouts: Workout[], period: Period): Array<{ key: string
   return bins.map(({ key, label, matches }) => ({
     key,
     label,
-    total: workouts.filter((workout) => matches(new Date(workout.performedAt))).reduce((sum, workout) => sum + workout.targetReps, 0),
+    total: records.filter((record) => matches(new Date(record.date))).reduce((sum, record) => sum + record.reps, 0),
   }))
 }

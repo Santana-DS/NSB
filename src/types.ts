@@ -22,9 +22,23 @@ export interface Workout {
 
 export type WorkoutDraft = Omit<Workout, 'id' | 'createdAt' | 'updatedAt'>
 
+export interface LegacyDailyVolume {
+  id: string
+  date: string
+  reps: number
+  source: 'legacy-csv'
+  importedAt: string
+}
+
 export interface BackupDocument {
   format: 'nsb-tracker-backup'
-  version: 1
+  version: 2
   exportedAt: string
   workouts: Workout[]
+  legacyDailyVolumes: LegacyDailyVolume[]
+}
+
+export interface ParsedBackup {
+  workouts: Workout[]
+  legacyDailyVolumes: LegacyDailyVolume[]
 }

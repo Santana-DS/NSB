@@ -20,6 +20,12 @@ O menu **Dados** exporta um documento JSON versionado. Na importação, o arquiv
 
 Exclusões são lógicas: o treino recebe `deletedAt` e fica fora dos totais e gráficos, mas permanece no backup para uma recuperação posterior.
 
+## Histórico legado CSV
+
+O importador lê o CSV diário antigo e grava `LegacyDailyVolume`, que possui apenas data, quantidade e procedência. Esses registros entram em totais e gráficos, mas não podem gerar PRs de tempo, ritmo ou estratégias de sets.
+
+O CSV mensal é opcional e nunca é importado como outra fonte de volume. Ele apenas confere se a soma das linhas diárias corresponde aos totais mensais, evitando duplicação e apontando divergências antes da importação.
+
 ## Modelo de domínio
 
 ```text

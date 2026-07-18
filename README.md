@@ -13,6 +13,7 @@ A primeira fatia funcional permite:
 - consultar o histórico e o melhor tempo de 100 NSBs.
 - exportar e importar um backup JSON versionado;
 - mover um treino para a lixeira e desfazer a exclusão durante a sessão.
+- importar o histórico legado de um CSV diário (`data`, `NSB`) e, opcionalmente, conferir os totais com um CSV mensal (`Mes`, `Total`).
 
 Sincronização, autenticação, backup remoto e análises avançadas virão nas próximas etapas.
 
