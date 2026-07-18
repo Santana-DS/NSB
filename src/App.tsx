@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listWorkouts, saveWorkout } from './lib/db'
+import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
+import { listWorkouts, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
 import { REP_TARGETS, type RepTarget, type SetGroup, type Workout } from './types'
 
-type Screen = 'home' | 'new' | 'history'
+type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
 type HistoryView = 'list' | 'chart'
 
@@ -37,6 +38,7 @@ export default function App() {
   const [period, setPeriod] = useState<Period>('month')
   const [historyView, setHistoryView] = useState<HistoryView>('list')
   const [homeView, setHomeView] = useState<HistoryView>('list')
+  const [undoWorkout, setUndoWorkout] = useState<Workout | null>(null)
 
   useEffect(() => {
     listWorkouts()
@@ -44,7 +46,8 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  const visibleWorkouts = useMemo(() => filterByPeriod(workouts, period), [workouts, period])
+  const activeWorkouts = useMemo(() => workouts.filter((workout) => !workout.deletedAt), [workouts])
+  const visibleWorkouts = useMemo(() => filterByPeriod(activeWorkouts, period), [activeWorkouts, period])
   const totalReps = useMemo(() => visibleWorkouts.reduce((total, workout) => total + workout.targetReps, 0), [visibleWorkouts])
   const currentSetTotal = getSetGroupTotal(setGroups)
 
@@ -114,6 +117,7 @@ export default function App() {
         <nav aria-label="Navegação principal">
           <button className={screen === 'home' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('home')}>Início</button>
           <button className={screen === 'history' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('history')}>Histórico</button>
+          <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
         </nav>
       </header>
 
@@ -162,7 +166,7 @@ export default function App() {
               </div>
               {workouts.length > 0 && <button className="text-button" onClick={() => setScreen('history')}>Ver todos</button>}
             </div>
-            {loading ? <p>Carregando dados locais…</p> : <WorkoutList workouts={workouts.slice(0, 3)} emptyText="Seu primeiro treino aparecerá aqui." />}
+            {loading ? <p>Carregando dados locais…</p> : <WorkoutList workouts={activeWorkouts.slice(0, 3)} emptyText="Seu primeiro treino aparecerá aqui." onArchive={archiveWorkout} />}
           </section>
         </section>
       )}
@@ -232,11 +236,83 @@ export default function App() {
             <button type="button" className={historyView === 'list' ? 'selected' : ''} onClick={() => setHistoryView('list')}>Lista</button>
             <button type="button" className={historyView === 'chart' ? 'selected' : ''} onClick={() => setHistoryView('chart')}>Gráfico</button>
           </div>
-          {loading ? <p>Carregando dados locais…</p> : historyView === 'list' ? <WorkoutList workouts={workouts} emptyText="Nenhum treino registrado ainda." /> : <MonthlyVolumeChart workouts={workouts} />}
+          {loading ? <p>Carregando dados locais…</p> : historyView === 'list' ? <WorkoutList workouts={activeWorkouts} emptyText="Nenhum treino registrado ainda." onArchive={archiveWorkout} /> : <MonthlyVolumeChart workouts={activeWorkouts} />}
         </section>
+      )}
+
+      {screen === 'data' && (
+        <section className="content data-screen" aria-labelledby="data-title">
+          <p className="eyebrow">Propriedade dos dados</p>
+          <h1 id="data-title">Backup e restauração</h1>
+          <p className="lead">Exporte uma cópia completa do seu histórico. Uma importação segura combina registros pelo identificador e mantém a versão mais recente.</p>
+          <div className="data-actions">
+            <button className="primary-action" onClick={() => downloadBackup(workouts)}>Exportar backup JSON</button>
+            <label className="secondary-action import-label">
+              Importar backup
+              <input className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} />
+            </label>
+          </div>
+          <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {workouts.filter((workout) => workout.deletedAt).length} na lixeira</p>
+          {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
+          {error && <p className="error-message" role="alert">{error}</p>}
+        </section>
+      )}
+
+      {undoWorkout && (
+        <div className="undo-toast" role="status">
+          <span>Treino movido para a lixeira.</span>
+          <button type="button" onClick={restoreWorkout}>Desfazer</button>
+        </div>
       )}
     </main>
   )
+
+  async function archiveWorkout(workout: Workout) {
+    if (!window.confirm(`Mover o treino de ${workout.targetReps} NSBs para a lixeira?`)) return
+    const archived = { ...workout, deletedAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    await saveWorkout(archived)
+    setWorkouts((current) => current.map((item) => item.id === archived.id ? archived : item))
+    setUndoWorkout(workout)
+    setSaveStatus(null)
+  }
+
+  async function restoreWorkout() {
+    if (!undoWorkout) return
+    const restored = { ...undoWorkout, deletedAt: undefined, updatedAt: new Date().toISOString() }
+    await saveWorkout(restored)
+    setWorkouts((current) => current.map((item) => item.id === restored.id ? restored : item))
+    setUndoWorkout(null)
+    setSaveStatus('Treino restaurado.')
+  }
+
+  function downloadBackup(currentWorkouts: Workout[]) {
+    const blob = new Blob([createBackup(currentWorkouts)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `nsb-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+    setError(null)
+    setSaveStatus('Backup exportado. Guarde o arquivo fora do aparelho também.')
+  }
+
+  async function handleImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      const imported = parseBackup(await file.text())
+      const merged = mergeWorkouts(workouts, imported)
+      await saveWorkouts(merged)
+      setWorkouts(merged)
+      setError(null)
+      setSaveStatus(`${imported.length} treino(s) foram lidos do backup; o histórico foi combinado com segurança.`)
+    } catch (importError) {
+      setSaveStatus(null)
+      setError(importError instanceof Error ? importError.message : 'Não foi possível importar este arquivo.')
+    }
+  }
 }
 
 function filterByPeriod(workouts: Workout[], period: Period): Workout[] {
@@ -256,7 +332,7 @@ function periodLabel(period: Period): string {
   return 'Todo o período'
 }
 
-function WorkoutList({ workouts, emptyText }: { workouts: Workout[]; emptyText: string }) {
+function WorkoutList({ workouts, emptyText, onArchive }: { workouts: Workout[]; emptyText: string; onArchive?: (workout: Workout) => void }) {
   if (workouts.length === 0) return <p className="empty-state">{emptyText}</p>
   return <ol className="workout-list">
     {workouts.map((workout) => (
@@ -265,7 +341,7 @@ function WorkoutList({ workouts, emptyText }: { workouts: Workout[]; emptyText: 
           <strong>{workout.targetReps} NSBs</strong>
           <span>{dateLabel(workout.performedAt)} · {formatSetGroups(workout.setGroups)}</span>
         </div>
-        <time dateTime={`PT${workout.durationSeconds}S`}>{formatDuration(workout.durationSeconds)}</time>
+        <div className="workout-actions"><time dateTime={`PT${workout.durationSeconds}S`}>{formatDuration(workout.durationSeconds)}</time>{onArchive && <button type="button" className="archive-button" onClick={() => onArchive(workout)}>Excluir</button>}</div>
       </li>
     ))}
   </ol>

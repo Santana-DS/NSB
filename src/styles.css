@@ -4,7 +4,7 @@ body { margin: 0; min-width: 320px; }
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 .app-shell { min-height: 100vh; }
-.app-header { max-width: 960px; margin: 0 auto; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+.app-header { max-width: 960px; margin: 0 auto; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .brand { display: inline-flex; align-items: center; gap: .55rem; border: 0; background: transparent; color: #17212b; font-weight: 700; }
 .brand-mark { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: .6rem; background: #0d2c3d; color: #fff; font-size: .72rem; letter-spacing: .06em; }
 nav { display: flex; gap: .25rem; }
@@ -36,11 +36,13 @@ h2 { margin: 0; color: #17303d; font-size: 1.25rem; }
 .workout-list li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid #cdd8d6; }
 .workout-list strong, .workout-list span { display: block; }
 .workout-list time { color: #0d5261; font-variant-numeric: tabular-nums; font-weight: 700; }
+.workout-actions { display: flex; align-items: center; gap: .7rem; }.archive-button { border: 0; color: #9a3443; background: transparent; padding: .3rem; font-size: .8rem; }
 .empty-state { color: #61717a; }
 .view-picker { margin: 1.5rem 0; }
 .home-view-picker { margin-top: 2.25rem; margin-bottom: 0; }
 .volume-chart { max-width: 680px; margin-top: 1.5rem; }
 .home-chart { margin: 0 0 3rem; }.chart-empty { margin: 0 0 3rem; }
+.data-screen { max-width: 720px; }.data-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 2rem 0 1rem; }.import-label { display: inline-flex; align-items: center; cursor: pointer; }.data-summary { color: #61717a; }.undo-toast { position: fixed; left: 50%; bottom: 1rem; display: flex; gap: 1rem; align-items: center; transform: translateX(-50%); border-radius: .6rem; padding: .8rem 1rem; background: #0d2c3d; color: #fff; box-shadow: 0 10px 25px #0d2c3d44; }.undo-toast button { border: 0; background: transparent; color: #a5e4d6; font-weight: 700; }
 .chart-unit { color: #61717a; font-size: .85rem; font-weight: 700; }
 .volume-chart ol { display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; gap: .75rem; min-height: 240px; margin: 0; padding: 1rem 0 0; list-style: none; border-bottom: 1px solid #cdd8d6; }
 .volume-chart li { display: grid; grid-template-rows: 1.5rem 1fr 1.5rem; align-items: end; min-height: 210px; text-align: center; }
@@ -65,4 +67,4 @@ textarea { resize: vertical; }
 .remove-button { border: 0; background: transparent; color: #9a3443; padding: .4rem; }
 .set-total { margin-top: .75rem !important; }.set-total.valid { color: #147050; }.notes-field { display: block; margin: 1.75rem 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-@media (max-width: 640px) { .app-header { padding: 1rem; }.content { padding: 2.5rem 1rem; }.summary-grid { grid-template-columns: 1fr; gap: 1.25rem; }.target-grid { grid-template-columns: repeat(3, 1fr); }.field-grid { grid-template-columns: 1fr; }.set-row { grid-template-columns: 1fr 4rem auto 4rem; }.remove-button { grid-column: 1 / -1; justify-self: start; padding-left: 0; }.workout-list li { align-items: flex-start; } }
+@media (max-width: 640px) { .app-header { padding: 1rem; align-items: flex-start; }.app-header nav { flex-wrap: wrap; justify-content: flex-end; }.content { padding: 2.5rem 1rem; }.summary-grid { grid-template-columns: 1fr; gap: 1.25rem; }.target-grid { grid-template-columns: repeat(3, 1fr); }.field-grid { grid-template-columns: 1fr; }.set-row { grid-template-columns: 1fr 4rem auto 4rem; }.remove-button { grid-column: 1 / -1; justify-self: start; padding-left: 0; }.workout-list li { align-items: flex-start; }.workout-actions { align-items: flex-end; flex-direction: column; }.undo-toast { width: calc(100% - 2rem); justify-content: space-between; } }

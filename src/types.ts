@@ -17,6 +17,14 @@ export interface Workout {
   notes: string
   createdAt: string
   updatedAt: string
+  deletedAt?: string
 }
 
 export type WorkoutDraft = Omit<Workout, 'id' | 'createdAt' | 'updatedAt'>
+
+export interface BackupDocument {
+  format: 'nsb-tracker-backup'
+  version: 1
+  exportedAt: string
+  workouts: Workout[]
+}

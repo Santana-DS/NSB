@@ -11,6 +11,8 @@ A primeira fatia funcional permite:
 - validar se os sets somam a meta escolhida;
 - salvar o treino no dispositivo com IndexedDB;
 - consultar o histórico e o melhor tempo de 100 NSBs.
+- exportar e importar um backup JSON versionado;
+- mover um treino para a lixeira e desfazer a exclusão durante a sessão.
 
 Sincronização, autenticação, backup remoto e análises avançadas virão nas próximas etapas.
 

@@ -23,3 +23,10 @@ export async function listWorkouts(): Promise<Workout[]> {
 export async function saveWorkout(workout: Workout): Promise<void> {
   await (await database).put('workouts', workout)
 }
+
+export async function saveWorkouts(workouts: Workout[]): Promise<void> {
+  const db = await database
+  const transaction = db.transaction('workouts', 'readwrite')
+  await Promise.all(workouts.map((workout) => transaction.store.put(workout)))
+  await transaction.done
+}

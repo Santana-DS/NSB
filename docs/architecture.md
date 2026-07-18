@@ -14,6 +14,12 @@ React PWA → IndexedDB → treino validado → histórico local
 
 O armazenamento local usa IndexedDB no navegador. Ele é propositalmente isolado em `src/lib/db.ts`, permitindo adicionar uma fila de sincronização sem alterar as telas.
 
+## Backup local
+
+O menu **Dados** exporta um documento JSON versionado. Na importação, o arquivo é validado integralmente antes de qualquer gravação. Registros com o mesmo identificador são mesclados pela versão mais recente (`updatedAt`), portanto restaurar um backup não deve duplicar treinos existentes.
+
+Exclusões são lógicas: o treino recebe `deletedAt` e fica fora dos totais e gráficos, mas permanece no backup para uma recuperação posterior.
+
 ## Modelo de domínio
 
 ```text
