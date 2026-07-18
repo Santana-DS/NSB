@@ -27,7 +27,7 @@ h2 { margin: 0; color: #17303d; font-size: 1.25rem; }
 .summary-grid strong { display: block; margin-top: .25rem; color: #0d2c3d; font-size: 1.65rem; }
 .summary-grid small { font-size: .9rem; }
 .period-picker, .view-picker { display: inline-flex; gap: .2rem; padding: .25rem; border: 1px solid #cdd8d6; border-radius: .65rem; background: #fff; }
-.period-picker { margin: -1.75rem 0 3rem; }
+.period-picker { margin: .5rem 0 2rem; }
 .period-picker button, .view-picker button { border: 0; border-radius: .4rem; background: transparent; color: #4c5d67; padding: .45rem .65rem; font-weight: 700; }
 .period-picker button.selected, .view-picker button.selected { color: #fff; background: #0d5261; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
@@ -38,7 +38,9 @@ h2 { margin: 0; color: #17303d; font-size: 1.25rem; }
 .workout-list time { color: #0d5261; font-variant-numeric: tabular-nums; font-weight: 700; }
 .empty-state { color: #61717a; }
 .view-picker { margin: 1.5rem 0; }
+.home-view-picker { margin-top: 2.25rem; margin-bottom: 0; }
 .volume-chart { max-width: 680px; margin-top: 1.5rem; }
+.home-chart { margin: 0 0 3rem; }.chart-empty { margin: 0 0 3rem; }
 .chart-unit { color: #61717a; font-size: .85rem; font-weight: 700; }
 .volume-chart ol { display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; gap: .75rem; min-height: 240px; margin: 0; padding: 1rem 0 0; list-style: none; border-bottom: 1px solid #cdd8d6; }
 .volume-chart li { display: grid; grid-template-rows: 1.5rem 1fr 1.5rem; align-items: end; min-height: 210px; text-align: center; }

@@ -36,6 +36,7 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const [period, setPeriod] = useState<Period>('month')
   const [historyView, setHistoryView] = useState<HistoryView>('list')
+  const [homeView, setHomeView] = useState<HistoryView>('list')
 
   useEffect(() => {
     listWorkouts()
@@ -125,19 +126,9 @@ export default function App() {
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
 
-          <div className="summary-grid" aria-label="Resumo do histórico">
-            <article>
-              <span>Volume {periodLabel(period).toLowerCase()}</span>
-              <strong>{totalReps.toLocaleString('pt-BR')} <small>NSBs</small></strong>
-            </article>
-            <article>
-              <span>Treinos no período</span>
-              <strong>{visibleWorkouts.length}</strong>
-            </article>
-            <article>
-              <span>Melhor tempo em 100</span>
-              <strong>{bestTimeFor(visibleWorkouts, 100) ?? '—'}</strong>
-            </article>
+          <div className="view-picker home-view-picker" role="group" aria-label="Visualização da tela inicial">
+            <button type="button" className={homeView === 'list' ? 'selected' : ''} onClick={() => setHomeView('list')}>Resumo</button>
+            <button type="button" className={homeView === 'chart' ? 'selected' : ''} onClick={() => setHomeView('chart')}>Gráfico</button>
           </div>
 
           <div className="period-picker" role="group" aria-label="Período do resumo">
@@ -145,6 +136,23 @@ export default function App() {
               <button key={option} type="button" className={period === option ? 'selected' : ''} onClick={() => setPeriod(option)}>{periodLabel(option)}</button>
             ))}
           </div>
+
+          {homeView === 'list' ? (
+            <div className="summary-grid" aria-label="Resumo do histórico">
+              <article>
+                <span>Volume {periodLabel(period).toLowerCase()}</span>
+                <strong>{totalReps.toLocaleString('pt-BR')} <small>NSBs</small></strong>
+              </article>
+              <article>
+                <span>Treinos no período</span>
+                <strong>{visibleWorkouts.length}</strong>
+              </article>
+              <article>
+                <span>Melhor tempo em 100</span>
+                <strong>{bestTimeFor(visibleWorkouts, 100) ?? '—'}</strong>
+              </article>
+            </div>
+          ) : <PeriodVolumeChart workouts={visibleWorkouts} period={period} />}
 
           <section className="recent-section" aria-labelledby="recent-title">
             <div className="section-heading">
@@ -299,4 +307,54 @@ function MonthlyVolumeChart({ workouts }: { workouts: Workout[] }) {
       </ol>
     </section>
   )
+}
+
+function PeriodVolumeChart({ workouts, period }: { workouts: Workout[]; period: Period }) {
+  const bins = useMemo(() => getPeriodBins(workouts, period), [workouts, period])
+  const highest = Math.max(...bins.map((bin) => bin.total), 1)
+
+  if (workouts.length === 0) return <p className="empty-state chart-empty">Registre treinos neste período para visualizar o gráfico.</p>
+  return (
+    <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
+      <div className="section-heading"><div><p className="eyebrow">{periodLabel(period)}</p><h2 id="home-chart-title">Volume de NSBs</h2></div><span className="chart-unit">NSBs</span></div>
+      <ol style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(0, 1fr))` }}>
+        {bins.map((bin) => (
+          <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}>
+            <span className="bar-value">{bin.total || '—'}</span>
+            <div className="bar-track"><div className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%` }} /></div>
+            <span className="bar-label">{bin.label}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function getPeriodBins(workouts: Workout[], period: Period): Array<{ key: string; label: string; total: number }> {
+  const now = new Date()
+  const formatMonth = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
+  const bins = period === 'month'
+    ? Array.from({ length: Math.ceil(now.getDate() / 7) }, (_, index) => {
+      const start = index * 7 + 1
+      const end = Math.min(start + 6, now.getDate())
+      return {
+        key: String(start), label: `${start}–${end}`,
+        matches: (date: Date) => date.getDate() >= start && date.getDate() <= end,
+      }
+    })
+    : period === 'year'
+      ? Array.from({ length: 12 }, (_, index) => ({
+        key: String(index), label: formatMonth.format(new Date(now.getFullYear(), index, 1)).replace('.', ''),
+        matches: (date: Date) => date.getMonth() === index,
+      }))
+      : Array.from({ length: 6 }, (_, index) => {
+        const year = now.getFullYear() - 5 + index
+        return { key: String(year), label: String(year), matches: (date: Date) => date.getFullYear() === year }
+      })
+
+  return bins.map(({ key, label, matches }) => ({
+    key,
+    label,
+    total: workouts.filter((workout) => matches(new Date(workout.performedAt))).reduce((sum, workout) => sum + workout.targetReps, 0),
+  }))
 }
