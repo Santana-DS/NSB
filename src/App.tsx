@@ -57,6 +57,7 @@ export default function App() {
   const [quantityFilterExpanded, setQuantityFilterExpanded] = useState(false)
   const [analyticsView, setAnalyticsView] = useState<AnalyticsView>('comparison')
   const [comparisonExpanded, setComparisonExpanded] = useState(false)
+  const [comparisonZoom, setComparisonZoom] = useState(1)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
@@ -192,8 +193,8 @@ export default function App() {
       {screen === 'home' && (
         <section className="content home-content" aria-labelledby="home-title">
           <div className="home-intro">
-            <p id="home-title">Seu próximo recorde começa agora.</p>
-            <button className="primary-action" onClick={openNewWorkout}>Registrar treino</button>
+            <p id="home-title">Treine. Registre. Evolua.</p>
+            <button className="primary-action hero-action" onClick={openNewWorkout}>Registrar treino</button>
           </div>
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
@@ -218,7 +219,7 @@ export default function App() {
             <button type="button" className={analyticsView === 'drilldown' ? 'selected' : ''} onClick={() => setAnalyticsView('drilldown')}>Evolução</button>
           </div>
 
-          {analyticsView === 'drilldown' ? <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} /> : <YearComparisonChart records={filteredVolumeRecords} onExpand={() => setComparisonExpanded(true)} />}
+          {analyticsView === 'drilldown' ? <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} /> : <YearComparisonChart records={filteredVolumeRecords} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} />}
 
         </section>
       )}
@@ -323,7 +324,7 @@ export default function App() {
         </div>
       )}
       {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} />}
-      {comparisonExpanded && <div className="comparison-backdrop" role="presentation" onClick={() => setComparisonExpanded(false)}><section className="comparison-dialog" role="dialog" aria-modal="true" aria-label="Comparação anual ampliada" onClick={(event) => event.stopPropagation()}><YearComparisonChart records={filteredVolumeRecords} expanded /></section></div>}
+      {comparisonExpanded && <div className="comparison-backdrop" role="presentation" onClick={() => setComparisonExpanded(false)}><section className="comparison-dialog" role="dialog" aria-modal="true" aria-label="Comparação anual ampliada" onClick={(event) => event.stopPropagation()}><div className="comparison-controls"><div className="zoom-controls" role="group" aria-label="Zoom do gráfico"><button type="button" className="secondary-action" disabled={comparisonZoom === 1} onClick={() => setComparisonZoom((zoom) => Math.max(1, zoom - .25))}>−</button><span>{Math.round(comparisonZoom * 100)}%</span><button type="button" className="secondary-action" disabled={comparisonZoom === 1.5} onClick={() => setComparisonZoom((zoom) => Math.min(1.5, zoom + .25))}>+</button></div><button type="button" className="secondary-action" onClick={downloadComparison}>Baixar SVG</button><button type="button" className="text-button" onClick={() => setComparisonExpanded(false)}>Fechar</button></div><YearComparisonChart records={filteredVolumeRecords} expanded zoom={comparisonZoom} chartId="annual-comparison-chart" /></section></div>}
     </main>
   )
 
@@ -334,6 +335,23 @@ export default function App() {
     setWorkouts((current) => current.map((item) => item.id === archived.id ? archived : item))
     setUndoWorkout(workout)
     setSaveStatus(null)
+  }
+
+  function downloadComparison() {
+    const chart = document.getElementById('annual-comparison-chart')
+    if (!(chart instanceof SVGSVGElement)) return
+    const copy = chart.cloneNode(true) as SVGSVGElement
+    copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = '.comparison-axis{stroke:#b9c8c5;stroke-width:1}.comparison-grid{stroke:#d9e2df;stroke-width:1;stroke-dasharray:3 4}.comparison-label{fill:#61717a;font-size:12px}'
+    copy.prepend(style)
+    const blob = new Blob([new XMLSerializer().serializeToString(copy)], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'comparacao-anual-nsb.svg'
+    link.click()
+    URL.revokeObjectURL(url)
   }
 
   async function restoreWorkout() {
@@ -447,7 +465,7 @@ function DailyVolumeGrid({ records, selection, onSelectDay, onBack }: { records:
   return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); return <li key={day} className={total > 0 ? 'has-volume' : ''} style={total > 0 ? { backgroundColor: volumeColor(total, highest) } : undefined}><button type="button" onClick={() => onSelectDay(date)} aria-label={`${day} de ${monthName}: ${total} NSBs`}><span>{day}</span><strong>{total || '—'}</strong></button></li> })}</ol></section>
 }
 
-function YearComparisonChart({ records, onExpand, expanded = false }: { records: VolumeRecord[]; onExpand?: () => void; expanded?: boolean }) {
+function YearComparisonChart({ records, onExpand, expanded = false, zoom = 1, chartId }: { records: VolumeRecord[]; onExpand?: () => void; expanded?: boolean; zoom?: number; chartId?: string }) {
   const data = useMemo(() => {
     const years = [...new Set(records.map((record) => new Date(record.date).getFullYear()))].sort((a, b) => a - b)
     return years.map((year) => ({
@@ -471,7 +489,7 @@ function YearComparisonChart({ records, onExpand, expanded = false }: { records:
   const point = (month: number, value: number) => ({ x: left + (month * (width - left - 20)) / 11, y: top + plotHeight - (value / maximum) * plotHeight })
 
   if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
-  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</span>)}</div></section>
+  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg id={chartId} style={expanded ? { width: `${zoom * 100}%` } : undefined} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</span>)}</div></section>
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {
