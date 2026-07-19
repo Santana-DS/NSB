@@ -11,7 +11,7 @@ type Period = 'month' | 'year' | 'all'
 type AnalyticsView = 'drilldown' | 'comparison' | 'statistics'
 interface VolumeRecord { date: string; reps: number }
 interface ChartBin { key: string; label: string; total: number; year?: number; month?: number }
-interface TimedRecord { targetReps: RepTarget; durationSeconds: number }
+interface TimedRecord { targetReps: RepTarget; durationSeconds: number; date: string }
 const HOME_MESSAGES = [
   'Do what you gotta do.',
   'Do what you know you have to do.',
@@ -111,8 +111,8 @@ export default function App() {
       ...legacyDailyVolumes.filter((volume) => volume.reps === targetFilter).map((volume) => ({ date: `${volume.date}T12:00:00.000Z`, reps: volume.reps })),
     ], [activeWorkouts, allVolumeRecords, legacyDailyVolumes, targetFilter])
   const timedRecords = useMemo<TimedRecord[]>(() => [
-    ...activeWorkouts.map((workout) => ({ targetReps: workout.targetReps, durationSeconds: workout.durationSeconds })),
-    ...historicalPerformances.map((performance) => ({ targetReps: performance.targetReps, durationSeconds: performance.durationSeconds })),
+    ...activeWorkouts.map((workout) => ({ targetReps: workout.targetReps, durationSeconds: workout.durationSeconds, date: toDateKeyFromIso(workout.performedAt) })),
+    ...historicalPerformances.map((performance) => ({ targetReps: performance.targetReps, durationSeconds: performance.durationSeconds, date: performance.date })),
   ], [activeWorkouts, historicalPerformances])
 
   useEffect(() => {
@@ -250,7 +250,7 @@ export default function App() {
             <button type="button" className={analyticsView === 'statistics' ? 'selected' : ''} onClick={() => { setAnalyticsView('statistics'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Estatísticas</button>
           </div>
 
-          {analyticsView === 'drilldown' ? <><PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />{period === 'all' && !expandedYear && !expandedMonth && <ConsistencyHeatmap records={filteredVolumeRecords} />}</> : analyticsView === 'comparison' ? <YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} /> : <TimeStatistics records={timedRecords} targetFilter={targetFilter} />}
+          {analyticsView === 'drilldown' ? <><PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />{period === 'all' && !expandedYear && !expandedMonth && <ConsistencyHeatmap records={filteredVolumeRecords} />}</> : analyticsView === 'comparison' ? <YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} /> : <TimeStatistics records={timedRecords} targetFilter={targetFilter} onOpenDay={setSelectedDay} />}
 
         </section>
       )}
@@ -558,7 +558,7 @@ function ConsistencyHeatmap({ records }: { records: VolumeRecord[] }) {
   return <section className="consistency-heatmap" aria-labelledby="heatmap-title"><div className="section-heading"><div><p className="eyebrow">Constância</p><h2 id="heatmap-title">Últimas 53 semanas</h2></div><span className="heatmap-scale">Menos <i /> <i /> <i /> Mais</span></div><ol>{days.map((day) => <li key={day.key} title={`${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(day.date)}: ${day.total} NSBs`} aria-label={`${day.key}: ${day.total} NSBs`} style={day.total > 0 ? { backgroundColor: volumeColor(day.total, highest) } : undefined} />)}</ol></section>
 }
 
-function TimeStatistics({ records, targetFilter }: { records: TimedRecord[]; targetFilter: RepTarget | 'all' }) {
+function TimeStatistics({ records, targetFilter, onOpenDay }: { records: TimedRecord[]; targetFilter: RepTarget | 'all'; onOpenDay: (date: string) => void }) {
   const targets: RepTarget[] = targetFilter === 'all' ? [...REP_TARGETS] : [targetFilter]
   const summaries = targets.reduce<Array<{ target: RepTarget; stats: NonNullable<ReturnType<typeof getTimeStats>> }>>((items, target) => {
     const stats = getTimeStats(records.filter((record) => record.targetReps === target))
@@ -566,17 +566,18 @@ function TimeStatistics({ records, targetFilter }: { records: TimedRecord[]; tar
     return items
   }, [])
   if (summaries.length === 0) return <p className="empty-state chart-empty">Registre um treino com tempo para gerar estatísticas de desempenho.</p>
-  return <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">Desempenho</p><h2 id="time-statistics-title">Tempo por quantidade</h2></div><span className="chart-unit">Treinos e performances</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => <article key={target}><h3>{target} NSBs <span>{stats.count} registro(s)</span></h3><dl><div><dt>Melhor</dt><dd>{formatDuration(stats.min)}</dd></div><div><dt>Pior</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Mediana</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div></dl></article>)}</div></section>
+  return <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">Desempenho</p><h2 id="time-statistics-title">Tempo por quantidade</h2></div><span className="chart-unit">Treinos e performances</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => <article key={target}><h3>{target} NSBs <span>{stats.count} registro(s)</span></h3><dl><div><dt>Melhor</dt><dd><button className="stat-best" type="button" onClick={() => onOpenDay(stats.best.date)} aria-label={`Ver o dia do melhor tempo de ${target} NSBs`}>{formatDuration(stats.min)}</button></dd><small>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(`${stats.best.date}T12:00:00`))}</small></div><div><dt>Pior</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Mediana</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div></dl></article>)}</div></section>
 }
 
-function getTimeStats(records: TimedRecord[]): { count: number; min: number; max: number; average: number; median: number; secondsPerRep: number } | null {
+function getTimeStats(records: TimedRecord[]): { count: number; min: number; max: number; average: number; median: number; secondsPerRep: number; best: TimedRecord } | null {
   if (records.length === 0) return null
-  const durations = records.map((record) => record.durationSeconds).sort((a, b) => a - b)
+  const ordered = [...records].sort((a, b) => a.durationSeconds - b.durationSeconds || a.date.localeCompare(b.date))
+  const durations = ordered.map((record) => record.durationSeconds)
   const count = durations.length
   const average = Math.round(durations.reduce((sum, value) => sum + value, 0) / count)
   const median = count % 2 === 1 ? durations[Math.floor(count / 2)] : Math.round((durations[count / 2 - 1] + durations[count / 2]) / 2)
   const secondsPerRep = Math.round(records.reduce((sum, record) => sum + record.durationSeconds / record.targetReps, 0) / count)
-  return { count, min: durations[0], max: durations[count - 1], average, median, secondsPerRep }
+  return { count, min: durations[0], max: durations[count - 1], average, median, secondsPerRep, best: ordered[0] }
 }
 
 function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYears, onExpand, expanded = false, zoom = 1, chartId, onDownload, onZoom }: { records: VolumeRecord[]; hiddenYears: number[]; onToggleYear: (year: number) => void; onRestoreYears: () => void; onExpand?: () => void; expanded?: boolean; zoom?: number; chartId?: string; onDownload?: () => void; onZoom?: (delta: number) => void }) {
