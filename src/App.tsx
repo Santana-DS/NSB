@@ -13,8 +13,11 @@ interface VolumeRecord { date: string; reps: number }
 interface ChartBin { key: string; label: string; total: number; year?: number; month?: number }
 const HOME_MESSAGES = [
   'Do what you gotta do.',
-  'Faça o que você sabe que tem que fazer.',
+  'Do what you know you have to do.',
   '“Failure has been achieved. Thank God.” — Tom Platz',
+  '“Who’s gonna carry the boats and the logs?” — David Goggins',
+  '“You built belief when you had nothing. Rock bottom.”',
+  '“Don’t be afraid of being hurt. Don’t be afraid of sacrificing some blood.” — Jon Jones',
 ]
 
 function todayLocalIso(): string {
@@ -352,11 +355,53 @@ export default function App() {
     const chart = document.getElementById('annual-comparison-chart')
     if (!(chart instanceof SVGSVGElement)) return
     const copy = chart.cloneNode(true) as SVGSVGElement
-    copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    const namespace = 'http://www.w3.org/2000/svg'
+    const exportChart = document.createElementNS(namespace, 'svg')
+    exportChart.setAttribute('xmlns', namespace)
+    exportChart.setAttribute('viewBox', '0 0 720 430')
+    const style = document.createElementNS(namespace, 'style')
     style.textContent = '.comparison-axis{stroke:#b9c8c5;stroke-width:1}.comparison-grid{stroke:#d9e2df;stroke-width:1;stroke-dasharray:3 4}.comparison-label{fill:#61717a;font-size:12px}'
-    copy.prepend(style)
-    const blob = new Blob([new XMLSerializer().serializeToString(copy)], { type: 'image/svg+xml;charset=utf-8' })
+    const title = document.createElementNS(namespace, 'text')
+    title.setAttribute('x', '32')
+    title.setAttribute('y', '22')
+    title.setAttribute('fill', '#17303d')
+    title.setAttribute('font-size', '20')
+    title.setAttribute('font-weight', '700')
+    title.textContent = 'Navy Seal Burpees'
+    const subtitle = document.createElementNS(namespace, 'text')
+    subtitle.setAttribute('x', '32')
+    subtitle.setAttribute('y', '39')
+    subtitle.setAttribute('fill', '#61717a')
+    subtitle.setAttribute('font-size', '12')
+    subtitle.textContent = 'Annual comparison · NSBs'
+    const plot = document.createElementNS(namespace, 'g')
+    plot.setAttribute('transform', 'translate(0 48)')
+    plot.innerHTML = copy.innerHTML
+    exportChart.append(style, title, subtitle, plot)
+
+    let legendX = 32
+    let legendY = 382
+    document.querySelectorAll('.comparison-dialog .comparison-legend span').forEach((item) => {
+      const label = item.textContent?.trim() ?? ''
+      const color = item.querySelector('i') instanceof HTMLElement ? item.querySelector('i')?.style.backgroundColor || '#0d5261' : '#0d5261'
+      const itemWidth = label.length * 7 + 28
+      if (legendX + itemWidth > 688) { legendX = 32; legendY += 22 }
+      const marker = document.createElementNS(namespace, 'circle')
+      marker.setAttribute('cx', String(legendX + 5))
+      marker.setAttribute('cy', String(legendY - 4))
+      marker.setAttribute('r', '5')
+      marker.setAttribute('fill', color)
+      const legendText = document.createElementNS(namespace, 'text')
+      legendText.setAttribute('x', String(legendX + 16))
+      legendText.setAttribute('y', String(legendY))
+      legendText.setAttribute('fill', '#56656d')
+      legendText.setAttribute('font-size', '12')
+      legendText.textContent = label
+      exportChart.append(marker, legendText)
+      legendX += itemWidth
+    })
+
+    const blob = new Blob([new XMLSerializer().serializeToString(exportChart)], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
