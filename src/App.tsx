@@ -11,6 +11,11 @@ type Period = 'month' | 'year' | 'all'
 type AnalyticsView = 'drilldown' | 'comparison'
 interface VolumeRecord { date: string; reps: number }
 interface ChartBin { key: string; label: string; total: number; year?: number; month?: number }
+const HOME_MESSAGES = [
+  'Do what you gotta do.',
+  'Faça o que você sabe que tem que fazer.',
+  '“Failure has been achieved. Thank God.” — Tom Platz',
+]
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -58,6 +63,7 @@ export default function App() {
   const [analyticsView, setAnalyticsView] = useState<AnalyticsView>('comparison')
   const [comparisonExpanded, setComparisonExpanded] = useState(false)
   const [comparisonZoom, setComparisonZoom] = useState(1)
+  const [homeMessageIndex, setHomeMessageIndex] = useState(0)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
@@ -80,6 +86,11 @@ export default function App() {
     const interval = window.setInterval(() => setTimerNow(Date.now()), 250)
     return () => window.clearInterval(interval)
   }, [timerStartedAt])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setHomeMessageIndex((index) => (index + 1) % HOME_MESSAGES.length), 7_000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   const activeWorkouts = useMemo(() => workouts.filter((workout) => !workout.deletedAt), [workouts])
   const archivedWorkouts = useMemo(() => workouts.filter((workout) => workout.deletedAt), [workouts])
@@ -193,7 +204,7 @@ export default function App() {
       {screen === 'home' && (
         <section className="content home-content" aria-labelledby="home-title">
           <div className="home-intro">
-            <p id="home-title">Treine. Registre. Evolua.</p>
+            <p id="home-title">{HOME_MESSAGES[homeMessageIndex]}</p>
             <button className="primary-action hero-action" onClick={openNewWorkout}>Registrar treino</button>
           </div>
 
@@ -206,12 +217,12 @@ export default function App() {
           </div>
 
           <div className="target-filter" role="group" aria-label="Filtrar quantidade de NSBs">
-            <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => { setTargetFilter('all'); setExpandedYear(null); setExpandedMonth(null) }}>Todos</button>
+            <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => setTargetFilter('all')}>Todos</button>
             <button className="target-filter-toggle" type="button" aria-label={quantityFilterExpanded ? 'Recolher quantidades' : 'Mostrar quantidades'} aria-expanded={quantityFilterExpanded} aria-controls="target-filter-options" onClick={() => setQuantityFilterExpanded((expanded) => !expanded)}>
               <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
             </button>
             {quantityFilterExpanded && <div id="target-filter-options" className="target-filter-options" role="group" aria-label="Filtrar quantidade de NSBs">
-              {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => { setTargetFilter(target); setExpandedYear(null); setExpandedMonth(null) }}>{target}</button>)}
+              {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => setTargetFilter(target)}>{target}</button>)}
             </div>}
           </div>
           <div className="view-picker analytics-picker" role="group" aria-label="Modo de análise">
@@ -467,6 +478,7 @@ function DailyVolumeGrid({ records, selection, onSelectDay, onBack }: { records:
 
 function YearComparisonChart({ records, onExpand, expanded = false, zoom = 1, chartId, onDownload, onZoom }: { records: VolumeRecord[]; onExpand?: () => void; expanded?: boolean; zoom?: number; chartId?: string; onDownload?: () => void; onZoom?: (delta: number) => void }) {
   const pinchDistance = useRef<number | null>(null)
+  const lastTapAt = useRef(0)
   const data = useMemo(() => {
     const years = [...new Set(records.map((record) => new Date(record.date).getFullYear()))].sort((a, b) => a - b)
     return years.map((year) => ({
@@ -491,7 +503,8 @@ function YearComparisonChart({ records, onExpand, expanded = false, zoom = 1, ch
 
   if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
   const distanceBetweenTouches = (touches: React.TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
-  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><div className="chart-meta"><span className="chart-unit">NSBs</span>{onDownload && <button className="chart-download" type="button" aria-label="Baixar gráfico em SVG" title="Baixar SVG" onClick={onDownload}>⇩</button>}</div></div><div className="comparison-scroll" onWheel={(event) => { if (!onZoom || !event.ctrlKey) return; event.preventDefault(); onZoom(event.deltaY < 0 ? .05 : -.05) }} onTouchStart={(event) => { if (event.touches.length === 2) pinchDistance.current = distanceBetweenTouches(event.touches) }} onTouchMove={(event) => { if (!onZoom || event.touches.length !== 2 || pinchDistance.current === null) return; const distance = distanceBetweenTouches(event.touches); if (Math.abs(distance - pinchDistance.current) < 8) return; onZoom(distance > pinchDistance.current ? .05 : -.05); pinchDistance.current = distance }} onTouchEnd={() => { pinchDistance.current = null }}><div className="comparison-canvas" style={expanded ? { width: `${zoom * 100}%` } : undefined}><svg id={chartId} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</span>)}</div></div></div></section>
+  const adjustZoom = () => onZoom?.(zoom >= 1.5 ? -.5 : .25)
+  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><div className="chart-meta"><span className="chart-unit">NSBs</span>{onDownload && <button className="chart-download" type="button" aria-label="Baixar gráfico em SVG" title="Baixar SVG" onClick={onDownload}>⇩</button>}</div></div><div className="comparison-scroll" onDoubleClick={adjustZoom} onWheel={(event) => { if (!onZoom || !event.ctrlKey) return; event.preventDefault(); onZoom(event.deltaY < 0 ? .05 : -.05) }} onTouchStart={(event) => { if (event.touches.length === 2) pinchDistance.current = distanceBetweenTouches(event.touches) }} onTouchMove={(event) => { if (!onZoom || event.touches.length !== 2 || pinchDistance.current === null) return; const distance = distanceBetweenTouches(event.touches); if (Math.abs(distance - pinchDistance.current) < 8) return; onZoom(distance > pinchDistance.current ? .05 : -.05); pinchDistance.current = distance }} onTouchEnd={() => { if (onZoom && pinchDistance.current === null) { const now = Date.now(); if (now - lastTapAt.current < 300) { adjustZoom(); lastTapAt.current = 0 } else lastTapAt.current = now }; pinchDistance.current = null }}><div className="comparison-canvas" style={expanded ? { width: `${zoom * 100}%` } : undefined}><svg id={chartId} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</span>)}</div></div></div></section>
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {
