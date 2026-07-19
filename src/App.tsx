@@ -200,21 +200,19 @@ export default function App() {
 
           <div className="period-picker" role="group" aria-label="Período do resumo">
             {(['all', 'year', 'month'] as const).map((option) => (
-              <button key={option} type="button" className={period === option ? 'selected' : ''} onClick={() => { setPeriod(option); setExpandedYear(null); setExpandedMonth(null) }}>{periodLabel(option)}</button>
+              <button key={option} type="button" disabled={analyticsView === 'comparison' && option !== 'all'} className={period === option ? 'selected' : ''} onClick={() => { setPeriod(option); setExpandedYear(null); setExpandedMonth(null) }}>{periodLabel(option)}</button>
             ))}
           </div>
 
           <div className="target-filter" role="group" aria-label="Filtrar quantidade de NSBs">
             <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => { setTargetFilter('all'); setExpandedYear(null); setExpandedMonth(null) }}>Todos</button>
-            <button className="target-filter-toggle" type="button" aria-expanded={quantityFilterExpanded} aria-controls="target-filter-options" onClick={() => setQuantityFilterExpanded((expanded) => !expanded)}>
-              Quantidades <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
+            <button className="target-filter-toggle" type="button" aria-label={quantityFilterExpanded ? 'Recolher quantidades' : 'Mostrar quantidades'} aria-expanded={quantityFilterExpanded} aria-controls="target-filter-options" onClick={() => setQuantityFilterExpanded((expanded) => !expanded)}>
+              <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
             </button>
             {quantityFilterExpanded && <div id="target-filter-options" className="target-filter-options" role="group" aria-label="Filtrar quantidade de NSBs">
               {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => { setTargetFilter(target); setExpandedYear(null); setExpandedMonth(null) }}>{target}</button>)}
             </div>}
           </div>
-          {targetFilter !== 'all' && <p className="filter-context">Inclui treinos detalhados e dias históricos cujo total foi exatamente {targetFilter} NSBs. Totais diários diferentes permanecem sem classificação de tipo.</p>}
-
           <div className="view-picker analytics-picker" role="group" aria-label="Modo de análise">
             <button type="button" className={analyticsView === 'comparison' ? 'selected' : ''} onClick={() => { setAnalyticsView('comparison'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Comparar anos</button>
             <button type="button" className={analyticsView === 'drilldown' ? 'selected' : ''} onClick={() => setAnalyticsView('drilldown')}>Evolução</button>
