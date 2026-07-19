@@ -22,15 +22,19 @@ export function validateWorkout(draft: WorkoutDraft): string | null {
 }
 
 export function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor(seconds / 60)
+  const remainingMinutes = Math.floor((seconds % 3600) / 60)
   const remainingSeconds = seconds % 60
+  if (hours > 0) return `${hours}:${String(remainingMinutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
   return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
 }
 
 export function formatDurationInput(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 4)
+  const digits = value.replace(/\D/g, '').slice(0, 5)
   if (digits.length <= 2) return digits
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`
+  if (digits.length <= 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`
+  return `${digits.slice(0, 1)}:${digits.slice(1, 3)}:${digits.slice(3)}`
 }
 
 export function formatSetGroups(groups: SetGroup[]): string {

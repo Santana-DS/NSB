@@ -12,8 +12,9 @@ describe('workout validation', () => {
     expect(validateWorkout({ ...draft, setGroups: [{ id: 'one', setCount: 5, repsPerSet: 20 }] })).toBeNull()
   })
 
-  it('formats a typed duration as mm:ss', () => {
+  it('formats typed durations as mm:ss or h:mm:ss', () => {
     expect(formatDurationInput('1842')).toBe('18:42')
+    expect(formatDurationInput('12345')).toBe('1:23:45')
   })
 
   it('rejects a mismatched set structure', () => {
