@@ -367,7 +367,7 @@ export default function App() {
           <button type="button" onClick={restoreWorkout}>Desfazer</button>
         </div>
       )}
-      {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} attachments={mediaAttachments} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} onSaveAttachment={saveAttachment} />}
+      {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} attachments={mediaAttachments} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} onSaveWorkout={updateWorkoutFromDay} onSaveAttachment={saveAttachment} />}
       {comparisonExpanded && <div className="comparison-backdrop" role="presentation" onClick={() => setComparisonExpanded(false)}><section className="comparison-dialog" role="dialog" aria-modal="true" aria-label="Comparação anual ampliada" onClick={(event) => event.stopPropagation()}><YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} expanded zoom={comparisonZoom} chartId="annual-comparison-chart" onDownload={downloadComparison} onZoom={(delta) => setComparisonZoom((zoom) => Math.min(1.5, Math.max(1, zoom + delta)))} /></section></div>}
     </main>
   )
@@ -531,6 +531,11 @@ export default function App() {
     await saveMediaAttachment(attachment)
     setMediaAttachments((current) => [...current, attachment])
   }
+
+  async function updateWorkoutFromDay(workout: Workout) {
+    await saveWorkout(workout)
+    setWorkouts((current) => current.map((item) => item.id === workout.id ? workout : item))
+  }
 }
 
 function periodLabel(period: Period): string {
@@ -595,13 +600,13 @@ function DailyVolumeGrid({ records, personalRecords, selection, onSelectDay, onB
 function ConsistencyHeatmap({ records }: { records: VolumeRecord[] }) {
   const today = new Date()
   const start = new Date(today)
-  start.setDate(start.getDate() - 370)
+  start.setDate(start.getDate() - 307)
   start.setDate(start.getDate() - start.getDay())
   const volumes = new Map<string, number>()
   records.forEach((record) => { const key = toDateKeyFromIso(record.date); volumes.set(key, (volumes.get(key) ?? 0) + record.reps) })
-  const days = Array.from({ length: 53 * 7 }, (_, index) => { const date = new Date(start); date.setDate(start.getDate() + index); const key = toDateKey(date.getFullYear(), date.getMonth(), date.getDate()); return { key, date, total: volumes.get(key) ?? 0 } })
+  const days = Array.from({ length: 44 * 7 }, (_, index) => { const date = new Date(start); date.setDate(start.getDate() + index); const key = toDateKey(date.getFullYear(), date.getMonth(), date.getDate()); return { key, date, total: volumes.get(key) ?? 0 } })
   const highest = Math.max(...days.map((day) => day.total), 1)
-  return <section className="consistency-heatmap" aria-labelledby="heatmap-title"><div className="section-heading"><div><p className="eyebrow">Constância</p><h2 id="heatmap-title">Últimas 53 semanas</h2></div><span className="heatmap-scale">Menos <i /> <i /> <i /> Mais</span></div><ol>{days.map((day) => <li key={day.key} title={`${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(day.date)}: ${day.total} NSBs`} aria-label={`${day.key}: ${day.total} NSBs`} style={day.total > 0 ? { backgroundColor: volumeColor(day.total, highest) } : undefined} />)}</ol></section>
+  return <section className="consistency-heatmap" aria-labelledby="heatmap-title"><div className="section-heading"><div><p className="eyebrow">Constância</p><h2 id="heatmap-title">Últimas 44 semanas</h2></div><span className="heatmap-scale">Menos <i /> <i /> <i /> Mais</span></div><ol>{days.map((day) => <li key={day.key} title={`${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(day.date)}: ${day.total} NSBs`} aria-label={`${day.key}: ${day.total} NSBs`} style={day.total > 0 ? { backgroundColor: volumeColor(day.total, highest) } : undefined} />)}</ol></section>
 }
 
 function TimeStatistics({ records, strategyRecords, targetFilter, onOpenVolumeDay }: { records: TimedRecord[]; strategyRecords: StrategyRecord[]; targetFilter: RepTarget | 'all'; onOpenVolumeDay: (date: string) => void }) {
@@ -670,29 +675,31 @@ function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYear
   </section>
 }
 
-function DayDetail({ date, workouts, legacyVolumes, performances, attachments, onClose, onSavePerformance, onSaveAttachment }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; attachments: MediaAttachment[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void>; onSaveAttachment: (attachment: MediaAttachment) => Promise<void> }) {
-  const initialPerformance = performances.find((performance) => performance.date === date) ?? null
-  const [targetReps, setTargetReps] = useState<RepTarget>(initialPerformance?.targetReps ?? 100)
-  const [duration, setDuration] = useState(initialPerformance ? formatDuration(initialPerformance.durationSeconds) : '')
-  const [setGroups, setSetGroups] = useState<SetGroup[]>(initialPerformance?.setGroups ?? [])
-  const [notes, setNotes] = useState(initialPerformance?.notes ?? '')
-  const [editingPerformance, setEditingPerformance] = useState<HistoricalPerformance | null>(initialPerformance)
-  const [error, setError] = useState<string | null>(null)
+function DayDetail({ date, workouts, legacyVolumes, performances, attachments, onClose, onSavePerformance, onSaveWorkout, onSaveAttachment }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; attachments: MediaAttachment[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void>; onSaveWorkout: (workout: Workout) => Promise<void>; onSaveAttachment: (attachment: MediaAttachment) => Promise<void> }) {
   const dateWorkouts = workouts.filter((workout) => toDateKeyFromIso(workout.performedAt) === date)
+  const initialPerformance = performances.find((performance) => performance.date === date) ?? null
+  const initialWorkout = initialPerformance ? null : dateWorkouts[0] ?? null
+  const initialEntry = initialPerformance ?? initialWorkout
+  const [targetReps, setTargetReps] = useState<RepTarget>(initialEntry?.targetReps ?? 100)
+  const [duration, setDuration] = useState(initialEntry ? formatDuration(initialEntry.durationSeconds) : '')
+  const [setGroups, setSetGroups] = useState<SetGroup[]>(initialEntry?.setGroups ?? [])
+  const [notes, setNotes] = useState(initialEntry?.notes ?? '')
+  const [editingPerformance] = useState<HistoricalPerformance | null>(initialPerformance)
+  const [editingWorkout] = useState<Workout | null>(initialWorkout)
+  const [error, setError] = useState<string | null>(null)
   const legacyTotal = legacyVolumes.filter((volume) => volume.date === date).reduce((sum, volume) => sum + volume.reps, 0)
   const datePerformances = performances.filter((performance) => performance.date === date)
 
   function addSetGroup() { setSetGroups((groups) => [...groups, { id: createId(), setCount: 0, repsPerSet: 0 }]) }
   function changeSetGroup(id: string, field: 'setCount' | 'repsPerSet', value: number) { setSetGroups((groups) => groups.map((group) => group.id === id ? { ...group, [field]: value } : group)) }
-  function editPerformance(performance: HistoricalPerformance) { setEditingPerformance(performance); setTargetReps(performance.targetReps); setDuration(formatDuration(performance.durationSeconds)); setSetGroups(performance.setGroups); setNotes(performance.notes); setError(null) }
-
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const durationSeconds = parseDuration(duration)
     if (durationSeconds === null) { setError('Use mm:ss ou h:mm:ss, por exemplo 18:42 ou 1:18:42.'); return }
     if (setGroups.length > 0 && getSetGroupTotal(setGroups) !== targetReps) { setError(`Os sets somam ${getSetGroupTotal(setGroups)} NSBs, mas a performance é de ${targetReps}.`); return }
     const now = new Date().toISOString()
-    await onSavePerformance({ id: editingPerformance?.id ?? createId(), date, targetReps, durationSeconds, setGroups, notes: notes.trim(), createdAt: editingPerformance?.createdAt ?? now, updatedAt: now })
+    if (editingWorkout) await onSaveWorkout({ ...editingWorkout, targetReps, durationSeconds, setGroups, notes: notes.trim(), updatedAt: now })
+    else await onSavePerformance({ id: editingPerformance?.id ?? createId(), date, targetReps, durationSeconds, setGroups, notes: notes.trim(), createdAt: editingPerformance?.createdAt ?? now, updatedAt: now })
     onClose()
   }
 
@@ -703,7 +710,7 @@ function DayDetail({ date, workouts, legacyVolumes, performances, attachments, o
     await onSaveAttachment({ id: createId(), performanceId, filename: file.name, mimeType: file.type, size: file.size, createdAt: new Date().toISOString(), blob: file })
   }
 
-  return <div className="day-detail-backdrop" role="presentation" onClick={onClose}><section className="day-detail" role="dialog" aria-modal="true" aria-labelledby="day-detail-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><p className="eyebrow">Detalhe do dia</p><h2 id="day-detail-title">{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date(`${date}T12:00:00`))}</h2></div><button className="text-button" type="button" onClick={onClose}>Fechar</button></div><p className="day-total">Volume registrado: <strong>{legacyTotal + dateWorkouts.reduce((sum, workout) => sum + workout.targetReps, 0)} NSBs</strong></p>{dateWorkouts.length > 0 && <section className="day-list"><h3>Treinos detalhados</h3>{dateWorkouts.map((workout) => <p key={workout.id}>{workout.targetReps} NSBs · {formatDuration(workout.durationSeconds)} · {formatSetGroups(workout.setGroups)}</p>)}</section>}{datePerformances.length > 0 && <section className="day-list"><h3>Performances registradas</h3>{datePerformances.map((performance) => <article className="performance-record" key={performance.id}><p>{performance.targetReps} NSBs · {formatDuration(performance.durationSeconds)} · {formatSetGroups(performance.setGroups)}</p><button type="button" className="text-button" onClick={() => editPerformance(performance)}>Editar sets</button>{attachments.filter((attachment) => attachment.performanceId === performance.id).map((attachment) => <AttachmentVideo key={attachment.id} attachment={attachment} />)}<label className="video-upload"><span>Anexar vídeo</span><input type="file" accept="video/*" onChange={(event) => { void attachVideo(performance.id, event.target.files?.[0]); event.currentTarget.value = '' }} /></label></article>)}</section>}<form className="performance-form" onSubmit={submit}><h3>{editingPerformance ? 'Editar performance histórica' : 'Adicionar performance histórica'}</h3><p>Registra tempo, estrutura de sets e observações sem somar volume ao dia.</p><label><span>Quantidade</span><select value={targetReps} onChange={(event) => setTargetReps(Number(event.target.value) as RepTarget)}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Tempo</span><input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required /></label><section className="performance-sets"><div className="section-heading"><h3>Sets <span className="optional">opcional</span></h3><button className="secondary-action" type="button" onClick={addSetGroup}>Adicionar grupo</button></div>{setGroups.map((group) => <div className="set-row" key={group.id}><label><span className="sr-only">Número de sets</span><input type="number" min="1" value={group.setCount || ''} onChange={(event) => changeSetGroup(group.id, 'setCount', event.target.value === '' ? 0 : Number(event.target.value))} /></label><span>×</span><label><span className="sr-only">NSBs por set</span><input type="number" min="1" value={group.repsPerSet || ''} onChange={(event) => changeSetGroup(group.id, 'repsPerSet', event.target.value === '' ? 0 : Number(event.target.value))} /></label><button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</section><label><span>Observação opcional</span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{error && <p className="error-message" role="alert">{error}</p>}<button className="primary-action" type="submit">Salvar performance</button></form></section></div>
+  return <div className="day-detail-backdrop" role="presentation" onClick={onClose}><section className="day-detail" role="dialog" aria-modal="true" aria-labelledby="day-detail-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><p className="eyebrow">Detalhe do dia</p><h2 id="day-detail-title">{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date(`${date}T12:00:00`))}</h2></div><button className="text-button" type="button" onClick={onClose}>Fechar</button></div><p className="day-total">Volume registrado: <strong>{legacyTotal + dateWorkouts.reduce((sum, workout) => sum + workout.targetReps, 0)} NSBs</strong></p>{dateWorkouts.length > 0 && <section className="day-list"><h3>Treinos detalhados</h3>{dateWorkouts.map((workout) => <p key={workout.id}>{workout.targetReps} NSBs · {formatDuration(workout.durationSeconds)} · {formatSetGroups(workout.setGroups)}</p>)}</section>}{datePerformances.length > 0 && <section className="day-list"><h3>Performances registradas</h3>{datePerformances.map((performance) => <article className="performance-record" key={performance.id}><p>{performance.targetReps} NSBs · {formatDuration(performance.durationSeconds)} · {formatSetGroups(performance.setGroups)}</p>{attachments.filter((attachment) => attachment.performanceId === performance.id).map((attachment) => <AttachmentVideo key={attachment.id} attachment={attachment} />)}<label className="video-upload"><span>Anexar vídeo</span><input type="file" accept="video/*" onChange={(event) => { void attachVideo(performance.id, event.target.files?.[0]); event.currentTarget.value = '' }} /></label></article>)}</section>}<form className="performance-form" onSubmit={submit}><h3>{editingWorkout ? 'Editar treino' : editingPerformance ? 'Editar performance histórica' : 'Adicionar performance histórica'}</h3><p>{editingWorkout ? 'Atualize tempo, sets e observações do treino.' : 'Registra tempo, estrutura de sets e observações sem somar volume ao dia.'}</p><label><span>Quantidade</span><select value={targetReps} onChange={(event) => setTargetReps(Number(event.target.value) as RepTarget)}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Tempo</span><input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required /></label><section className="performance-sets"><div className="section-heading"><h3>Sets <span className="optional">opcional</span></h3><button className="secondary-action" type="button" onClick={addSetGroup}>Adicionar grupo</button></div>{setGroups.map((group) => <div className="set-row" key={group.id}><label><span className="sr-only">Número de sets</span><input type="number" min="1" value={group.setCount || ''} onChange={(event) => changeSetGroup(group.id, 'setCount', event.target.value === '' ? 0 : Number(event.target.value))} /></label><span>×</span><label><span className="sr-only">NSBs por set</span><input type="number" min="1" value={group.repsPerSet || ''} onChange={(event) => changeSetGroup(group.id, 'repsPerSet', event.target.value === '' ? 0 : Number(event.target.value))} /></label><button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</section><label><span>Observação opcional</span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{error && <p className="error-message" role="alert">{error}</p>}<button className="primary-action" type="submit">Salvar {editingWorkout ? 'treino' : 'performance'}</button></form></section></div>
 }
 
 function AttachmentVideo({ attachment }: { attachment: MediaAttachment }) {
