@@ -30,6 +30,7 @@ h2 { margin: 0; color: #17303d; font-size: 1.25rem; }
 .period-picker { margin: .5rem 0 2rem; }
 .period-picker button, .view-picker button { border: 0; border-radius: .4rem; background: transparent; color: #4c5d67; padding: .45rem .65rem; font-weight: 700; }
 .period-picker button.selected, .view-picker button.selected { color: #fff; background: #0d5261; }
+.target-filter { display: flex; flex-wrap: wrap; gap: .4rem; margin: -1rem 0 1rem; }.target-filter button { min-width: 3.1rem; border: 1px solid #c2d0cd; border-radius: .45rem; padding: .42rem .5rem; background: #fff; color: #334951; font-weight: 700; }.target-filter button.selected { border-color: #0d5261; background: #0d5261; color: #fff; }.filter-context { margin: 0 0 1rem; color: #61717a; font-size: .9rem; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
 .recent-section { max-width: 680px; }
 .workout-list { list-style: none; padding: 0; margin: 0; border-top: 1px solid #cdd8d6; }

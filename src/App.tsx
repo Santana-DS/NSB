@@ -52,6 +52,7 @@ export default function App() {
   const [expandedYear, setExpandedYear] = useState<number | null>(null)
   const [expandedMonth, setExpandedMonth] = useState<{ year: number; month: number } | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [targetFilter, setTargetFilter] = useState<RepTarget | 'all'>('all')
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
@@ -81,6 +82,9 @@ export default function App() {
     ...activeWorkouts.map((workout) => ({ date: workout.performedAt, reps: workout.targetReps })),
     ...legacyDailyVolumes.map((volume) => ({ date: `${volume.date}T12:00:00.000Z`, reps: volume.reps })),
   ], [activeWorkouts, legacyDailyVolumes])
+  const filteredVolumeRecords = useMemo<VolumeRecord[]>(() => targetFilter === 'all'
+    ? allVolumeRecords
+    : activeWorkouts.filter((workout) => workout.targetReps === targetFilter).map((workout) => ({ date: workout.performedAt, reps: workout.targetReps })), [activeWorkouts, allVolumeRecords, targetFilter])
   const currentSetTotal = getSetGroupTotal(setGroups)
   const timerElapsedSeconds = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((timerNow - timerStartedAt) / 1000))
 
@@ -193,7 +197,13 @@ export default function App() {
             ))}
           </div>
 
-          <PeriodVolumeChart records={allVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />
+          <div className="target-filter" role="group" aria-label="Filtrar quantidade de NSBs">
+            <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => setTargetFilter('all')}>Todos</button>
+            {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => setTargetFilter(target)}>{target}</button>)}
+          </div>
+          {targetFilter !== 'all' && <p className="filter-context">Mostrando treinos detalhados de {targetFilter} NSBs. Volumes históricos agregados não entram neste recorte.</p>}
+
+          <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />
 
           <section className="recent-section" aria-labelledby="recent-title">
             <div className="section-heading">
