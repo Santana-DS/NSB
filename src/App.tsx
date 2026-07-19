@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
-import { listHistoricalPerformances, listLegacyDailyVolumes, listWorkouts, saveHistoricalPerformances, saveLegacyDailyVolumes, saveWorkout, saveWorkouts } from './lib/db'
+import { deleteLegacyDailyVolumes, listHistoricalPerformances, listLegacyDailyVolumes, listWorkouts, saveHistoricalPerformances, saveLegacyDailyVolumes, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
 import { REP_TARGETS, type HistoricalPerformance, type LegacyDailyVolume, type RepTarget, type SetGroup, type Workout } from './types'
 
@@ -21,6 +21,13 @@ function parseDuration(value: string): number | null {
   const match = /^(\d{1,3}):([0-5]\d)$/.exec(value.trim())
   if (!match) return null
   return Number(match[1]) * 60 + Number(match[2])
+}
+
+function formatStopwatch(seconds: number): string {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const remainingSeconds = seconds % 60
+  return [hours, minutes, remainingSeconds].map((part) => String(part).padStart(2, '0')).join(':')
 }
 
 function dateLabel(iso: string): string {
@@ -45,16 +52,28 @@ export default function App() {
   const [expandedYear, setExpandedYear] = useState<number | null>(null)
   const [expandedMonth, setExpandedMonth] = useState<{ year: number; month: number } | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
+  const [timerElapsedBase, setTimerElapsedBase] = useState(0)
+  const [timerNow, setTimerNow] = useState(Date.now())
 
   useEffect(() => {
     Promise.all([listWorkouts(), listLegacyDailyVolumes(), listHistoricalPerformances()])
-      .then(([storedWorkouts, storedVolumes, storedPerformances]) => {
+      .then(async ([storedWorkouts, storedVolumes, storedPerformances]) => {
+        const nonZeroVolumes = storedVolumes.filter((volume) => volume.reps > 0)
+        const zeroIds = storedVolumes.filter((volume) => volume.reps === 0).map((volume) => volume.id)
+        if (zeroIds.length > 0) await deleteLegacyDailyVolumes(zeroIds)
         setWorkouts(storedWorkouts.sort((a, b) => b.performedAt.localeCompare(a.performedAt)))
-        setLegacyDailyVolumes(storedVolumes.sort((a, b) => b.date.localeCompare(a.date)))
+        setLegacyDailyVolumes(nonZeroVolumes.sort((a, b) => b.date.localeCompare(a.date)))
         setHistoricalPerformances(storedPerformances.sort((a, b) => b.date.localeCompare(a.date)))
       })
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (timerStartedAt === null) return
+    const interval = window.setInterval(() => setTimerNow(Date.now()), 250)
+    return () => window.clearInterval(interval)
+  }, [timerStartedAt])
 
   const activeWorkouts = useMemo(() => workouts.filter((workout) => !workout.deletedAt), [workouts])
   const archivedWorkouts = useMemo(() => workouts.filter((workout) => workout.deletedAt), [workouts])
@@ -63,6 +82,7 @@ export default function App() {
     ...legacyDailyVolumes.map((volume) => ({ date: `${volume.date}T12:00:00.000Z`, reps: volume.reps })),
   ], [activeWorkouts, legacyDailyVolumes])
   const currentSetTotal = getSetGroupTotal(setGroups)
+  const timerElapsedSeconds = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((timerNow - timerStartedAt) / 1000))
 
   function resetForm() {
     setTargetReps(100)
@@ -71,6 +91,9 @@ export default function App() {
     setSetGroups([])
     setNotes('')
     setError(null)
+    setTimerStartedAt(null)
+    setTimerElapsedBase(0)
+    setTimerNow(Date.now())
   }
 
   function openNewWorkout() {
@@ -87,9 +110,30 @@ export default function App() {
     setSetGroups((groups) => groups.map((group) => (group.id === id ? { ...group, [field]: value } : group)))
   }
 
+  function startTimer() {
+    const now = Date.now()
+    setTimerNow(now)
+    setTimerStartedAt(now)
+    setPerformedAt(todayLocalIso())
+  }
+
+  function pauseTimer() {
+    const elapsed = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((Date.now() - timerStartedAt) / 1000))
+    setTimerElapsedBase(elapsed)
+    setTimerStartedAt(null)
+    setDuration(formatDuration(elapsed))
+  }
+
+  function resetTimer() {
+    setTimerStartedAt(null)
+    setTimerElapsedBase(0)
+    setTimerNow(Date.now())
+    setDuration('')
+  }
+
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const durationSeconds = parseDuration(duration)
+    const durationSeconds = timerStartedAt === null ? parseDuration(duration) : timerElapsedSeconds
     if (durationSeconds === null) {
       setError('Use o formato mm:ss para o tempo, por exemplo 18:42.')
       return
@@ -179,6 +223,14 @@ export default function App() {
               </div>
             </fieldset>
 
+            <section className="timer-section" aria-labelledby="timer-title">
+              <div><p className="eyebrow">Cronômetro</p><h2 id="timer-title">{formatStopwatch(timerElapsedSeconds)}</h2></div>
+              <div className="timer-actions">
+                {timerStartedAt === null ? <button type="button" className="primary-action" onClick={startTimer}>{timerElapsedSeconds > 0 ? 'Retomar' : 'Iniciar'}</button> : <button type="button" className="secondary-action" onClick={pauseTimer}>Pausar</button>}
+                {timerElapsedSeconds > 0 && <button type="button" className="text-button" onClick={resetTimer}>Zerar</button>}
+              </div>
+            </section>
+
             <div className="field-grid">
               <label>
                 <span>Data e hora</span>
@@ -186,8 +238,8 @@ export default function App() {
               </label>
               <label>
                 <span>Tempo total</span>
-                <input inputMode="numeric" maxLength={5} placeholder="18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required aria-describedby="duration-help" />
-                <small id="duration-help">Formato mm:ss</small>
+                <input inputMode="numeric" maxLength={5} placeholder="18:42" value={timerStartedAt === null ? duration : formatDuration(timerElapsedSeconds)} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required readOnly={timerStartedAt !== null} aria-describedby="duration-help" />
+                <small id="duration-help">{timerStartedAt === null ? 'Formato mm:ss ou use o cronômetro.' : 'Cronômetro em andamento.'}</small>
               </label>
             </div>
 

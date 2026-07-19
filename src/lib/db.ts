@@ -62,6 +62,13 @@ export async function saveLegacyDailyVolumes(volumes: LegacyDailyVolume[]): Prom
   await transaction.done
 }
 
+export async function deleteLegacyDailyVolumes(ids: string[]): Promise<void> {
+  const db = await database
+  const transaction = db.transaction('legacyDailyVolumes', 'readwrite')
+  await Promise.all(ids.map((id) => transaction.store.delete(id)))
+  await transaction.done
+}
+
 export async function listHistoricalPerformances(): Promise<HistoricalPerformance[]> {
   return (await database).getAllFromIndex('historicalPerformances', 'by-date')
 }

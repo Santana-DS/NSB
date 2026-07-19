@@ -7,7 +7,7 @@ Aplicativo pessoal, instalável e offline-first para registrar Navy Seal Burpees
 A primeira fatia funcional permite:
 
 - selecionar uma meta entre 100 e 500 NSBs;
-- informar data/hora, tempo total e sets opcionais;
+- medir tempo com cronômetro ou informar manualmente, além de data/hora e sets opcionais;
 - validar se os sets somam a meta escolhida;
 - salvar o treino no dispositivo com IndexedDB;
 - consultar o histórico e o melhor tempo de 100 NSBs.
