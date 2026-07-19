@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
-import { createLegacyDailyVolumes, mergeLegacyDailyVolumes, parseLegacyDailyCsv, parseLegacyMonthlyCsv, validateMonthlyTotals, type LegacyMonthlyTotal } from './lib/legacy-csv'
+import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { listLegacyDailyVolumes, listWorkouts, saveLegacyDailyVolumes, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
 import { REP_TARGETS, type LegacyDailyVolume, type RepTarget, type SetGroup, type Workout } from './types'
@@ -9,6 +9,7 @@ type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
 type HistoryView = 'list' | 'chart'
 interface VolumeRecord { date: string; reps: number }
+interface ChartBin { key: string; label: string; total: number; year?: number; month?: number }
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -40,10 +41,9 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const [period, setPeriod] = useState<Period>('month')
   const [historyView, setHistoryView] = useState<HistoryView>('list')
-  const [homeView, setHomeView] = useState<HistoryView>('list')
   const [undoWorkout, setUndoWorkout] = useState<Workout | null>(null)
-  const [legacyDailyFile, setLegacyDailyFile] = useState<File | null>(null)
-  const [legacyMonthlyTotals, setLegacyMonthlyTotals] = useState<LegacyMonthlyTotal[] | null>(null)
+  const [expandedYear, setExpandedYear] = useState<number | null>(null)
+  const [expandedMonth, setExpandedMonth] = useState<{ year: number; month: number } | null>(null)
 
   useEffect(() => {
     Promise.all([listWorkouts(), listLegacyDailyVolumes()])
@@ -60,9 +60,6 @@ export default function App() {
     ...activeWorkouts.map((workout) => ({ date: workout.performedAt, reps: workout.targetReps })),
     ...legacyDailyVolumes.map((volume) => ({ date: `${volume.date}T12:00:00.000Z`, reps: volume.reps })),
   ], [activeWorkouts, legacyDailyVolumes])
-  const visibleVolumeRecords = useMemo(() => filterByPeriod(allVolumeRecords, period), [allVolumeRecords, period])
-  const visibleWorkouts = useMemo(() => filterByPeriod(activeWorkouts, period), [activeWorkouts, period])
-  const totalReps = useMemo(() => visibleVolumeRecords.reduce((total, record) => total + record.reps, 0), [visibleVolumeRecords])
   const currentSetTotal = getSetGroupTotal(setGroups)
 
   function resetForm() {
@@ -144,33 +141,13 @@ export default function App() {
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
 
-          <div className="view-picker home-view-picker" role="group" aria-label="Visualização da tela inicial">
-            <button type="button" className={homeView === 'list' ? 'selected' : ''} onClick={() => setHomeView('list')}>Resumo</button>
-            <button type="button" className={homeView === 'chart' ? 'selected' : ''} onClick={() => setHomeView('chart')}>Gráfico</button>
-          </div>
-
           <div className="period-picker" role="group" aria-label="Período do resumo">
             {(['month', 'year', 'all'] as const).map((option) => (
-              <button key={option} type="button" className={period === option ? 'selected' : ''} onClick={() => setPeriod(option)}>{periodLabel(option)}</button>
+              <button key={option} type="button" className={period === option ? 'selected' : ''} onClick={() => { setPeriod(option); setExpandedYear(null); setExpandedMonth(null) }}>{periodLabel(option)}</button>
             ))}
           </div>
 
-          {homeView === 'list' ? (
-            <div className="summary-grid" aria-label="Resumo do histórico">
-              <article>
-                <span>Volume {periodLabel(period).toLowerCase()}</span>
-                <strong>{totalReps.toLocaleString('pt-BR')} <small>NSBs</small></strong>
-              </article>
-              <article>
-                <span>Registros no período</span>
-                <strong>{visibleVolumeRecords.length}</strong>
-              </article>
-              <article>
-                <span>Melhor tempo em 100</span>
-                <strong>{bestTimeFor(visibleWorkouts, 100) ?? '—'}</strong>
-              </article>
-            </div>
-          ) : <PeriodVolumeChart records={visibleVolumeRecords} period={period} />}
+          <PeriodVolumeChart records={allVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />
 
           <section className="recent-section" aria-labelledby="recent-title">
             <div className="section-heading">
@@ -267,16 +244,6 @@ export default function App() {
             </label>
           </div>
           <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {legacyDailyVolumes.length} dia(s) de histórico importado · {archivedWorkouts.length} na lixeira</p>
-          <section className="legacy-import" aria-labelledby="legacy-title">
-            <div className="section-heading"><div><p className="eyebrow">Importação única</p><h2 id="legacy-title">Histórico CSV antigo</h2></div></div>
-            <p>O CSV diário cria volumes históricos sem inventar tempo ou sets. O CSV mensal é apenas uma conferência contra o total diário.</p>
-            <div className="data-actions">
-              <label className="secondary-action import-label">Selecionar CSV diário<input className="sr-only" type="file" accept=".csv,text/csv" onChange={selectLegacyDailyFile} /></label>
-              <label className="secondary-action import-label">Validar com CSV mensal<input className="sr-only" type="file" accept=".csv,text/csv" onChange={selectLegacyMonthlyFile} /></label>
-              <button className="primary-action" disabled={!legacyDailyFile} onClick={importLegacyHistory}>Importar histórico</button>
-            </div>
-            <p className="data-summary">{legacyDailyFile ? `Diário: ${legacyDailyFile.name}` : 'Nenhum CSV diário selecionado.'}{legacyMonthlyTotals ? ' · Totais mensais carregados para conferência.' : ''}</p>
-          </section>
           {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} />}
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
           {error && <p className="error-message" role="alert">{error}</p>}
@@ -345,69 +312,6 @@ export default function App() {
     }
   }
 
-  async function selectLegacyDailyFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-    try {
-      parseLegacyDailyCsv(await file.text())
-      setLegacyDailyFile(file)
-      setError(null)
-      setSaveStatus('CSV diário validado e pronto para importação.')
-    } catch (importError) {
-      setLegacyDailyFile(null)
-      setSaveStatus(null)
-      setError(importError instanceof Error ? importError.message : 'Não foi possível ler o CSV diário.')
-    }
-  }
-
-  async function selectLegacyMonthlyFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-    try {
-      setLegacyMonthlyTotals(parseLegacyMonthlyCsv(await file.text()))
-      setError(null)
-      setSaveStatus('CSV mensal carregado para conferência.')
-    } catch (importError) {
-      setLegacyMonthlyTotals(null)
-      setSaveStatus(null)
-      setError(importError instanceof Error ? importError.message : 'Não foi possível ler o CSV mensal.')
-    }
-  }
-
-  async function importLegacyHistory() {
-    if (!legacyDailyFile) return
-    try {
-      const dailyRecords = parseLegacyDailyCsv(await legacyDailyFile.text())
-      const mismatches = legacyMonthlyTotals ? validateMonthlyTotals(dailyRecords, legacyMonthlyTotals) : []
-      if (mismatches.length > 0) {
-        setError(`Os totais mensais não conferem: ${mismatches.slice(0, 3).join('; ')}.`)
-        return
-      }
-      const merged = mergeLegacyDailyVolumes(legacyDailyVolumes, createLegacyDailyVolumes(dailyRecords))
-      await saveLegacyDailyVolumes(merged)
-      setLegacyDailyVolumes(merged)
-      setLegacyDailyFile(null)
-      setLegacyMonthlyTotals(null)
-      setError(null)
-      setSaveStatus(`${dailyRecords.length} dia(s) históricos foram importados sem duplicar o volume mensal.`)
-    } catch (importError) {
-      setSaveStatus(null)
-      setError(importError instanceof Error ? importError.message : 'Não foi possível importar o histórico CSV.')
-    }
-  }
-}
-
-function filterByPeriod<T extends { date?: string; performedAt?: string }>(records: T[], period: Period): T[] {
-  if (period === 'all') return records
-  const now = new Date()
-  return records.filter((record) => {
-    const date = new Date(record.performedAt ?? record.date ?? '')
-    return period === 'month'
-      ? date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
-      : date.getFullYear() === now.getFullYear()
-  })
 }
 
 function periodLabel(period: Period): string {
@@ -438,11 +342,6 @@ function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onR
       {workouts.map((workout) => <li key={workout.id}><div><strong>{workout.targetReps} NSBs</strong><span>{dateLabel(workout.performedAt)}</span></div><button type="button" className="secondary-action" onClick={() => onRestore(workout)}>Restaurar</button></li>)}
     </ol>
   </section>
-}
-
-function bestTimeFor(workouts: Workout[], target: RepTarget): string | null {
-  const times = workouts.filter((workout) => workout.targetReps === target).map((workout) => workout.durationSeconds)
-  return times.length > 0 ? formatDuration(Math.min(...times)) : null
 }
 
 function MonthlyVolumeChart({ records }: { records: VolumeRecord[] }) {
@@ -478,52 +377,47 @@ function MonthlyVolumeChart({ records }: { records: VolumeRecord[] }) {
   )
 }
 
-function PeriodVolumeChart({ records, period }: { records: VolumeRecord[]; period: Period }) {
-  const bins = useMemo(() => getPeriodBins(records, period), [records, period])
+function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onBack }: { records: VolumeRecord[]; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onBack: () => void }) {
+  const now = new Date()
+  const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
+  if (shownMonth) return <DailyVolumeGrid records={records} selection={shownMonth} onBack={period === 'month' ? undefined : onBack} />
+
+  const shownYear = expandedYear ?? (period === 'year' ? now.getFullYear() : null)
+  const bins = useMemo<ChartBin[]>(() => shownYear === null ? getYearBins(records) : getMonthBins(records, shownYear), [records, shownYear])
   const highest = Math.max(...bins.map((bin) => bin.total), 1)
+  const isYearOverview = shownYear === null
 
   if (records.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados neste período para visualizar o gráfico.</p>
-  return (
-    <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
-      <div className="section-heading"><div><p className="eyebrow">{periodLabel(period)}</p><h2 id="home-chart-title">Volume de NSBs</h2></div><span className="chart-unit">NSBs</span></div>
-      <ol style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(0, 1fr))` }}>
-        {bins.map((bin) => (
-          <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}>
-            <span className="bar-value">{bin.total || '—'}</span>
-            <div className="bar-track"><div className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%` }} /></div>
-            <span className="bar-label">{bin.label}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  )
+  return <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
+    <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div>{(expandedYear !== null || period === 'year') && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div>
+    <ol style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(0, 1fr))` }}>
+      {bins.map((bin) => <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}><button className="chart-bar-button" type="button" onClick={() => isYearOverview ? onExpandYear(bin.year!) : onExpandMonth({ year: shownYear!, month: bin.month! })}><span className="bar-value">{bin.total || '—'}</span><span className="bar-track"><span className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%` }} /></span><span className="bar-label">{bin.label}</span></button></li>)}
+    </ol>
+  </section>
 }
 
-function getPeriodBins(records: VolumeRecord[], period: Period): Array<{ key: string; label: string; total: number }> {
-  const now = new Date()
-  const formatMonth = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
-  const bins = period === 'month'
-    ? Array.from({ length: Math.ceil(now.getDate() / 7) }, (_, index) => {
-      const start = index * 7 + 1
-      const end = Math.min(start + 6, now.getDate())
-      return {
-        key: String(start), label: `${start}–${end}`,
-        matches: (date: Date) => date.getDate() >= start && date.getDate() <= end,
-      }
-    })
-    : period === 'year'
-      ? Array.from({ length: 12 }, (_, index) => ({
-        key: String(index), label: formatMonth.format(new Date(now.getFullYear(), index, 1)).replace('.', ''),
-        matches: (date: Date) => date.getMonth() === index,
-      }))
-      : Array.from({ length: 6 }, (_, index) => {
-        const year = now.getFullYear() - 5 + index
-        return { key: String(year), label: String(year), matches: (date: Date) => date.getFullYear() === year }
-      })
+function DailyVolumeGrid({ records, selection, onBack }: { records: VolumeRecord[]; selection: { year: number; month: number }; onBack?: () => void }) {
+  const days = new Date(selection.year, selection.month + 1, 0).getDate()
+  const amounts = new Map<number, number>()
+  records.forEach((record) => {
+    const date = new Date(record.date)
+    if (date.getFullYear() === selection.year && date.getMonth() === selection.month) amounts.set(date.getDate(), (amounts.get(date.getDate()) ?? 0) + record.reps)
+  })
+  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(selection.year, selection.month, 1))
+  return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; return <li key={day} className={total > 0 ? 'has-volume' : ''} aria-label={`${day} de ${monthName}: ${total} NSBs`}><span>{day}</span><strong>{total || '—'}</strong></li> })}</ol></section>
+}
 
-  return bins.map(({ key, label, matches }) => ({
-    key,
-    label,
-    total: records.filter((record) => matches(new Date(record.date))).reduce((sum, record) => sum + record.reps, 0),
-  }))
+function getYearBins(records: VolumeRecord[]) {
+  const years = records.map((record) => new Date(record.date).getFullYear()).filter(Number.isFinite)
+  const currentYear = new Date().getFullYear()
+  const firstYear = Math.min(...years, currentYear)
+  return Array.from({ length: currentYear - firstYear + 1 }, (_, index) => {
+    const year = firstYear + index
+    return { key: String(year), label: String(year), year, total: records.filter((record) => new Date(record.date).getFullYear() === year).reduce((sum, record) => sum + record.reps, 0) }
+  })
+}
+
+function getMonthBins(records: VolumeRecord[], year: number) {
+  const formatter = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
+  return Array.from({ length: 12 }, (_, month) => ({ key: String(month), label: formatter.format(new Date(year, month, 1)).replace('.', ''), month, total: records.filter((record) => { const date = new Date(record.date); return date.getFullYear() === year && date.getMonth() === month }).reduce((sum, record) => sum + record.reps, 0) }))
 }
