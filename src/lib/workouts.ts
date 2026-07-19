@@ -1,4 +1,5 @@
 import { REP_TARGETS, type SetGroup, type Workout, type WorkoutDraft } from '../types'
+import { createId } from './ids'
 
 export function getSetGroupTotal(groups: SetGroup[]): number {
   return groups.reduce((total, group) => total + group.setCount * group.repsPerSet, 0)
@@ -44,5 +45,5 @@ export function formatSetGroups(groups: SetGroup[]): string {
 
 export function createWorkout(draft: WorkoutDraft): Workout {
   const now = new Date().toISOString()
-  return { ...draft, id: crypto.randomUUID(), createdAt: now, updatedAt: now }
+  return { ...draft, id: createId(), createdAt: now, updatedAt: now }
 }

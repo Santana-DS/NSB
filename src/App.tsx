@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
+import { createId } from './lib/ids'
 import { deleteLegacyDailyVolumes, listHistoricalPerformances, listLegacyDailyVolumes, listWorkouts, saveHistoricalPerformances, saveLegacyDailyVolumes, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
 import { REP_TARGETS, type HistoricalPerformance, type LegacyDailyVolume, type RepTarget, type SetGroup, type Workout } from './types'
@@ -12,6 +13,7 @@ type AnalyticsView = 'drilldown' | 'comparison' | 'statistics'
 interface VolumeRecord { date: string; reps: number }
 interface ChartBin { key: string; label: string; total: number; year?: number; month?: number }
 interface TimedRecord { targetReps: RepTarget; durationSeconds: number; date: string }
+type DownloadFormat = 'svg' | 'png' | 'jpeg'
 const HOME_MESSAGES = [
   'Do what you gotta do.',
   'Do what you know you have to do.',
@@ -145,7 +147,7 @@ export default function App() {
   }
 
   function addSetGroup() {
-    setSetGroups((groups) => [...groups, { id: crypto.randomUUID(), setCount: 1, repsPerSet: targetReps }])
+    setSetGroups((groups) => [...groups, { id: createId(), setCount: 1, repsPerSet: targetReps }])
   }
 
   function changeSetGroup(id: string, field: 'setCount' | 'repsPerSet', value: number) {
@@ -285,8 +287,7 @@ export default function App() {
               </label>
               <label>
                 <span>Tempo total</span>
-                <input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={timerStartedAt === null ? duration : formatDuration(timerElapsedSeconds)} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required readOnly={timerStartedAt !== null} aria-describedby="duration-help" />
-                <small id="duration-help">{timerStartedAt === null ? 'Formato mm:ss ou h:mm:ss; os dois-pontos são inseridos automaticamente.' : 'Cronômetro em andamento.'}</small>
+                <input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={timerStartedAt === null ? duration : formatDuration(timerElapsedSeconds)} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required readOnly={timerStartedAt !== null} />
               </label>
             </div>
 
@@ -368,7 +369,7 @@ export default function App() {
     setSaveStatus(null)
   }
 
-  function downloadComparison() {
+  async function downloadComparison(format: DownloadFormat) {
     const chart = document.getElementById('annual-comparison-chart')
     if (!(chart instanceof SVGSVGElement)) return
     const copy = chart.cloneNode(true) as SVGSVGElement
@@ -418,11 +419,28 @@ export default function App() {
       legendX += itemWidth
     })
 
-    const blob = new Blob([new XMLSerializer().serializeToString(exportChart)], { type: 'image/svg+xml;charset=utf-8' })
+    const svgBlob = new Blob([new XMLSerializer().serializeToString(exportChart)], { type: 'image/svg+xml;charset=utf-8' })
+    if (format === 'svg') { triggerDownload(svgBlob, 'comparacao-anual-nsb.svg'); return }
+    const svgUrl = URL.createObjectURL(svgBlob)
+    const image = new Image()
+    await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('Não foi possível converter o gráfico.')); image.src = svgUrl })
+    const canvas = document.createElement('canvas')
+    canvas.width = 1440
+    canvas.height = 860
+    const context = canvas.getContext('2d')
+    if (!context) { URL.revokeObjectURL(svgUrl); return }
+    if (format === 'jpeg') { context.fillStyle = '#f7f8fa'; context.fillRect(0, 0, canvas.width, canvas.height) }
+    context.drawImage(image, 0, 0, canvas.width, canvas.height)
+    URL.revokeObjectURL(svgUrl)
+    const rasterBlob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, format === 'png' ? 'image/png' : 'image/jpeg', .92))
+    if (rasterBlob) triggerDownload(rasterBlob, `comparacao-anual-nsb.${format === 'png' ? 'png' : 'jpg'}`)
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'comparacao-anual-nsb.svg'
+    link.download = filename
     link.click()
     URL.revokeObjectURL(url)
   }
@@ -580,9 +598,10 @@ function getTimeStats(records: TimedRecord[]): { count: number; min: number; max
   return { count, min: durations[0], max: durations[count - 1], average, median, secondsPerRep, best: ordered[0] }
 }
 
-function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYears, onExpand, expanded = false, zoom = 1, chartId, onDownload, onZoom }: { records: VolumeRecord[]; hiddenYears: number[]; onToggleYear: (year: number) => void; onRestoreYears: () => void; onExpand?: () => void; expanded?: boolean; zoom?: number; chartId?: string; onDownload?: () => void; onZoom?: (delta: number) => void }) {
+function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYears, onExpand, expanded = false, zoom = 1, chartId, onDownload, onZoom }: { records: VolumeRecord[]; hiddenYears: number[]; onToggleYear: (year: number) => void; onRestoreYears: () => void; onExpand?: () => void; expanded?: boolean; zoom?: number; chartId?: string; onDownload?: (format: DownloadFormat) => void; onZoom?: (delta: number) => void }) {
   const pinchDistance = useRef<number | null>(null)
   const lastTapAt = useRef(0)
+  const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
   const data = useMemo(() => {
     const years = [...new Set(records.map((record) => new Date(record.date).getFullYear()))].sort((a, b) => a - b)
     return years.map((year) => ({
@@ -609,7 +628,10 @@ function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYear
   if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
   const distanceBetweenTouches = (touches: React.TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
   const adjustZoom = () => onZoom?.(zoom >= 1.5 ? -.5 : .25)
-  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><div className="chart-meta"><span className="chart-unit">NSBs</span>{hiddenYears.length > 0 && <button className="chart-download" type="button" aria-label="Mostrar todos os anos" title="Mostrar todos os anos" onClick={(event) => { event.stopPropagation(); onRestoreYears() }}>↺</button>}{onDownload && <button className="chart-download" type="button" aria-label="Baixar gráfico em SVG" title="Baixar SVG" onClick={onDownload}>⇩</button>}</div></div><div className="comparison-scroll" onDoubleClick={adjustZoom} onWheel={(event) => { if (!onZoom || !event.ctrlKey) return; event.preventDefault(); onZoom(event.deltaY < 0 ? .05 : -.05) }} onTouchStart={(event) => { if (event.touches.length === 2) pinchDistance.current = distanceBetweenTouches(event.touches) }} onTouchMove={(event) => { if (!onZoom || event.touches.length !== 2 || pinchDistance.current === null) return; const distance = distanceBetweenTouches(event.touches); if (Math.abs(distance - pinchDistance.current) < 8) return; onZoom(distance > pinchDistance.current ? .05 : -.05); pinchDistance.current = distance }} onTouchEnd={() => { if (onZoom && pinchDistance.current === null) { const now = Date.now(); if (now - lastTapAt.current < 300) { adjustZoom(); lastTapAt.current = 0 } else lastTapAt.current = now }; pinchDistance.current = null }}><div className="comparison-canvas" style={expanded ? { width: `${zoom * 100}%` } : undefined}><svg id={chartId} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{visibleData.map((series) => { const color = colors[data.findIndex((item) => item.year === series.year) % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <button key={series.year} type="button" className={hiddenYears.includes(series.year) ? 'is-hidden' : ''} aria-pressed={!hiddenYears.includes(series.year)} disabled={!hiddenYears.includes(series.year) && visibleData.length === 1} onClick={(event) => { event.stopPropagation(); onToggleYear(series.year) }}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</button>)}</div></div></div></section>
+  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}>
+    <div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><div className="chart-meta"><span className="chart-unit">NSBs</span>{hiddenYears.length > 0 && <button className="chart-download" type="button" aria-label="Mostrar todos os anos" title="Mostrar todos os anos" onClick={(event) => { event.stopPropagation(); onRestoreYears() }}>↺</button>}{onDownload && <div className="download-wrapper"><button className="chart-download" type="button" aria-label="Baixar gráfico" title="Baixar gráfico" aria-expanded={downloadMenuOpen} onClick={(event) => { event.stopPropagation(); setDownloadMenuOpen((open) => !open) }}>⇩</button>{downloadMenuOpen && <div className="download-menu" role="menu"><button type="button" onClick={() => { onDownload('svg'); setDownloadMenuOpen(false) }}>SVG</button><button type="button" onClick={() => { onDownload('png'); setDownloadMenuOpen(false) }}>PNG</button><button type="button" onClick={() => { onDownload('jpeg'); setDownloadMenuOpen(false) }}>JPG</button></div>}</div>}</div></div>
+    <div className="comparison-scroll" onDoubleClick={adjustZoom} onWheel={(event) => { if (!onZoom || !event.ctrlKey) return; event.preventDefault(); onZoom(event.deltaY < 0 ? .05 : -.05) }} onTouchStart={(event) => { if (event.touches.length === 2) pinchDistance.current = distanceBetweenTouches(event.touches) }} onTouchMove={(event) => { if (!onZoom || event.touches.length !== 2 || pinchDistance.current === null) return; const distance = distanceBetweenTouches(event.touches); if (Math.abs(distance - pinchDistance.current) < 8) return; onZoom(distance > pinchDistance.current ? .05 : -.05); pinchDistance.current = distance }} onTouchEnd={() => { if (onZoom && pinchDistance.current === null) { const now = Date.now(); if (now - lastTapAt.current < 300) { adjustZoom(); lastTapAt.current = 0 } else lastTapAt.current = now }; pinchDistance.current = null }}><div className="comparison-canvas" style={expanded ? { width: `${zoom * 100}%` } : undefined}><svg id={chartId} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{visibleData.map((series) => { const color = colors[data.findIndex((item) => item.year === series.year) % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <button key={series.year} type="button" className={hiddenYears.includes(series.year) ? 'is-hidden' : ''} aria-pressed={!hiddenYears.includes(series.year)} disabled={!hiddenYears.includes(series.year) && visibleData.length === 1} onClick={(event) => { event.stopPropagation(); onToggleYear(series.year) }}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</button>)}</div></div></div>
+  </section>
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {
@@ -626,7 +648,7 @@ function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSav
     const durationSeconds = parseDuration(duration)
     if (durationSeconds === null) { setError('Use mm:ss ou h:mm:ss, por exemplo 18:42 ou 1:18:42.'); return }
     const now = new Date().toISOString()
-    await onSavePerformance({ id: crypto.randomUUID(), date, targetReps, durationSeconds, setGroups: [], notes: notes.trim(), createdAt: now, updatedAt: now })
+    await onSavePerformance({ id: createId(), date, targetReps, durationSeconds, setGroups: [], notes: notes.trim(), createdAt: now, updatedAt: now })
     onClose()
   }
 
