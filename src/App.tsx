@@ -55,6 +55,7 @@ export default function App() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [targetFilter, setTargetFilter] = useState<RepTarget | 'all'>('all')
   const [analyticsView, setAnalyticsView] = useState<AnalyticsView>('drilldown')
+  const [comparisonExpanded, setComparisonExpanded] = useState(false)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
@@ -213,7 +214,7 @@ export default function App() {
             <button type="button" className={analyticsView === 'comparison' ? 'selected' : ''} onClick={() => { setAnalyticsView('comparison'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Comparar anos</button>
           </div>
 
-          {analyticsView === 'drilldown' ? <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} /> : <YearComparisonChart records={filteredVolumeRecords} />}
+          {analyticsView === 'drilldown' ? <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} /> : <YearComparisonChart records={filteredVolumeRecords} onExpand={() => setComparisonExpanded(true)} />}
 
           <section className="recent-section" aria-labelledby="recent-title">
             <div className="section-heading">
@@ -328,6 +329,7 @@ export default function App() {
         </div>
       )}
       {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} />}
+      {comparisonExpanded && <div className="comparison-backdrop" role="presentation" onClick={() => setComparisonExpanded(false)}><section className="comparison-dialog" role="dialog" aria-modal="true" aria-label="Comparação anual ampliada" onClick={(event) => event.stopPropagation()}><button className="text-button comparison-close" type="button" onClick={() => setComparisonExpanded(false)}>Fechar</button><YearComparisonChart records={filteredVolumeRecords} expanded /></section></div>}
     </main>
   )
 
@@ -465,7 +467,7 @@ function DailyVolumeGrid({ records, selection, onSelectDay, onBack }: { records:
   return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); return <li key={day} className={total > 0 ? 'has-volume' : ''}><button type="button" onClick={() => onSelectDay(date)} aria-label={`${day} de ${monthName}: ${total} NSBs`}><span>{day}</span><strong>{total || '—'}</strong></button></li> })}</ol></section>
 }
 
-function YearComparisonChart({ records }: { records: VolumeRecord[] }) {
+function YearComparisonChart({ records, onExpand, expanded = false }: { records: VolumeRecord[]; onExpand?: () => void; expanded?: boolean }) {
   const data = useMemo(() => {
     const years = [...new Set(records.map((record) => new Date(record.date).getFullYear()))].sort((a, b) => a - b)
     return years.map((year) => ({
@@ -487,7 +489,7 @@ function YearComparisonChart({ records }: { records: VolumeRecord[] }) {
   const point = (month: number, value: number) => ({ x: left + (month * (width - left - 20)) / 11, y: top + plotHeight - (value / maximum) * plotHeight })
 
   if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
-  return <section className="year-comparison" aria-labelledby="comparison-title"><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); return <g key={series.year}><polyline fill="none" stroke={color} strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r="4" fill={color}><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year}</span>)}</div></section>
+  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison'} aria-labelledby="comparison-title"><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div>{onExpand ? <button className="secondary-action" type="button" onClick={onExpand}>Ampliar</button> : <span className="chart-unit">NSBs</span>}</div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); return <g key={series.year}><polyline fill="none" stroke={color} strokeOpacity="0.5" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year}</span>)}</div></section>
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {
