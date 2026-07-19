@@ -190,11 +190,11 @@ export default function App() {
       </header>
 
       {screen === 'home' && (
-        <section className="content" aria-labelledby="home-title">
-          <p className="eyebrow">Treino pessoal</p>
-          <h1 id="home-title">Registre a próxima missão.</h1>
-          <p className="lead">Dados locais, interface rápida e uma base preparada para sincronização segura.</p>
-          <button className="primary-action" onClick={openNewWorkout}>Registrar treino</button>
+        <section className="content home-content" aria-labelledby="home-title">
+          <div className="home-intro">
+            <p id="home-title">Seu próximo recorde começa agora.</p>
+            <button className="primary-action" onClick={openNewWorkout}>Registrar treino</button>
+          </div>
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
 
