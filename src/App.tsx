@@ -7,7 +7,6 @@ import { REP_TARGETS, type LegacyDailyVolume, type RepTarget, type SetGroup, typ
 
 type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
-type HistoryView = 'list' | 'chart'
 interface VolumeRecord { date: string; reps: number }
 interface ChartBin { key: string; label: string; total: number; year?: number; month?: number }
 
@@ -40,7 +39,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const [period, setPeriod] = useState<Period>('month')
-  const [historyView, setHistoryView] = useState<HistoryView>('list')
   const [undoWorkout, setUndoWorkout] = useState<Workout | null>(null)
   const [expandedYear, setExpandedYear] = useState<number | null>(null)
   const [expandedMonth, setExpandedMonth] = useState<{ year: number; month: number } | null>(null)
@@ -127,7 +125,7 @@ export default function App() {
         </button>
         <nav aria-label="Navegação principal">
           <button className={screen === 'home' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('home')}>Início</button>
-          <button className={screen === 'history' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('history')}>Histórico</button>
+          <button className={screen === 'history' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('history')}>Treinos</button>
           <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
         </nav>
       </header>
@@ -155,7 +153,7 @@ export default function App() {
                 <p className="eyebrow">Histórico</p>
                 <h2 id="recent-title">Últimos treinos</h2>
               </div>
-              {workouts.length > 0 && <button className="text-button" onClick={() => setScreen('history')}>Ver todos</button>}
+              {workouts.length > 0 && <button className="text-button" onClick={() => setScreen('history')}>Ver treinos</button>}
             </div>
             {loading ? <p>Carregando dados locais…</p> : <WorkoutList workouts={activeWorkouts.slice(0, 3)} emptyText="Seu primeiro treino aparecerá aqui." onArchive={archiveWorkout} />}
           </section>
@@ -221,13 +219,10 @@ export default function App() {
 
       {screen === 'history' && (
         <section className="content" aria-labelledby="history-title">
-          <p className="eyebrow">Todos os registros</p>
-          <h1 id="history-title">Histórico de treino</h1>
-          <div className="view-picker" role="group" aria-label="Forma de visualizar o histórico">
-            <button type="button" className={historyView === 'list' ? 'selected' : ''} onClick={() => setHistoryView('list')}>Lista</button>
-            <button type="button" className={historyView === 'chart' ? 'selected' : ''} onClick={() => setHistoryView('chart')}>Gráfico</button>
-          </div>
-          {loading ? <p>Carregando dados locais…</p> : historyView === 'list' ? <WorkoutList workouts={activeWorkouts} emptyText="Nenhum treino registrado ainda." onArchive={archiveWorkout} /> : <MonthlyVolumeChart records={allVolumeRecords} />}
+          <p className="eyebrow">Registros detalhados</p>
+          <h1 id="history-title">Treinos</h1>
+          <p className="lead">Consulte, ajuste ou mova registros detalhados para a lixeira. As análises ficam concentradas na tela inicial.</p>
+          {loading ? <p>Carregando dados locais…</p> : <WorkoutList workouts={activeWorkouts} emptyText="Nenhum treino registrado ainda." onArchive={archiveWorkout} />}
         </section>
       )}
 
@@ -344,39 +339,6 @@ function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onR
   </section>
 }
 
-function MonthlyVolumeChart({ records }: { records: VolumeRecord[] }) {
-  const months = useMemo(() => {
-    const now = new Date()
-    return Array.from({ length: 6 }, (_, offset) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - (5 - offset), 1)
-      const total = records
-        .filter((record) => {
-          const performed = new Date(record.date)
-          return performed.getFullYear() === date.getFullYear() && performed.getMonth() === date.getMonth()
-        })
-        .reduce((sum, record) => sum + record.reps, 0)
-      return { label: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date).replace('.', ''), total }
-    })
-  }, [records])
-  const highest = Math.max(...months.map((month) => month.total), 1)
-
-  if (records.length === 0) return <p className="empty-state">Registre ou importe dados para visualizar seu volume mensal.</p>
-  return (
-    <section className="volume-chart" aria-labelledby="chart-title">
-      <div className="section-heading"><div><p className="eyebrow">Volume</p><h2 id="chart-title">NSBs por mês</h2></div><span className="chart-unit">NSBs</span></div>
-      <ol>
-        {months.map((month) => (
-          <li key={month.label} aria-label={`${month.label}: ${month.total} NSBs`}>
-            <span className="bar-value">{month.total || '—'}</span>
-            <div className="bar-track"><div className="bar" style={{ height: `${Math.max((month.total / highest) * 100, month.total ? 5 : 0)}%` }} /></div>
-            <span className="bar-label">{month.label}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
-  )
-}
-
 function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onBack }: { records: VolumeRecord[]; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onBack: () => void }) {
   const now = new Date()
   const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
@@ -390,7 +352,7 @@ function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExp
   if (records.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados neste período para visualizar o gráfico.</p>
   return <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
     <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div>{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div>
-    <ol style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(0, 1fr))` }}>
+    <ol className="drilldown-bars" style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(44px, 1fr))` }}>
       {bins.map((bin) => <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}><button className="chart-bar-button" type="button" onClick={() => isYearOverview ? onExpandYear(bin.year!) : onExpandMonth({ year: shownYear!, month: bin.month! })}><span className="bar-value">{bin.total || '—'}</span><span className="bar-track"><span className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%` }} /></span><span className="bar-label">{bin.label}</span></button></li>)}
     </ol>
   </section>

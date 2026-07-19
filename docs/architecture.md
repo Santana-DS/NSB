@@ -24,6 +24,10 @@ Exclusões são lógicas: o treino recebe `deletedAt` e fica fora dos totais e g
 
 Os dados históricos já importados são mantidos como `LegacyDailyVolume`, com data, quantidade e procedência. Eles entram em totais e gráficos, mas não podem gerar PRs de tempo, ritmo ou estratégias de sets. O importador CSV foi removido depois de concluir a migração, preservando uma superfície de produto mais simples.
 
+## Métricas futuras
+
+Além de mínimo, máximo, média e mediana de tempo, o módulo estatístico deverá calcular **tempo médio por repetição** para cada quantidade de NSBs. Registros históricos agregados sem duração permanecem fora dessas métricas de desempenho.
+
 ## Modelo de domínio
 
 ```text
