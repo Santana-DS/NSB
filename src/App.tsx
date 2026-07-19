@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
-import { listLegacyDailyVolumes, listWorkouts, saveLegacyDailyVolumes, saveWorkout, saveWorkouts } from './lib/db'
+import { mergeHistoricalPerformances } from './lib/performances'
+import { listHistoricalPerformances, listLegacyDailyVolumes, listWorkouts, saveHistoricalPerformances, saveLegacyDailyVolumes, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type LegacyDailyVolume, type RepTarget, type SetGroup, type Workout } from './types'
+import { REP_TARGETS, type HistoricalPerformance, type LegacyDailyVolume, type RepTarget, type SetGroup, type Workout } from './types'
 
 type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
@@ -30,6 +31,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [legacyDailyVolumes, setLegacyDailyVolumes] = useState<LegacyDailyVolume[]>([])
+  const [historicalPerformances, setHistoricalPerformances] = useState<HistoricalPerformance[]>([])
   const [loading, setLoading] = useState(true)
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
@@ -42,12 +44,14 @@ export default function App() {
   const [undoWorkout, setUndoWorkout] = useState<Workout | null>(null)
   const [expandedYear, setExpandedYear] = useState<number | null>(null)
   const [expandedMonth, setExpandedMonth] = useState<{ year: number; month: number } | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   useEffect(() => {
-    Promise.all([listWorkouts(), listLegacyDailyVolumes()])
-      .then(([storedWorkouts, storedVolumes]) => {
+    Promise.all([listWorkouts(), listLegacyDailyVolumes(), listHistoricalPerformances()])
+      .then(([storedWorkouts, storedVolumes, storedPerformances]) => {
         setWorkouts(storedWorkouts.sort((a, b) => b.performedAt.localeCompare(a.performedAt)))
         setLegacyDailyVolumes(storedVolumes.sort((a, b) => b.date.localeCompare(a.date)))
+        setHistoricalPerformances(storedPerformances.sort((a, b) => b.date.localeCompare(a.date)))
       })
       .finally(() => setLoading(false))
   }, [])
@@ -145,7 +149,7 @@ export default function App() {
             ))}
           </div>
 
-          <PeriodVolumeChart records={allVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />
+          <PeriodVolumeChart records={allVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />
 
           <section className="recent-section" aria-labelledby="recent-title">
             <div className="section-heading">
@@ -232,7 +236,7 @@ export default function App() {
           <h1 id="data-title">Backup e restauração</h1>
           <p className="lead">Exporte uma cópia completa do seu histórico. Uma importação segura combina registros pelo identificador e mantém a versão mais recente.</p>
           <div className="data-actions">
-            <button className="primary-action" onClick={() => downloadBackup(workouts, legacyDailyVolumes)}>Exportar backup JSON</button>
+            <button className="primary-action" onClick={() => downloadBackup(workouts, legacyDailyVolumes, historicalPerformances)}>Exportar backup JSON</button>
             <label className="secondary-action import-label">
               Importar backup
               <input className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} />
@@ -251,6 +255,7 @@ export default function App() {
           <button type="button" onClick={restoreWorkout}>Desfazer</button>
         </div>
       )}
+      {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} />}
     </main>
   )
 
@@ -276,8 +281,8 @@ export default function App() {
     setSaveStatus('Treino restaurado.')
   }
 
-  function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[]) {
-    const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes)], { type: 'application/json' })
+  function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[], currentPerformances: HistoricalPerformance[]) {
+    const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes, currentPerformances)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -296,17 +301,25 @@ export default function App() {
       const imported = parseBackup(await file.text())
       const mergedWorkouts = mergeWorkouts(workouts, imported.workouts)
       const mergedLegacyVolumes = mergeLegacyDailyVolumes(legacyDailyVolumes, imported.legacyDailyVolumes)
-      await Promise.all([saveWorkouts(mergedWorkouts), saveLegacyDailyVolumes(mergedLegacyVolumes)])
+      const mergedPerformances = mergeHistoricalPerformances(historicalPerformances, imported.historicalPerformances)
+      await Promise.all([saveWorkouts(mergedWorkouts), saveLegacyDailyVolumes(mergedLegacyVolumes), saveHistoricalPerformances(mergedPerformances)])
       setWorkouts(mergedWorkouts)
       setLegacyDailyVolumes(mergedLegacyVolumes)
+      setHistoricalPerformances(mergedPerformances)
       setError(null)
-      setSaveStatus(`${imported.workouts.length} treino(s) e ${imported.legacyDailyVolumes.length} volume(s) históricos foram lidos do backup.`)
+      setSaveStatus(`${imported.workouts.length} treino(s), ${imported.legacyDailyVolumes.length} volume(s) e ${imported.historicalPerformances.length} performance(s) foram lidos do backup.`)
     } catch (importError) {
       setSaveStatus(null)
       setError(importError instanceof Error ? importError.message : 'Não foi possível importar este arquivo.')
     }
   }
 
+  async function saveHistoricalPerformance(performance: HistoricalPerformance) {
+    const merged = mergeHistoricalPerformances(historicalPerformances, [performance])
+    await saveHistoricalPerformances(merged)
+    setHistoricalPerformances(merged)
+    setSaveStatus('Performance histórica registrada sem alterar o volume do dia.')
+  }
 }
 
 function periodLabel(period: Period): string {
@@ -339,10 +352,10 @@ function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onR
   </section>
 }
 
-function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onBack }: { records: VolumeRecord[]; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onBack: () => void }) {
+function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
   const now = new Date()
   const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
-  if (shownMonth) return <DailyVolumeGrid records={records} selection={shownMonth} onBack={period === 'month' ? undefined : onBack} />
+  if (shownMonth) return <DailyVolumeGrid records={records} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
 
   const shownYear = expandedYear ?? (period === 'year' ? now.getFullYear() : null)
   const bins = useMemo<ChartBin[]>(() => shownYear === null ? getYearBins(records) : getMonthBins(records, shownYear), [records, shownYear])
@@ -358,7 +371,7 @@ function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExp
   </section>
 }
 
-function DailyVolumeGrid({ records, selection, onBack }: { records: VolumeRecord[]; selection: { year: number; month: number }; onBack?: () => void }) {
+function DailyVolumeGrid({ records, selection, onSelectDay, onBack }: { records: VolumeRecord[]; selection: { year: number; month: number }; onSelectDay: (date: string) => void; onBack?: () => void }) {
   const days = new Date(selection.year, selection.month + 1, 0).getDate()
   const amounts = new Map<number, number>()
   records.forEach((record) => {
@@ -366,7 +379,28 @@ function DailyVolumeGrid({ records, selection, onBack }: { records: VolumeRecord
     if (date.getFullYear() === selection.year && date.getMonth() === selection.month) amounts.set(date.getDate(), (amounts.get(date.getDate()) ?? 0) + record.reps)
   })
   const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(selection.year, selection.month, 1))
-  return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; return <li key={day} className={total > 0 ? 'has-volume' : ''} aria-label={`${day} de ${monthName}: ${total} NSBs`}><span>{day}</span><strong>{total || '—'}</strong></li> })}</ol></section>
+  return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); return <li key={day} className={total > 0 ? 'has-volume' : ''}><button type="button" onClick={() => onSelectDay(date)} aria-label={`${day} de ${monthName}: ${total} NSBs`}><span>{day}</span><strong>{total || '—'}</strong></button></li> })}</ol></section>
+}
+
+function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {
+  const [targetReps, setTargetReps] = useState<RepTarget>(100)
+  const [duration, setDuration] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const dateWorkouts = workouts.filter((workout) => toDateKeyFromIso(workout.performedAt) === date)
+  const legacyTotal = legacyVolumes.filter((volume) => volume.date === date).reduce((sum, volume) => sum + volume.reps, 0)
+  const datePerformances = performances.filter((performance) => performance.date === date)
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const durationSeconds = parseDuration(duration)
+    if (durationSeconds === null) { setError('Use mm:ss, por exemplo 18:42.'); return }
+    const now = new Date().toISOString()
+    await onSavePerformance({ id: crypto.randomUUID(), date, targetReps, durationSeconds, setGroups: [], notes: notes.trim(), createdAt: now, updatedAt: now })
+    onClose()
+  }
+
+  return <div className="day-detail-backdrop" role="presentation" onClick={onClose}><section className="day-detail" role="dialog" aria-modal="true" aria-labelledby="day-detail-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><p className="eyebrow">Detalhe do dia</p><h2 id="day-detail-title">{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date(`${date}T12:00:00`))}</h2></div><button className="text-button" type="button" onClick={onClose}>Fechar</button></div><p className="day-total">Volume registrado: <strong>{legacyTotal + dateWorkouts.reduce((sum, workout) => sum + workout.targetReps, 0)} NSBs</strong></p>{dateWorkouts.length > 0 && <section className="day-list"><h3>Treinos detalhados</h3>{dateWorkouts.map((workout) => <p key={workout.id}>{workout.targetReps} NSBs · {formatDuration(workout.durationSeconds)}</p>)}</section>}{datePerformances.length > 0 && <section className="day-list"><h3>Performances registradas</h3>{datePerformances.map((performance) => <p key={performance.id}>{performance.targetReps} NSBs · {formatDuration(performance.durationSeconds)}</p>)}</section>}<form className="performance-form" onSubmit={submit}><h3>Adicionar performance histórica</h3><p>Registra tempo para análises futuras, sem somar volume ao dia.</p><label><span>Quantidade</span><select value={targetReps} onChange={(event) => setTargetReps(Number(event.target.value) as RepTarget)}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Tempo</span><input inputMode="numeric" maxLength={5} placeholder="18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required /></label><label><span>Observação opcional</span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{error && <p className="error-message" role="alert">{error}</p>}<button className="primary-action" type="submit">Salvar performance</button></form></section></div>
 }
 
 function getYearBins(records: VolumeRecord[]) {
@@ -382,4 +416,13 @@ function getYearBins(records: VolumeRecord[]) {
 function getMonthBins(records: VolumeRecord[], year: number) {
   const formatter = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
   return Array.from({ length: 12 }, (_, month) => ({ key: String(month), label: formatter.format(new Date(year, month, 1)).replace('.', ''), month, total: records.filter((record) => { const date = new Date(record.date); return date.getFullYear() === year && date.getMonth() === month }).reduce((sum, record) => sum + record.reps, 0) }))
+}
+
+function toDateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function toDateKeyFromIso(iso: string): string {
+  const date = new Date(iso)
+  return toDateKey(date.getFullYear(), date.getMonth(), date.getDate())
 }

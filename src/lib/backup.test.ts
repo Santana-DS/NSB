@@ -9,7 +9,7 @@ const workout: Workout = {
 
 describe('backups', () => {
   it('round-trips a valid backup', () => {
-    expect(parseBackup(createBackup([workout], []))).toEqual({ workouts: [workout], legacyDailyVolumes: [] })
+    expect(parseBackup(createBackup([workout], [], []))).toEqual({ workouts: [workout], legacyDailyVolumes: [], historicalPerformances: [] })
   })
 
   it('keeps the newest version while merging', () => {

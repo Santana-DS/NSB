@@ -28,6 +28,8 @@ Os dados históricos já importados são mantidos como `LegacyDailyVolume`, com 
 
 Além de mínimo, máximo, média e mediana de tempo, o módulo estatístico deverá calcular **tempo médio por repetição** para cada quantidade de NSBs. Registros históricos agregados sem duração permanecem fora dessas métricas de desempenho.
 
+Uma `HistoricalPerformance` pode ser adicionada a um dia já importado para registrar quantidade e duração conhecidas. Ela contribui para futuras análises de tempo, mas nunca soma volume novamente ao dia original.
+
 ## Modelo de domínio
 
 ```text

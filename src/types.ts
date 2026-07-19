@@ -30,15 +30,28 @@ export interface LegacyDailyVolume {
   importedAt: string
 }
 
+export interface HistoricalPerformance {
+  id: string
+  date: string
+  targetReps: RepTarget
+  durationSeconds: number
+  setGroups: SetGroup[]
+  notes: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface BackupDocument {
   format: 'nsb-tracker-backup'
-  version: 2
+  version: 3
   exportedAt: string
   workouts: Workout[]
   legacyDailyVolumes: LegacyDailyVolume[]
+  historicalPerformances: HistoricalPerformance[]
 }
 
 export interface ParsedBackup {
   workouts: Workout[]
   legacyDailyVolumes: LegacyDailyVolume[]
+  historicalPerformances: HistoricalPerformance[]
 }
