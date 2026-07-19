@@ -8,6 +8,7 @@ import { REP_TARGETS, type HistoricalPerformance, type LegacyDailyVolume, type R
 
 type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
+type AnalyticsView = 'drilldown' | 'comparison'
 interface VolumeRecord { date: string; reps: number }
 interface ChartBin { key: string; label: string; total: number; year?: number; month?: number }
 
@@ -53,6 +54,7 @@ export default function App() {
   const [expandedMonth, setExpandedMonth] = useState<{ year: number; month: number } | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [targetFilter, setTargetFilter] = useState<RepTarget | 'all'>('all')
+  const [analyticsView, setAnalyticsView] = useState<AnalyticsView>('drilldown')
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
@@ -84,7 +86,10 @@ export default function App() {
   ], [activeWorkouts, legacyDailyVolumes])
   const filteredVolumeRecords = useMemo<VolumeRecord[]>(() => targetFilter === 'all'
     ? allVolumeRecords
-    : activeWorkouts.filter((workout) => workout.targetReps === targetFilter).map((workout) => ({ date: workout.performedAt, reps: workout.targetReps })), [activeWorkouts, allVolumeRecords, targetFilter])
+    : [
+      ...activeWorkouts.filter((workout) => workout.targetReps === targetFilter).map((workout) => ({ date: workout.performedAt, reps: workout.targetReps })),
+      ...legacyDailyVolumes.filter((volume) => volume.reps === targetFilter).map((volume) => ({ date: `${volume.date}T12:00:00.000Z`, reps: volume.reps })),
+    ], [activeWorkouts, allVolumeRecords, legacyDailyVolumes, targetFilter])
   const currentSetTotal = getSetGroupTotal(setGroups)
   const timerElapsedSeconds = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((timerNow - timerStartedAt) / 1000))
 
@@ -201,9 +206,14 @@ export default function App() {
             <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => setTargetFilter('all')}>Todos</button>
             {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => setTargetFilter(target)}>{target}</button>)}
           </div>
-          {targetFilter !== 'all' && <p className="filter-context">Mostrando treinos detalhados de {targetFilter} NSBs. Volumes históricos agregados não entram neste recorte.</p>}
+          {targetFilter !== 'all' && <p className="filter-context">Inclui treinos detalhados e dias históricos cujo total foi exatamente {targetFilter} NSBs. Totais diários diferentes permanecem sem classificação de tipo.</p>}
 
-          <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />
+          <div className="view-picker analytics-picker" role="group" aria-label="Modo de análise">
+            <button type="button" className={analyticsView === 'drilldown' ? 'selected' : ''} onClick={() => setAnalyticsView('drilldown')}>Evolução</button>
+            <button type="button" className={analyticsView === 'comparison' ? 'selected' : ''} onClick={() => { setAnalyticsView('comparison'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Comparar anos</button>
+          </div>
+
+          {analyticsView === 'drilldown' ? <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} /> : <YearComparisonChart records={filteredVolumeRecords} />}
 
           <section className="recent-section" aria-labelledby="recent-title">
             <div className="section-heading">
@@ -288,7 +298,7 @@ export default function App() {
           <p className="eyebrow">Registros detalhados</p>
           <h1 id="history-title">Treinos</h1>
           <p className="lead">Consulte, ajuste ou mova registros detalhados para a lixeira. As análises ficam concentradas na tela inicial.</p>
-          {loading ? <p>Carregando dados locais…</p> : <WorkoutList workouts={activeWorkouts} emptyText="Nenhum treino registrado ainda." onArchive={archiveWorkout} />}
+          {loading ? <p>Carregando dados locais…</p> : <ActivityList workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} onArchive={archiveWorkout} />}
         </section>
       )}
 
@@ -405,6 +415,17 @@ function WorkoutList({ workouts, emptyText, onArchive }: { workouts: Workout[]; 
   </ol>
 }
 
+function ActivityList({ workouts, legacyVolumes, onArchive }: { workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; onArchive: (workout: Workout) => void }) {
+  const activities = [
+    ...workouts.map((workout) => ({ id: workout.id, date: workout.performedAt, reps: workout.targetReps, kind: 'workout' as const, workout })),
+    ...legacyVolumes.map((volume) => ({ id: volume.id, date: `${volume.date}T12:00:00.000Z`, reps: volume.reps, kind: 'legacy' as const })),
+  ].sort((a, b) => b.date.localeCompare(a.date))
+  if (activities.length === 0) return <p className="empty-state">Nenhum treino ou volume histórico registrado ainda.</p>
+  return <ol className="workout-list">
+    {activities.map((activity) => <li key={activity.id}><div><strong>{activity.reps} NSBs</strong><span>{dateLabel(activity.date)} · {activity.kind === 'workout' ? formatSetGroups(activity.workout.setGroups) : 'Volume histórico importado'}</span></div>{activity.kind === 'workout' ? <div className="workout-actions"><time dateTime={`PT${activity.workout.durationSeconds}S`}>{formatDuration(activity.workout.durationSeconds)}</time><button type="button" className="archive-button" onClick={() => onArchive(activity.workout)}>Excluir</button></div> : <span className="historical-badge">Sem tempo/sets</span>}</li>)}
+  </ol>
+}
+
 function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onRestore: (workout: Workout) => void }) {
   return <section className="trash-section" aria-labelledby="trash-title">
     <div className="section-heading"><div><p className="eyebrow">Lixeira</p><h2 id="trash-title">Treinos arquivados</h2></div></div>
@@ -442,6 +463,31 @@ function DailyVolumeGrid({ records, selection, onSelectDay, onBack }: { records:
   })
   const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(selection.year, selection.month, 1))
   return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); return <li key={day} className={total > 0 ? 'has-volume' : ''}><button type="button" onClick={() => onSelectDay(date)} aria-label={`${day} de ${monthName}: ${total} NSBs`}><span>{day}</span><strong>{total || '—'}</strong></button></li> })}</ol></section>
+}
+
+function YearComparisonChart({ records }: { records: VolumeRecord[] }) {
+  const data = useMemo(() => {
+    const years = [...new Set(records.map((record) => new Date(record.date).getFullYear()))].sort((a, b) => a - b)
+    return years.map((year) => ({
+      year,
+      values: Array.from({ length: 12 }, (_, month) => records
+        .filter((record) => { const date = new Date(record.date); return date.getFullYear() === year && date.getMonth() === month })
+        .reduce((sum, record) => sum + record.reps, 0)),
+    }))
+  }, [records])
+  const maximum = Math.max(...data.flatMap((series) => series.values), 1)
+  const months = Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(2026, month, 1)).replace('.', ''))
+  const colors = ['#0d5261', '#c5723b', '#7658a6', '#3e8a70', '#b54864', '#5877a8']
+  const width = 720
+  const height = 300
+  const left = 42
+  const bottom = 34
+  const top = 18
+  const plotHeight = height - bottom - top
+  const point = (month: number, value: number) => ({ x: left + (month * (width - left - 20)) / 11, y: top + plotHeight - (value / maximum) * plotHeight })
+
+  if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
+  return <section className="year-comparison" aria-labelledby="comparison-title"><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); return <g key={series.year}><polyline fill="none" stroke={color} strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r="4" fill={color}><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year}</span>)}</div></section>
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {

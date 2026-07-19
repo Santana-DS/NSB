@@ -1,7 +1,7 @@
 # Próximas prioridades
 
 1. [x] Filtro por quantidade de NSBs nas análises visuais.
-2. Comparação anual mês a mês: pontos coloridos por ano, com linhas discretas conectando os meses de cada série.
+2. [x] Comparação anual mês a mês: pontos coloridos por ano, com linhas discretas conectando os meses de cada série.
 3. Heatmap de consistência diária.
 4. Estatísticas de tempo: mínimo, máximo, média, mediana e tempo médio por repetição para cada quantidade.
 5. Estratégias de sets: comparar tempo e ritmo de estruturas como `2 × 50` e `5 × 20`.
