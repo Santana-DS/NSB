@@ -8,12 +8,25 @@ export interface SetGroup {
   repsPerSet: number
 }
 
+export interface PacingBlock {
+  reps: number
+  targetSeconds: number
+  actualSeconds: number
+}
+
+export interface PacingSession {
+  setTargetSeconds: number
+  restTargetSeconds: number
+  blocks: PacingBlock[]
+}
+
 export interface Workout {
   id: string
   performedAt: string
   targetReps: RepTarget
   durationSeconds: number
   setGroups: SetGroup[]
+  pacingSession?: PacingSession
   notes: string
   createdAt: string
   updatedAt: string

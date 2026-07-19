@@ -15,6 +15,7 @@ interface ChartBin { key: string; label: string; total: number; year?: number; m
 interface TimedRecord { targetReps: RepTarget; durationSeconds: number; date: string }
 interface StrategyRecord extends TimedRecord { strategy: string }
 type DownloadFormat = 'svg' | 'png' | 'jpeg'
+type PacingPhase = 'idle' | 'set' | 'rest' | 'paused' | 'complete'
 const HOME_MESSAGES = [
   'Do what you gotta do.',
   'Do what you know you have to do.',
@@ -77,6 +78,14 @@ export default function App() {
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
+  const [pacingSetDuration, setPacingSetDuration] = useState('')
+  const [pacingRestDuration, setPacingRestDuration] = useState('')
+  const [pacingPhase, setPacingPhase] = useState<PacingPhase>('idle')
+  const [pacingPausedPhase, setPacingPausedPhase] = useState<'set' | 'rest'>('set')
+  const [pacingBlockIndex, setPacingBlockIndex] = useState(0)
+  const [pacingPhaseStartedAt, setPacingPhaseStartedAt] = useState<number | null>(null)
+  const [pacingPhaseElapsedBase, setPacingPhaseElapsedBase] = useState(0)
+  const [pacingBlocks, setPacingBlocks] = useState<{ reps: number; targetSeconds: number; actualSeconds: number }[]>([])
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -94,10 +103,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (timerStartedAt === null) return
+    if (timerStartedAt === null && pacingPhaseStartedAt === null) return
     const interval = window.setInterval(() => setTimerNow(Date.now()), 250)
     return () => window.clearInterval(interval)
-  }, [timerStartedAt])
+  }, [timerStartedAt, pacingPhaseStartedAt])
 
   useEffect(() => {
     const interval = window.setInterval(() => setHomeMessageIndex((index) => (index + 1) % HOME_MESSAGES.length), 7_000)
@@ -138,6 +147,16 @@ export default function App() {
 
   const currentSetTotal = getSetGroupTotal(setGroups)
   const timerElapsedSeconds = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((timerNow - timerStartedAt) / 1000))
+  const pacingSetSeconds = parseDuration(pacingSetDuration) ?? 0
+  const pacingRestSeconds = parseDuration(pacingRestDuration) ?? 0
+  const pacingPlan = useMemo(() => setGroups.flatMap((group) => Array.from({ length: Math.max(0, group.setCount) }, () => group.repsPerSet)), [setGroups])
+  const pacingPhaseElapsed = pacingPhaseElapsedBase + (pacingPhaseStartedAt === null ? 0 : Math.floor((timerNow - pacingPhaseStartedAt) / 1000))
+  const pacingPhaseTarget = pacingPhase === 'set' ? pacingSetSeconds : pacingPhase === 'rest' ? pacingRestSeconds : 0
+
+  useEffect(() => {
+    if ((pacingPhase !== 'set' && pacingPhase !== 'rest') || pacingPhaseTarget <= 0 || pacingPhaseElapsed < pacingPhaseTarget) return
+    advancePacingPhase()
+  }, [pacingPhaseElapsed, pacingPhase, pacingPhaseTarget])
 
   function resetForm() {
     setTargetReps(100)
@@ -149,6 +168,13 @@ export default function App() {
     setTimerStartedAt(null)
     setTimerElapsedBase(0)
     setTimerNow(Date.now())
+    setPacingSetDuration('')
+    setPacingRestDuration('')
+    setPacingPhase('idle')
+    setPacingBlockIndex(0)
+    setPacingPhaseStartedAt(null)
+    setPacingPhaseElapsedBase(0)
+    setPacingBlocks([])
   }
 
   function openNewWorkout() {
@@ -186,6 +212,91 @@ export default function App() {
     setDuration('')
   }
 
+  function emitPacingSignal(kind: 'set' | 'rest' | 'complete') {
+    if (!('AudioContext' in window)) return
+    const context = new AudioContext()
+    const notes = kind === 'complete' ? [880, 1040, 1320] : kind === 'set' ? [880, 880] : [440]
+    notes.forEach((frequency, index) => {
+      const oscillator = context.createOscillator()
+      const gain = context.createGain()
+      oscillator.frequency.value = frequency
+      gain.gain.setValueAtTime(.06, context.currentTime + index * .15)
+      gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + index * .15 + .12)
+      oscillator.connect(gain).connect(context.destination)
+      oscillator.start(context.currentTime + index * .15)
+      oscillator.stop(context.currentTime + index * .15 + .13)
+    })
+    window.setTimeout(() => void context.close(), notes.length * 150 + 200)
+  }
+
+  function startPacing() {
+    if (pacingPlan.length === 0 || pacingSetSeconds <= 0 || pacingRestSeconds < 0) {
+      setError('Defina os grupos de sets e o tempo desejado para cada set.')
+      return
+    }
+    const now = Date.now()
+    if (timerStartedAt === null) {
+      setTimerNow(now)
+      setTimerStartedAt(now)
+      setPerformedAt(todayLocalIso())
+    }
+    setError(null)
+    setPacingBlocks([])
+    setPacingBlockIndex(0)
+    setPacingPhaseElapsedBase(0)
+    setPacingPhaseStartedAt(now)
+    setPacingPhase('set')
+    emitPacingSignal('set')
+  }
+
+  function advancePacingPhase() {
+    const now = Date.now()
+    if (pacingPhase === 'set') {
+      const actualSeconds = pacingPhaseElapsed
+      setPacingBlocks((blocks) => [...blocks, { reps: pacingPlan[pacingBlockIndex], targetSeconds: pacingSetSeconds, actualSeconds }])
+      if (pacingBlockIndex >= pacingPlan.length - 1) {
+        setPacingPhase('complete')
+        setPacingPhaseStartedAt(null)
+        setPacingPhaseElapsedBase(actualSeconds)
+        emitPacingSignal('complete')
+        return
+      }
+      if (pacingRestSeconds === 0) {
+        setPacingBlockIndex((index) => index + 1)
+        setPacingPhaseElapsedBase(0)
+        setPacingPhaseStartedAt(now)
+        emitPacingSignal('set')
+      } else {
+        setPacingPhase('rest')
+        setPacingPhaseElapsedBase(0)
+        setPacingPhaseStartedAt(now)
+        emitPacingSignal('rest')
+      }
+      return
+    }
+    if (pacingPhase === 'rest') {
+      setPacingBlockIndex((index) => index + 1)
+      setPacingPhase('set')
+      setPacingPhaseElapsedBase(0)
+      setPacingPhaseStartedAt(now)
+      emitPacingSignal('set')
+    }
+  }
+
+  function pausePacing() {
+    if (pacingPhase !== 'set' && pacingPhase !== 'rest') return
+    setPacingPausedPhase(pacingPhase)
+    setPacingPhaseElapsedBase(pacingPhaseElapsed)
+    setPacingPhaseStartedAt(null)
+    setPacingPhase('paused')
+  }
+
+  function resumePacing() {
+    const now = Date.now()
+    setPacingPhaseStartedAt(now)
+    setPacingPhase(pacingPausedPhase)
+  }
+
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const durationSeconds = timerStartedAt === null ? parseDuration(duration) : timerElapsedSeconds
@@ -199,6 +310,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
+      pacingSession: pacingBlocks.length > 0 ? { setTargetSeconds: pacingSetSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks } : undefined,
       notes: notes.trim(),
     })
     if (validation) {
@@ -211,6 +323,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
+      pacingSession: pacingBlocks.length > 0 ? { setTargetSeconds: pacingSetSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks } : undefined,
       notes: notes.trim(),
     })
     await saveWorkout(workout)
@@ -305,7 +418,7 @@ export default function App() {
             <section className="sets-section" aria-labelledby="sets-title">
               <div className="section-heading">
                 <div>
-                  <h2 id="sets-title">Estrutura de sets <span className="optional">opcional</span></h2>
+                  <h2 id="sets-title">Estrutura de sets</h2>
                   <p>Registre a estratégia para compará-la no futuro.</p>
                 </div>
                 <button type="button" className="secondary-action" onClick={addSetGroup}>Adicionar grupo</button>
@@ -322,8 +435,22 @@ export default function App() {
               {setGroups.length > 0 && <p className={currentSetTotal === targetReps ? 'set-total valid' : 'set-total'}>Total dos sets: <strong>{currentSetTotal}</strong> / {targetReps} NSBs</p>}
             </section>
 
+            <section className="pacing-section" aria-labelledby="pacing-title">
+              <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Ritmo por set</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
+              <p>Use os grupos acima para conduzir cada bloco com alertas sonoros locais.</p>
+              <div className="field-grid pacing-fields">
+                <label><span>Meta por set</span><input inputMode="numeric" maxLength={7} placeholder="00:45" value={pacingSetDuration} disabled={pacingPhase === 'set' || pacingPhase === 'rest'} onChange={(event) => setPacingSetDuration(formatDurationInput(event.target.value))} /></label>
+                <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase === 'set' || pacingPhase === 'rest'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
+              </div>
+              {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingPlan[pacingBlockIndex]} NSBs neste set</span>}</div>}
+              <div className="pacing-actions">
+                {pacingPhase === 'idle' || pacingPhase === 'complete' ? <button type="button" className="secondary-action" onClick={startPacing}>Iniciar pacing</button> : pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={advancePacingPhase}>Avançar</button></>}
+              </div>
+              {pacingBlocks.length > 0 && <p className="pacing-summary">{pacingBlocks.length} de {pacingPlan.length} sets concluídos · tempos reais registrados no treino.</p>}
+            </section>
+
             <label className="notes-field">
-              <span>Observações <span className="optional">opcional</span></span>
+              <span>Observações</span>
               <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Como você se sentiu? O que funcionou?" />
             </label>
             {error && <p className="error-message" role="alert">{error}</p>}
@@ -677,17 +804,19 @@ function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYear
 
 function DayDetail({ date, workouts, legacyVolumes, performances, attachments, onClose, onSavePerformance, onSaveWorkout, onSaveAttachment }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; attachments: MediaAttachment[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void>; onSaveWorkout: (workout: Workout) => Promise<void>; onSaveAttachment: (attachment: MediaAttachment) => Promise<void> }) {
   const dateWorkouts = workouts.filter((workout) => toDateKeyFromIso(workout.performedAt) === date)
+  const legacyTotal = legacyVolumes.filter((volume) => volume.date === date).reduce((sum, volume) => sum + volume.reps, 0)
+  const registeredVolume = legacyTotal + dateWorkouts.reduce((sum, workout) => sum + workout.targetReps, 0)
   const initialPerformance = performances.find((performance) => performance.date === date) ?? null
   const initialWorkout = initialPerformance ? null : dateWorkouts[0] ?? null
   const initialEntry = initialPerformance ?? initialWorkout
-  const [targetReps, setTargetReps] = useState<RepTarget>(initialEntry?.targetReps ?? 100)
+  const defaultTarget = REP_TARGETS.includes(registeredVolume as RepTarget) ? registeredVolume as RepTarget : 100
+  const [targetReps, setTargetReps] = useState<RepTarget>(initialEntry?.targetReps ?? defaultTarget)
   const [duration, setDuration] = useState(initialEntry ? formatDuration(initialEntry.durationSeconds) : '')
   const [setGroups, setSetGroups] = useState<SetGroup[]>(initialEntry?.setGroups ?? [])
   const [notes, setNotes] = useState(initialEntry?.notes ?? '')
   const [editingPerformance] = useState<HistoricalPerformance | null>(initialPerformance)
   const [editingWorkout] = useState<Workout | null>(initialWorkout)
   const [error, setError] = useState<string | null>(null)
-  const legacyTotal = legacyVolumes.filter((volume) => volume.date === date).reduce((sum, volume) => sum + volume.reps, 0)
   const datePerformances = performances.filter((performance) => performance.date === date)
 
   function addSetGroup() { setSetGroups((groups) => [...groups, { id: createId(), setCount: 0, repsPerSet: 0 }]) }
@@ -710,7 +839,7 @@ function DayDetail({ date, workouts, legacyVolumes, performances, attachments, o
     await onSaveAttachment({ id: createId(), performanceId, filename: file.name, mimeType: file.type, size: file.size, createdAt: new Date().toISOString(), blob: file })
   }
 
-  return <div className="day-detail-backdrop" role="presentation" onClick={onClose}><section className="day-detail" role="dialog" aria-modal="true" aria-labelledby="day-detail-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><p className="eyebrow">Detalhe do dia</p><h2 id="day-detail-title">{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date(`${date}T12:00:00`))}</h2></div><button className="text-button" type="button" onClick={onClose}>Fechar</button></div><p className="day-total">Volume registrado: <strong>{legacyTotal + dateWorkouts.reduce((sum, workout) => sum + workout.targetReps, 0)} NSBs</strong></p>{dateWorkouts.length > 0 && <section className="day-list"><h3>Treinos detalhados</h3>{dateWorkouts.map((workout) => <p key={workout.id}>{workout.targetReps} NSBs · {formatDuration(workout.durationSeconds)} · {formatSetGroups(workout.setGroups)}</p>)}</section>}{datePerformances.length > 0 && <section className="day-list"><h3>Performances registradas</h3>{datePerformances.map((performance) => <article className="performance-record" key={performance.id}><p>{performance.targetReps} NSBs · {formatDuration(performance.durationSeconds)} · {formatSetGroups(performance.setGroups)}</p>{attachments.filter((attachment) => attachment.performanceId === performance.id).map((attachment) => <AttachmentVideo key={attachment.id} attachment={attachment} />)}<label className="video-upload"><span>Anexar vídeo</span><input type="file" accept="video/*" onChange={(event) => { void attachVideo(performance.id, event.target.files?.[0]); event.currentTarget.value = '' }} /></label></article>)}</section>}<form className="performance-form" onSubmit={submit}><h3>{editingWorkout ? 'Editar treino' : editingPerformance ? 'Editar performance histórica' : 'Adicionar performance histórica'}</h3><p>{editingWorkout ? 'Atualize tempo, sets e observações do treino.' : 'Registra tempo, estrutura de sets e observações sem somar volume ao dia.'}</p><label><span>Quantidade</span><select value={targetReps} onChange={(event) => setTargetReps(Number(event.target.value) as RepTarget)}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Tempo</span><input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required /></label><section className="performance-sets"><div className="section-heading"><h3>Sets <span className="optional">opcional</span></h3><button className="secondary-action" type="button" onClick={addSetGroup}>Adicionar grupo</button></div>{setGroups.map((group) => <div className="set-row" key={group.id}><label><span className="sr-only">Número de sets</span><input type="number" min="1" value={group.setCount || ''} onChange={(event) => changeSetGroup(group.id, 'setCount', event.target.value === '' ? 0 : Number(event.target.value))} /></label><span>×</span><label><span className="sr-only">NSBs por set</span><input type="number" min="1" value={group.repsPerSet || ''} onChange={(event) => changeSetGroup(group.id, 'repsPerSet', event.target.value === '' ? 0 : Number(event.target.value))} /></label><button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</section><label><span>Observação opcional</span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{error && <p className="error-message" role="alert">{error}</p>}<button className="primary-action" type="submit">Salvar {editingWorkout ? 'treino' : 'performance'}</button></form></section></div>
+  return <div className="day-detail-backdrop" role="presentation" onClick={onClose}><section className="day-detail" role="dialog" aria-modal="true" aria-labelledby="day-detail-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><p className="eyebrow">Detalhe do dia</p><h2 id="day-detail-title">{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date(`${date}T12:00:00`))}</h2></div><button className="text-button" type="button" onClick={onClose}>Fechar</button></div><p className="day-total">Volume registrado: <strong>{registeredVolume} NSBs</strong></p>{dateWorkouts.length > 0 && <section className="day-list"><h3>Treinos detalhados</h3>{dateWorkouts.map((workout) => <p key={workout.id}>{workout.targetReps} NSBs · {formatDuration(workout.durationSeconds)} · {formatSetGroups(workout.setGroups)}</p>)}</section>}{datePerformances.length > 0 && <section className="day-list"><h3>Performances registradas</h3>{datePerformances.map((performance) => <article className="performance-record" key={performance.id}><p>{performance.targetReps} NSBs · {formatDuration(performance.durationSeconds)} · {formatSetGroups(performance.setGroups)}</p>{attachments.filter((attachment) => attachment.performanceId === performance.id).map((attachment) => <AttachmentVideo key={attachment.id} attachment={attachment} />)}<label className="video-upload"><span>Anexar vídeo</span><input type="file" accept="video/*" onChange={(event) => { void attachVideo(performance.id, event.target.files?.[0]); event.currentTarget.value = '' }} /></label></article>)}</section>}<form className="performance-form" onSubmit={submit}><h3>{editingWorkout ? 'Editar treino' : editingPerformance ? 'Editar performance histórica' : 'Adicionar performance histórica'}</h3><p>{editingWorkout ? 'Atualize tempo, sets e observações do treino.' : 'Registra tempo, estrutura de sets e observações sem somar volume ao dia.'}</p><label><span>Quantidade</span><select value={targetReps} onChange={(event) => setTargetReps(Number(event.target.value) as RepTarget)}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Tempo</span><input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required /></label><section className="performance-sets"><div className="section-heading"><h3>Sets</h3><button className="secondary-action" type="button" onClick={addSetGroup}>Adicionar grupo</button></div>{setGroups.map((group) => <div className="set-row" key={group.id}><label><span className="sr-only">Número de sets</span><input type="number" min="1" value={group.setCount || ''} onChange={(event) => changeSetGroup(group.id, 'setCount', event.target.value === '' ? 0 : Number(event.target.value))} /></label><span>×</span><label><span className="sr-only">NSBs por set</span><input type="number" min="1" value={group.repsPerSet || ''} onChange={(event) => changeSetGroup(group.id, 'repsPerSet', event.target.value === '' ? 0 : Number(event.target.value))} /></label><button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</section><label><span>Observação</span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{error && <p className="error-message" role="alert">{error}</p>}<button className="primary-action" type="submit">Salvar {editingWorkout ? 'treino' : 'performance'}</button></form></section></div>
 }
 
 function AttachmentVideo({ attachment }: { attachment: MediaAttachment }) {

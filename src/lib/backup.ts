@@ -65,7 +65,17 @@ function isVersionOneBackup(value: unknown): value is Omit<BackupDocument, 'vers
 function isWorkout(value: unknown): value is Workout {
   if (!value || typeof value !== 'object') return false
   const workout = value as Partial<Workout>
-  return typeof workout.id === 'string' && typeof workout.performedAt === 'string' && typeof workout.targetReps === 'number' && typeof workout.durationSeconds === 'number' && Array.isArray(workout.setGroups) && typeof workout.notes === 'string' && typeof workout.createdAt === 'string' && typeof workout.updatedAt === 'string' && (workout.deletedAt === undefined || typeof workout.deletedAt === 'string') && workout.setGroups.every((group) => typeof group.id === 'string' && typeof group.setCount === 'number' && typeof group.repsPerSet === 'number')
+  return typeof workout.id === 'string' && typeof workout.performedAt === 'string' && typeof workout.targetReps === 'number' && typeof workout.durationSeconds === 'number' && Array.isArray(workout.setGroups) && typeof workout.notes === 'string' && typeof workout.createdAt === 'string' && typeof workout.updatedAt === 'string' && (workout.deletedAt === undefined || typeof workout.deletedAt === 'string') && workout.setGroups.every((group) => typeof group.id === 'string' && typeof group.setCount === 'number' && typeof group.repsPerSet === 'number') && (workout.pacingSession === undefined || isPacingSession(workout.pacingSession))
+}
+
+function isPacingSession(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const session = value as { setTargetSeconds?: unknown; restTargetSeconds?: unknown; blocks?: unknown }
+  return typeof session.setTargetSeconds === 'number' && typeof session.restTargetSeconds === 'number' && Array.isArray(session.blocks) && session.blocks.every((block) => {
+    if (!block || typeof block !== 'object') return false
+    const item = block as { reps?: unknown; targetSeconds?: unknown; actualSeconds?: unknown }
+    return typeof item.reps === 'number' && typeof item.targetSeconds === 'number' && typeof item.actualSeconds === 'number'
+  })
 }
 
 function isLegacyDailyVolume(value: unknown): value is LegacyDailyVolume {
