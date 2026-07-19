@@ -204,13 +204,13 @@ export default function App() {
             ))}
           </div>
 
-          <div className="target-filter">
+          <div className="target-filter" role="group" aria-label="Filtrar quantidade de NSBs">
+            <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => { setTargetFilter('all'); setExpandedYear(null); setExpandedMonth(null) }}>Todos</button>
             <button className="target-filter-toggle" type="button" aria-expanded={quantityFilterExpanded} aria-controls="target-filter-options" onClick={() => setQuantityFilterExpanded((expanded) => !expanded)}>
-              {targetFilter === 'all' ? 'Filtrar quantidade' : `${targetFilter} NSBs`} <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
+              Quantidades <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
             </button>
             {quantityFilterExpanded && <div id="target-filter-options" className="target-filter-options" role="group" aria-label="Filtrar quantidade de NSBs">
-              <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => { setTargetFilter('all'); setQuantityFilterExpanded(false); setExpandedYear(null); setExpandedMonth(null) }}>Todos</button>
-              {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => { setTargetFilter(target); setQuantityFilterExpanded(false); setExpandedYear(null); setExpandedMonth(null) }}>{target}</button>)}
+              {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => { setTargetFilter(target); setExpandedYear(null); setExpandedMonth(null) }}>{target}</button>)}
             </div>}
           </div>
           {targetFilter !== 'all' && <p className="filter-context">Inclui treinos detalhados e dias históricos cujo total foi exatamente {targetFilter} NSBs. Totais diários diferentes permanecem sem classificação de tipo.</p>}
@@ -459,7 +459,9 @@ function YearComparisonChart({ records, onExpand, expanded = false }: { records:
         .reduce((sum, record) => sum + record.reps, 0)),
     }))
   }, [records])
-  const maximum = Math.max(...data.flatMap((series) => series.values), 1)
+  const highestValue = Math.max(...data.flatMap((series) => series.values), 1)
+  const maximum = Math.ceil(highestValue / 100) * 100
+  const yTicks = Array.from({ length: 5 }, (_, index) => Math.round((maximum * index) / 4))
   const months = Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(2026, month, 1)).replace('.', ''))
   const colors = ['#0d5261', '#c5723b', '#7658a6', '#3e8a70', '#b54864', '#5877a8']
   const width = 720
@@ -471,7 +473,7 @@ function YearComparisonChart({ records, onExpand, expanded = false }: { records:
   const point = (month: number, value: number) => ({ x: left + (month * (width - left - 20)) / 11, y: top + plotHeight - (value / maximum) * plotHeight })
 
   if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
-  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year}</span>)}</div></section>
+  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</span>)}</div></section>
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {
