@@ -48,13 +48,14 @@ export default function App() {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
-  const [period, setPeriod] = useState<Period>('month')
+  const [period, setPeriod] = useState<Period>('all')
   const [undoWorkout, setUndoWorkout] = useState<Workout | null>(null)
   const [expandedYear, setExpandedYear] = useState<number | null>(null)
   const [expandedMonth, setExpandedMonth] = useState<{ year: number; month: number } | null>(null)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [targetFilter, setTargetFilter] = useState<RepTarget | 'all'>('all')
-  const [analyticsView, setAnalyticsView] = useState<AnalyticsView>('drilldown')
+  const [quantityFilterExpanded, setQuantityFilterExpanded] = useState(false)
+  const [analyticsView, setAnalyticsView] = useState<AnalyticsView>('comparison')
   const [comparisonExpanded, setComparisonExpanded] = useState(false)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
@@ -198,34 +199,29 @@ export default function App() {
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
 
           <div className="period-picker" role="group" aria-label="Período do resumo">
-            {(['month', 'year', 'all'] as const).map((option) => (
+            {(['all', 'year', 'month'] as const).map((option) => (
               <button key={option} type="button" className={period === option ? 'selected' : ''} onClick={() => { setPeriod(option); setExpandedYear(null); setExpandedMonth(null) }}>{periodLabel(option)}</button>
             ))}
           </div>
 
-          <div className="target-filter" role="group" aria-label="Filtrar quantidade de NSBs">
-            <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => setTargetFilter('all')}>Todos</button>
-            {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => setTargetFilter(target)}>{target}</button>)}
+          <div className="target-filter">
+            <button className="target-filter-toggle" type="button" aria-expanded={quantityFilterExpanded} aria-controls="target-filter-options" onClick={() => setQuantityFilterExpanded((expanded) => !expanded)}>
+              {targetFilter === 'all' ? 'Filtrar quantidade' : `${targetFilter} NSBs`} <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
+            </button>
+            {quantityFilterExpanded && <div id="target-filter-options" className="target-filter-options" role="group" aria-label="Filtrar quantidade de NSBs">
+              <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => { setTargetFilter('all'); setQuantityFilterExpanded(false); setExpandedYear(null); setExpandedMonth(null) }}>Todos</button>
+              {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => { setTargetFilter(target); setQuantityFilterExpanded(false); setExpandedYear(null); setExpandedMonth(null) }}>{target}</button>)}
+            </div>}
           </div>
           {targetFilter !== 'all' && <p className="filter-context">Inclui treinos detalhados e dias históricos cujo total foi exatamente {targetFilter} NSBs. Totais diários diferentes permanecem sem classificação de tipo.</p>}
 
           <div className="view-picker analytics-picker" role="group" aria-label="Modo de análise">
-            <button type="button" className={analyticsView === 'drilldown' ? 'selected' : ''} onClick={() => setAnalyticsView('drilldown')}>Evolução</button>
             <button type="button" className={analyticsView === 'comparison' ? 'selected' : ''} onClick={() => { setAnalyticsView('comparison'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Comparar anos</button>
+            <button type="button" className={analyticsView === 'drilldown' ? 'selected' : ''} onClick={() => setAnalyticsView('drilldown')}>Evolução</button>
           </div>
 
           {analyticsView === 'drilldown' ? <PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} /> : <YearComparisonChart records={filteredVolumeRecords} onExpand={() => setComparisonExpanded(true)} />}
 
-          <section className="recent-section" aria-labelledby="recent-title">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Histórico</p>
-                <h2 id="recent-title">Últimos treinos</h2>
-              </div>
-              {workouts.length > 0 && <button className="text-button" onClick={() => setScreen('history')}>Ver treinos</button>}
-            </div>
-            {loading ? <p>Carregando dados locais…</p> : <WorkoutList workouts={activeWorkouts.slice(0, 3)} emptyText="Seu primeiro treino aparecerá aqui." onArchive={archiveWorkout} />}
-          </section>
         </section>
       )}
 
@@ -402,21 +398,6 @@ function periodLabel(period: Period): string {
   return 'Todo o período'
 }
 
-function WorkoutList({ workouts, emptyText, onArchive }: { workouts: Workout[]; emptyText: string; onArchive?: (workout: Workout) => void }) {
-  if (workouts.length === 0) return <p className="empty-state">{emptyText}</p>
-  return <ol className="workout-list">
-    {workouts.map((workout) => (
-      <li key={workout.id}>
-        <div>
-          <strong>{workout.targetReps} NSBs</strong>
-          <span>{dateLabel(workout.performedAt)} · {formatSetGroups(workout.setGroups)}</span>
-        </div>
-        <div className="workout-actions"><time dateTime={`PT${workout.durationSeconds}S`}>{formatDuration(workout.durationSeconds)}</time>{onArchive && <button type="button" className="archive-button" onClick={() => onArchive(workout)}>Excluir</button>}</div>
-      </li>
-    ))}
-  </ol>
-}
-
 function ActivityList({ workouts, legacyVolumes, onArchive }: { workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; onArchive: (workout: Workout) => void }) {
   const activities = [
     ...workouts.map((workout) => ({ id: workout.id, date: workout.performedAt, reps: workout.targetReps, kind: 'workout' as const, workout })),
@@ -490,7 +471,7 @@ function YearComparisonChart({ records, onExpand, expanded = false }: { records:
   const point = (month: number, value: number) => ({ x: left + (month * (width - left - 20)) / 11, y: top + plotHeight - (value / maximum) * plotHeight })
 
   if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
-  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); return <g key={series.year}><polyline fill="none" stroke={color} strokeOpacity="0.5" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year}</span>)}</div></section>
+  return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}><div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><span className="chart-unit">NSBs</span></div><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{data.map((series, seriesIndex) => { const color = colors[seriesIndex % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <span key={series.year}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year}</span>)}</div></section>
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, onClose, onSavePerformance }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void> }) {
