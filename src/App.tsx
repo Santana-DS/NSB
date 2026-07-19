@@ -116,6 +116,12 @@ export default function App() {
     ...activeWorkouts.map((workout) => ({ targetReps: workout.targetReps, durationSeconds: workout.durationSeconds, date: toDateKeyFromIso(workout.performedAt) })),
     ...historicalPerformances.map((performance) => ({ targetReps: performance.targetReps, durationSeconds: performance.durationSeconds, date: performance.date })),
   ], [activeWorkouts, historicalPerformances])
+  const personalRecords = useMemo<TimedRecord[]>(() => REP_TARGETS.flatMap((target) => {
+    const recordsForTarget = timedRecords.filter((record) => record.targetReps === target)
+    if (recordsForTarget.length === 0) return []
+    const bestDuration = Math.min(...recordsForTarget.map((record) => record.durationSeconds))
+    return recordsForTarget.filter((record) => record.durationSeconds === bestDuration)
+  }), [timedRecords])
 
   useEffect(() => {
     const years = [...new Set(filteredVolumeRecords.map((record) => new Date(record.date).getFullYear()))]
@@ -252,7 +258,7 @@ export default function App() {
             <button type="button" className={analyticsView === 'statistics' ? 'selected' : ''} onClick={() => { setAnalyticsView('statistics'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Estatísticas</button>
           </div>
 
-          {analyticsView === 'drilldown' ? <><PeriodVolumeChart records={filteredVolumeRecords} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />{period === 'all' && !expandedYear && !expandedMonth && <ConsistencyHeatmap records={filteredVolumeRecords} />}</> : analyticsView === 'comparison' ? <YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} /> : <TimeStatistics records={timedRecords} targetFilter={targetFilter} onOpenDay={setSelectedDay} />}
+          {analyticsView === 'drilldown' ? <><PeriodVolumeChart records={filteredVolumeRecords} personalRecords={targetFilter === 'all' ? personalRecords : personalRecords.filter((record) => record.targetReps === targetFilter)} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />{period === 'all' && !expandedYear && !expandedMonth && <ConsistencyHeatmap records={filteredVolumeRecords} />}</> : analyticsView === 'comparison' ? <YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} /> : <TimeStatistics records={timedRecords} targetFilter={targetFilter} onOpenVolumeDay={openVolumeDay} />}
 
         </section>
       )}
@@ -453,6 +459,15 @@ export default function App() {
     })
   }
 
+  function openVolumeDay(date: string) {
+    const selected = new Date(`${date}T12:00:00`)
+    setSelectedDay(null)
+    setAnalyticsView('drilldown')
+    setPeriod('all')
+    setExpandedYear(selected.getFullYear())
+    setExpandedMonth({ year: selected.getFullYear(), month: selected.getMonth() })
+  }
+
   async function restoreWorkout() {
     if (!undoWorkout) return
     await restoreArchivedWorkout(undoWorkout)
@@ -533,10 +548,10 @@ function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onR
   </section>
 }
 
-function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
+function PeriodVolumeChart({ records, personalRecords, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
   const now = new Date()
   const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
-  if (shownMonth) return <DailyVolumeGrid records={records} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
+  if (shownMonth) return <DailyVolumeGrid records={records} personalRecords={personalRecords} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
 
   const shownYear = expandedYear ?? (period === 'year' ? now.getFullYear() : null)
   const bins = useMemo<ChartBin[]>(() => shownYear === null ? getYearBins(records) : getMonthBins(records, shownYear), [records, shownYear])
@@ -552,7 +567,7 @@ function PeriodVolumeChart({ records, period, expandedYear, expandedMonth, onExp
   </section>
 }
 
-function DailyVolumeGrid({ records, selection, onSelectDay, onBack }: { records: VolumeRecord[]; selection: { year: number; month: number }; onSelectDay: (date: string) => void; onBack?: () => void }) {
+function DailyVolumeGrid({ records, personalRecords, selection, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; selection: { year: number; month: number }; onSelectDay: (date: string) => void; onBack?: () => void }) {
   const days = new Date(selection.year, selection.month + 1, 0).getDate()
   const amounts = new Map<number, number>()
   records.forEach((record) => {
@@ -561,7 +576,9 @@ function DailyVolumeGrid({ records, selection, onSelectDay, onBack }: { records:
   })
   const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(selection.year, selection.month, 1))
   const highest = Math.max(...amounts.values(), 1)
-  return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); return <li key={day} className={total > 0 ? 'has-volume' : ''} style={total > 0 ? { backgroundColor: volumeColor(total, highest) } : undefined}><button type="button" onClick={() => onSelectDay(date)} aria-label={`${day} de ${monthName}: ${total} NSBs`}><span>{day}</span><strong>{total || '—'}</strong></button></li> })}</ol></section>
+  const recordsByDate = new Map<string, RepTarget[]>()
+  personalRecords.forEach((record) => recordsByDate.set(record.date, [...(recordsByDate.get(record.date) ?? []), record.targetReps]))
+  return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); const recordTargets = recordsByDate.get(date) ?? []; return <li key={day} className={`${total > 0 ? 'has-volume' : ''} ${recordTargets.length > 0 ? 'has-record' : ''}`} style={total > 0 ? { backgroundColor: volumeColor(total, highest) } : undefined}><button type="button" onClick={() => onSelectDay(date)} aria-label={`${day} de ${monthName}: ${total} NSBs${recordTargets.length > 0 ? `, recorde de ${recordTargets.join(' e ')} NSBs` : ''}`}><span>{day}</span>{recordTargets.length > 0 && <em title={`Recorde: ${recordTargets.join(', ')} NSBs`}>★</em>}<strong>{total || '—'}</strong></button></li> })}</ol></section>
 }
 
 function ConsistencyHeatmap({ records }: { records: VolumeRecord[] }) {
@@ -576,7 +593,7 @@ function ConsistencyHeatmap({ records }: { records: VolumeRecord[] }) {
   return <section className="consistency-heatmap" aria-labelledby="heatmap-title"><div className="section-heading"><div><p className="eyebrow">Constância</p><h2 id="heatmap-title">Últimas 53 semanas</h2></div><span className="heatmap-scale">Menos <i /> <i /> <i /> Mais</span></div><ol>{days.map((day) => <li key={day.key} title={`${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(day.date)}: ${day.total} NSBs`} aria-label={`${day.key}: ${day.total} NSBs`} style={day.total > 0 ? { backgroundColor: volumeColor(day.total, highest) } : undefined} />)}</ol></section>
 }
 
-function TimeStatistics({ records, targetFilter, onOpenDay }: { records: TimedRecord[]; targetFilter: RepTarget | 'all'; onOpenDay: (date: string) => void }) {
+function TimeStatistics({ records, targetFilter, onOpenVolumeDay }: { records: TimedRecord[]; targetFilter: RepTarget | 'all'; onOpenVolumeDay: (date: string) => void }) {
   const targets: RepTarget[] = targetFilter === 'all' ? [...REP_TARGETS] : [targetFilter]
   const summaries = targets.reduce<Array<{ target: RepTarget; stats: NonNullable<ReturnType<typeof getTimeStats>> }>>((items, target) => {
     const stats = getTimeStats(records.filter((record) => record.targetReps === target))
@@ -584,7 +601,7 @@ function TimeStatistics({ records, targetFilter, onOpenDay }: { records: TimedRe
     return items
   }, [])
   if (summaries.length === 0) return <p className="empty-state chart-empty">Registre um treino com tempo para gerar estatísticas de desempenho.</p>
-  return <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">Desempenho</p><h2 id="time-statistics-title">Tempo por quantidade</h2></div><span className="chart-unit">Treinos e performances</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => <article key={target}><h3>{target} NSBs <span>{stats.count} registro(s)</span></h3><dl><div><dt>Melhor</dt><dd><button className="stat-best" type="button" onClick={() => onOpenDay(stats.best.date)} aria-label={`Ver o dia do melhor tempo de ${target} NSBs`}>{formatDuration(stats.min)}</button></dd><small>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(`${stats.best.date}T12:00:00`))}</small></div><div><dt>Pior</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Mediana</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div></dl></article>)}</div></section>
+  return <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">Desempenho</p><h2 id="time-statistics-title">Tempo por quantidade</h2></div><span className="chart-unit">Treinos e performances</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => <article key={target}><h3>{target} NSBs <span>{stats.count} registro(s)</span></h3><dl><div><dt>Melhor</dt><dd><button className="stat-best" type="button" onClick={() => onOpenVolumeDay(stats.best.date)} aria-label={`Abrir o volume diário do melhor tempo de ${target} NSBs`}>{formatDuration(stats.min)}</button></dd><small>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(`${stats.best.date}T12:00:00`))}</small></div><div><dt>Pior</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Mediana</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div></dl></article>)}</div></section>
 }
 
 function getTimeStats(records: TimedRecord[]): { count: number; min: number; max: number; average: number; median: number; secondsPerRep: number; best: TimedRecord } | null {
