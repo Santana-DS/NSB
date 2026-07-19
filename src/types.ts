@@ -41,6 +41,16 @@ export interface HistoricalPerformance {
   updatedAt: string
 }
 
+export interface MediaAttachment {
+  id: string
+  performanceId: string
+  filename: string
+  mimeType: string
+  size: number
+  createdAt: string
+  blob: Blob
+}
+
 export interface BackupDocument {
   format: 'nsb-tracker-backup'
   version: 3

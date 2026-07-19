@@ -1,5 +1,5 @@
 import { openDB, type DBSchema } from 'idb'
-import type { HistoricalPerformance, LegacyDailyVolume, Workout } from '../types'
+import type { HistoricalPerformance, LegacyDailyVolume, MediaAttachment, Workout } from '../types'
 
 interface NsbDatabase extends DBSchema {
   workouts: {
@@ -17,9 +17,14 @@ interface NsbDatabase extends DBSchema {
     value: HistoricalPerformance
     indexes: { 'by-date': string }
   }
+  mediaAttachments: {
+    key: string
+    value: MediaAttachment
+    indexes: { 'by-performance-id': string }
+  }
 }
 
-const database = openDB<NsbDatabase>('nsb-tracker', 3, {
+const database = openDB<NsbDatabase>('nsb-tracker', 4, {
   upgrade(db, oldVersion) {
     if (oldVersion < 1) {
       const store = db.createObjectStore('workouts', { keyPath: 'id' })
@@ -32,6 +37,10 @@ const database = openDB<NsbDatabase>('nsb-tracker', 3, {
     if (oldVersion < 3) {
       const store = db.createObjectStore('historicalPerformances', { keyPath: 'id' })
       store.createIndex('by-date', 'date')
+    }
+    if (oldVersion < 4) {
+      const store = db.createObjectStore('mediaAttachments', { keyPath: 'id' })
+      store.createIndex('by-performance-id', 'performanceId')
     }
   },
 })
@@ -78,4 +87,12 @@ export async function saveHistoricalPerformances(performances: HistoricalPerform
   const transaction = db.transaction('historicalPerformances', 'readwrite')
   await Promise.all(performances.map((performance) => transaction.store.put(performance)))
   await transaction.done
+}
+
+export async function listMediaAttachments(): Promise<MediaAttachment[]> {
+  return (await database).getAll('mediaAttachments')
+}
+
+export async function saveMediaAttachment(attachment: MediaAttachment): Promise<void> {
+  await (await database).put('mediaAttachments', attachment)
 }
