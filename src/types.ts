@@ -14,10 +14,23 @@ export interface PacingBlock {
   actualSeconds: number
 }
 
+export type PacingMode = 'automatic' | 'manual-rest' | 'hybrid' | 'free'
+export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'
+
+export interface PacingEvent {
+  type: PacingEventType
+  elapsedSeconds: number
+  blockIndex?: number
+  transition: 'automatic' | 'manual'
+}
+
 export interface PacingSession {
-  setTargetSeconds: number
+  mode: PacingMode
+  warmupSeconds: number
+  paceSeconds: number
   restTargetSeconds: number
   blocks: PacingBlock[]
+  events: PacingEvent[]
 }
 
 export interface Workout {

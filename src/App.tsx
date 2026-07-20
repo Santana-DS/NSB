@@ -15,7 +15,8 @@ interface ChartBin { key: string; label: string; total: number; year?: number; m
 interface TimedRecord { targetReps: RepTarget; durationSeconds: number; date: string }
 interface StrategyRecord extends TimedRecord { strategy: string }
 type DownloadFormat = 'svg' | 'png' | 'jpeg'
-type PacingPhase = 'idle' | 'set' | 'rest' | 'paused' | 'complete'
+type PacingPhase = 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
+const DEFAULT_WARMUP_SECONDS = 10
 const HOME_MESSAGES = [
   'Do what you gotta do.',
   'Do what you know you have to do.',
@@ -78,14 +79,16 @@ export default function App() {
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
-  const [pacingSetDuration, setPacingSetDuration] = useState('')
+  const [pacingRepDuration, setPacingRepDuration] = useState('')
   const [pacingRestDuration, setPacingRestDuration] = useState('')
   const [pacingPhase, setPacingPhase] = useState<PacingPhase>('idle')
-  const [pacingPausedPhase, setPacingPausedPhase] = useState<'set' | 'rest'>('set')
+  const [pacingPausedPhase, setPacingPausedPhase] = useState<'warmup' | 'set' | 'rest'>('set')
   const [pacingBlockIndex, setPacingBlockIndex] = useState(0)
   const [pacingPhaseStartedAt, setPacingPhaseStartedAt] = useState<number | null>(null)
   const [pacingPhaseElapsedBase, setPacingPhaseElapsedBase] = useState(0)
   const [pacingBlocks, setPacingBlocks] = useState<{ reps: number; targetSeconds: number; actualSeconds: number }[]>([])
+  const [pacingEvents, setPacingEvents] = useState<{ type: import('./types').PacingEventType; elapsedSeconds: number; blockIndex?: number; transition: 'automatic' | 'manual' }[]>([])
+  const [lastRepCue, setLastRepCue] = useState(0)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -147,16 +150,24 @@ export default function App() {
 
   const currentSetTotal = getSetGroupTotal(setGroups)
   const timerElapsedSeconds = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((timerNow - timerStartedAt) / 1000))
-  const pacingSetSeconds = parseDuration(pacingSetDuration) ?? 0
+  const pacingRepSeconds = parseDuration(pacingRepDuration) ?? 0
   const pacingRestSeconds = parseDuration(pacingRestDuration) ?? 0
   const pacingPlan = useMemo(() => setGroups.flatMap((group) => Array.from({ length: Math.max(0, group.setCount) }, () => group.repsPerSet)), [setGroups])
   const pacingPhaseElapsed = pacingPhaseElapsedBase + (pacingPhaseStartedAt === null ? 0 : Math.floor((timerNow - pacingPhaseStartedAt) / 1000))
-  const pacingPhaseTarget = pacingPhase === 'set' ? pacingSetSeconds : pacingPhase === 'rest' ? pacingRestSeconds : 0
+  const pacingPhaseTarget = pacingPhase === 'warmup' ? DEFAULT_WARMUP_SECONDS : pacingPhase === 'set' ? (pacingPlan[pacingBlockIndex] ?? 0) * pacingRepSeconds : pacingPhase === 'rest' ? pacingRestSeconds : 0
 
   useEffect(() => {
-    if ((pacingPhase !== 'set' && pacingPhase !== 'rest') || pacingPhaseTarget <= 0 || pacingPhaseElapsed < pacingPhaseTarget) return
-    advancePacingPhase()
+    if ((pacingPhase !== 'warmup' && pacingPhase !== 'set' && pacingPhase !== 'rest') || pacingPhaseTarget <= 0 || pacingPhaseElapsed < pacingPhaseTarget) return
+    advancePacingPhase('automatic')
   }, [pacingPhaseElapsed, pacingPhase, pacingPhaseTarget])
+
+  useEffect(() => {
+    if (pacingPhase !== 'set' || pacingRepSeconds <= 0) return
+    const cue = Math.min(pacingPlan[pacingBlockIndex] ?? 0, Math.floor(pacingPhaseElapsed / pacingRepSeconds))
+    if (cue <= lastRepCue || cue === 0) return
+    setLastRepCue(cue)
+    emitPacingSignal('rep')
+  }, [lastRepCue, pacingBlockIndex, pacingPhase, pacingPhaseElapsed, pacingPlan, pacingRepSeconds])
 
   function resetForm() {
     setTargetReps(100)
@@ -168,13 +179,15 @@ export default function App() {
     setTimerStartedAt(null)
     setTimerElapsedBase(0)
     setTimerNow(Date.now())
-    setPacingSetDuration('')
+    setPacingRepDuration('')
     setPacingRestDuration('')
     setPacingPhase('idle')
     setPacingBlockIndex(0)
     setPacingPhaseStartedAt(null)
     setPacingPhaseElapsedBase(0)
     setPacingBlocks([])
+    setPacingEvents([])
+    setLastRepCue(0)
   }
 
   function openNewWorkout() {
@@ -196,6 +209,8 @@ export default function App() {
     setTimerNow(now)
     setTimerStartedAt(now)
     setPerformedAt(todayLocalIso())
+    if (pacingPhase === 'paused') resumePacing()
+    else if ((pacingPhase === 'idle' || pacingPhase === 'complete') && pacingPlan.length > 0 && pacingRepSeconds > 0) startPacing(now)
   }
 
   function pauseTimer() {
@@ -203,6 +218,7 @@ export default function App() {
     setTimerElapsedBase(elapsed)
     setTimerStartedAt(null)
     setDuration(formatDuration(elapsed))
+    pausePacing()
   }
 
   function resetTimer() {
@@ -212,10 +228,10 @@ export default function App() {
     setDuration('')
   }
 
-  function emitPacingSignal(kind: 'set' | 'rest' | 'complete') {
+  function emitPacingSignal(kind: 'set' | 'rest' | 'complete' | 'rep') {
     if (!('AudioContext' in window)) return
     const context = new AudioContext()
-    const notes = kind === 'complete' ? [880, 1040, 1320] : kind === 'set' ? [880, 880] : [440]
+    const notes = kind === 'complete' ? [880, 1040, 1320] : kind === 'set' ? [880, 880] : kind === 'rest' ? [440] : [660]
     notes.forEach((frequency, index) => {
       const oscillator = context.createOscillator()
       const gain = context.createGain()
@@ -229,35 +245,40 @@ export default function App() {
     window.setTimeout(() => void context.close(), notes.length * 150 + 200)
   }
 
-  function startPacing() {
-    if (pacingPlan.length === 0 || pacingSetSeconds <= 0 || pacingRestSeconds < 0) {
-      setError('Defina os grupos de sets e o tempo desejado para cada set.')
-      return
-    }
-    const now = Date.now()
-    if (timerStartedAt === null) {
-      setTimerNow(now)
-      setTimerStartedAt(now)
-      setPerformedAt(todayLocalIso())
-    }
-    setError(null)
+  function appendPacingEvent(type: import('./types').PacingEventType, transition: 'automatic' | 'manual', blockIndex?: number) {
+    setPacingEvents((events) => [...events, { type, transition, blockIndex, elapsedSeconds: timerElapsedSeconds }])
+  }
+
+  function startPacing(now: number) {
     setPacingBlocks([])
     setPacingBlockIndex(0)
     setPacingPhaseElapsedBase(0)
     setPacingPhaseStartedAt(now)
-    setPacingPhase('set')
-    emitPacingSignal('set')
+    setPacingPhase('warmup')
+    setPacingEvents([{ type: 'session-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }, { type: 'warmup-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }])
+    setLastRepCue(0)
   }
 
-  function advancePacingPhase() {
+  function advancePacingPhase(transition: 'automatic' | 'manual' = 'manual') {
     const now = Date.now()
+    if (pacingPhase === 'warmup') {
+      setPacingPhase('set')
+      setPacingPhaseElapsedBase(0)
+      setPacingPhaseStartedAt(now)
+      setLastRepCue(0)
+      appendPacingEvent('set-started', transition, 0)
+      emitPacingSignal('set')
+      return
+    }
     if (pacingPhase === 'set') {
       const actualSeconds = pacingPhaseElapsed
-      setPacingBlocks((blocks) => [...blocks, { reps: pacingPlan[pacingBlockIndex], targetSeconds: pacingSetSeconds, actualSeconds }])
+      setPacingBlocks((blocks) => [...blocks, { reps: pacingPlan[pacingBlockIndex], targetSeconds: pacingPhaseTarget, actualSeconds }])
+      appendPacingEvent('set-completed', transition, pacingBlockIndex)
       if (pacingBlockIndex >= pacingPlan.length - 1) {
         setPacingPhase('complete')
         setPacingPhaseStartedAt(null)
         setPacingPhaseElapsedBase(actualSeconds)
+        appendPacingEvent('session-completed', transition, pacingBlockIndex)
         emitPacingSignal('complete')
         return
       }
@@ -265,11 +286,14 @@ export default function App() {
         setPacingBlockIndex((index) => index + 1)
         setPacingPhaseElapsedBase(0)
         setPacingPhaseStartedAt(now)
+        setLastRepCue(0)
+        appendPacingEvent('set-started', transition, pacingBlockIndex + 1)
         emitPacingSignal('set')
       } else {
         setPacingPhase('rest')
         setPacingPhaseElapsedBase(0)
         setPacingPhaseStartedAt(now)
+        appendPacingEvent('rest-started', transition, pacingBlockIndex)
         emitPacingSignal('rest')
       }
       return
@@ -279,22 +303,27 @@ export default function App() {
       setPacingPhase('set')
       setPacingPhaseElapsedBase(0)
       setPacingPhaseStartedAt(now)
+      setLastRepCue(0)
+      appendPacingEvent('rest-completed', transition, pacingBlockIndex)
+      appendPacingEvent('set-started', transition, pacingBlockIndex + 1)
       emitPacingSignal('set')
     }
   }
 
   function pausePacing() {
-    if (pacingPhase !== 'set' && pacingPhase !== 'rest') return
+    if (pacingPhase !== 'warmup' && pacingPhase !== 'set' && pacingPhase !== 'rest') return
     setPacingPausedPhase(pacingPhase)
     setPacingPhaseElapsedBase(pacingPhaseElapsed)
     setPacingPhaseStartedAt(null)
     setPacingPhase('paused')
+    appendPacingEvent('paused', 'manual', pacingBlockIndex)
   }
 
   function resumePacing() {
     const now = Date.now()
     setPacingPhaseStartedAt(now)
     setPacingPhase(pacingPausedPhase)
+    appendPacingEvent('resumed', 'manual', pacingBlockIndex)
   }
 
   async function handleSave(event: React.FormEvent<HTMLFormElement>) {
@@ -310,7 +339,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
-      pacingSession: pacingBlocks.length > 0 ? { setTargetSeconds: pacingSetSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks } : undefined,
+      pacingSession: pacingBlocks.length > 0 ? { mode: 'automatic', warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks, events: pacingEvents } : undefined,
       notes: notes.trim(),
     })
     if (validation) {
@@ -323,7 +352,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
-      pacingSession: pacingBlocks.length > 0 ? { setTargetSeconds: pacingSetSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks } : undefined,
+      pacingSession: pacingBlocks.length > 0 ? { mode: 'automatic', warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks, events: pacingEvents } : undefined,
       notes: notes.trim(),
     })
     await saveWorkout(workout)
@@ -436,15 +465,16 @@ export default function App() {
             </section>
 
             <section className="pacing-section" aria-labelledby="pacing-title">
-              <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Ritmo por set</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
-              <p>Use os grupos acima para conduzir cada bloco com alertas sonoros locais.</p>
+              <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Ritmo por repetição</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
+              <p>O cronômetro inicia o warm-up de {DEFAULT_WARMUP_SECONDS}s e aplica o ritmo a cada bloco da estrutura de sets.</p>
               <div className="field-grid pacing-fields">
-                <label><span>Meta por set</span><input inputMode="numeric" maxLength={7} placeholder="00:45" value={pacingSetDuration} disabled={pacingPhase === 'set' || pacingPhase === 'rest'} onChange={(event) => setPacingSetDuration(formatDurationInput(event.target.value))} /></label>
-                <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase === 'set' || pacingPhase === 'rest'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
+                <label><span>Ritmo por repetição</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={pacingRepDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRepDuration(formatDurationInput(event.target.value))} /></label>
+                <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
               </div>
-              {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingPlan[pacingBlockIndex]} NSBs neste set</span>}</div>}
+              {pacingPlan.length > 0 && pacingRepSeconds > 0 && pacingPhase === 'idle' && <p className="pacing-plan">Plano: {pacingPlan.map((reps, index) => <span key={`${reps}-${index}`}>{reps} NSBs · {formatDuration(reps * pacingRepSeconds)}</span>)}</p>}
+              {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingPlan[pacingBlockIndex]} NSBs · sinal a cada {formatDuration(pacingRepSeconds)}</span>}</div>}
               <div className="pacing-actions">
-                {pacingPhase === 'idle' || pacingPhase === 'complete' ? <button type="button" className="secondary-action" onClick={startPacing}>Iniciar pacing</button> : pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={advancePacingPhase}>Avançar</button></>}
+                {pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && pacingPhase !== 'complete' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>Avançar</button></>}
               </div>
               {pacingBlocks.length > 0 && <p className="pacing-summary">{pacingBlocks.length} de {pacingPlan.length} sets concluídos · tempos reais registrados no treino.</p>}
             </section>

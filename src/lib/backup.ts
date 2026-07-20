@@ -70,12 +70,14 @@ function isWorkout(value: unknown): value is Workout {
 
 function isPacingSession(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false
-  const session = value as { setTargetSeconds?: unknown; restTargetSeconds?: unknown; blocks?: unknown }
-  return typeof session.setTargetSeconds === 'number' && typeof session.restTargetSeconds === 'number' && Array.isArray(session.blocks) && session.blocks.every((block) => {
+  const session = value as { paceSeconds?: unknown; setTargetSeconds?: unknown; restTargetSeconds?: unknown; blocks?: unknown; events?: unknown; warmupSeconds?: unknown; mode?: unknown }
+  const hasCurrentTiming = typeof session.paceSeconds === 'number' && typeof session.warmupSeconds === 'number' && typeof session.mode === 'string' && Array.isArray(session.events)
+  const hasLegacyTiming = typeof session.setTargetSeconds === 'number'
+  return (hasCurrentTiming || hasLegacyTiming) && typeof session.restTargetSeconds === 'number' && Array.isArray(session.blocks) && session.blocks.every((block) => {
     if (!block || typeof block !== 'object') return false
     const item = block as { reps?: unknown; targetSeconds?: unknown; actualSeconds?: unknown }
     return typeof item.reps === 'number' && typeof item.targetSeconds === 'number' && typeof item.actualSeconds === 'number'
-  })
+  }) && (session.events === undefined || (Array.isArray(session.events) && session.events.every((event: unknown) => event && typeof event === 'object')))
 }
 
 function isLegacyDailyVolume(value: unknown): value is LegacyDailyVolume {
