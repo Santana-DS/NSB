@@ -1,5 +1,5 @@
 import { openDB, type DBSchema } from 'idb'
-import type { HistoricalPerformance, LegacyDailyVolume, MediaAttachment, Workout } from '../types'
+import type { ActiveWorkoutDraft, HistoricalPerformance, LegacyDailyVolume, MediaAttachment, Workout } from '../types'
 
 interface NsbDatabase extends DBSchema {
   workouts: {
@@ -22,9 +22,13 @@ interface NsbDatabase extends DBSchema {
     value: MediaAttachment
     indexes: { 'by-performance-id': string }
   }
+  activeWorkoutDrafts: {
+    key: string
+    value: ActiveWorkoutDraft
+  }
 }
 
-const database = openDB<NsbDatabase>('nsb-tracker', 4, {
+const database = openDB<NsbDatabase>('nsb-tracker', 5, {
   upgrade(db, oldVersion) {
     if (oldVersion < 1) {
       const store = db.createObjectStore('workouts', { keyPath: 'id' })
@@ -42,6 +46,7 @@ const database = openDB<NsbDatabase>('nsb-tracker', 4, {
       const store = db.createObjectStore('mediaAttachments', { keyPath: 'id' })
       store.createIndex('by-performance-id', 'performanceId')
     }
+    if (oldVersion < 5) db.createObjectStore('activeWorkoutDrafts', { keyPath: 'id' })
   },
 })
 
@@ -95,4 +100,16 @@ export async function listMediaAttachments(): Promise<MediaAttachment[]> {
 
 export async function saveMediaAttachment(attachment: MediaAttachment): Promise<void> {
   await (await database).put('mediaAttachments', attachment)
+}
+
+export async function getActiveWorkoutDraft(): Promise<ActiveWorkoutDraft | undefined> {
+  return (await database).get('activeWorkoutDrafts', 'current')
+}
+
+export async function saveActiveWorkoutDraft(draft: ActiveWorkoutDraft): Promise<void> {
+  await (await database).put('activeWorkoutDrafts', draft)
+}
+
+export async function clearActiveWorkoutDraft(): Promise<void> {
+  await (await database).delete('activeWorkoutDrafts', 'current')
 }

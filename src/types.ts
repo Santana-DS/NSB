@@ -33,6 +33,29 @@ export interface PacingSession {
   events: PacingEvent[]
 }
 
+export interface ActiveWorkoutDraft {
+  id: 'current'
+  updatedAt: string
+  targetReps: RepTarget
+  performedAt: string
+  duration: string
+  setGroups: SetGroup[]
+  notes: string
+  timerStartedAt: number | null
+  timerElapsedBase: number
+  pacingRepDuration: string
+  pacingRestDuration: string
+  pacingMode: PacingMode
+  pacingPhase: 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
+  pacingPausedPhase: 'warmup' | 'set' | 'rest'
+  pacingBlockIndex: number
+  pacingPhaseStartedAt: number | null
+  pacingPhaseElapsedBase: number
+  pacingBlocks: PacingBlock[]
+  pacingEvents: PacingEvent[]
+  lastRepCue: number
+}
+
 export interface Workout {
   id: string
   performedAt: string

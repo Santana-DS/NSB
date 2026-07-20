@@ -3,9 +3,9 @@ import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
-import { deleteLegacyDailyVolumes, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
+import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, getActiveWorkoutDraft, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type Workout } from './types'
+import { REP_TARGETS, type ActiveWorkoutDraft, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type Workout } from './types'
 
 type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
@@ -92,11 +92,14 @@ export default function App() {
   const [pacingEvents, setPacingEvents] = useState<{ type: import('./types').PacingEventType; elapsedSeconds: number; blockIndex?: number; transition: 'automatic' | 'manual' }[]>([])
   const [pacingMode, setPacingMode] = useState<PacingMode>('automatic')
   const [lastRepCue, setLastRepCue] = useState(0)
+  const [draftActive, setDraftActive] = useState(false)
+  const [draftReady, setDraftReady] = useState(false)
+  const pacingSectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
-    Promise.all([listWorkouts(), listLegacyDailyVolumes(), listHistoricalPerformances(), listMediaAttachments()])
-      .then(async ([storedWorkouts, storedVolumes, storedPerformances, storedAttachments]) => {
+    Promise.all([listWorkouts(), listLegacyDailyVolumes(), listHistoricalPerformances(), listMediaAttachments(), getActiveWorkoutDraft()])
+      .then(async ([storedWorkouts, storedVolumes, storedPerformances, storedAttachments, draft]) => {
         const nonZeroVolumes = storedVolumes.filter((volume) => volume.reps > 0)
         const zeroIds = storedVolumes.filter((volume) => volume.reps === 0).map((volume) => volume.id)
         if (zeroIds.length > 0) await deleteLegacyDailyVolumes(zeroIds)
@@ -104,8 +107,9 @@ export default function App() {
         setLegacyDailyVolumes(nonZeroVolumes.sort((a, b) => b.date.localeCompare(a.date)))
         setHistoricalPerformances(storedPerformances.sort((a, b) => b.date.localeCompare(a.date)))
         setMediaAttachments(storedAttachments)
+        if (draft) restoreDraft(draft)
       })
-      .finally(() => setLoading(false))
+      .finally(() => { setDraftReady(true); setLoading(false) })
   }, [])
 
   useEffect(() => {
@@ -118,6 +122,17 @@ export default function App() {
     const interval = window.setInterval(() => setHomeMessageIndex((index) => (index + 1) % HOME_MESSAGES.length), 7_000)
     return () => window.clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (!draftReady || !draftActive) return
+    const draft: ActiveWorkoutDraft = {
+      id: 'current', updatedAt: new Date().toISOString(), targetReps, performedAt, duration, setGroups, notes,
+      timerStartedAt, timerElapsedBase, pacingRepDuration, pacingRestDuration, pacingMode, pacingPhase,
+      pacingPausedPhase, pacingBlockIndex, pacingPhaseStartedAt, pacingPhaseElapsedBase, pacingBlocks,
+      pacingEvents, lastRepCue,
+    }
+    void saveActiveWorkoutDraft(draft)
+  }, [draftActive, draftReady, duration, lastRepCue, notes, pacingBlockIndex, pacingBlocks, pacingEvents, pacingMode, pacingPausedPhase, pacingPhase, pacingPhaseElapsedBase, pacingPhaseStartedAt, pacingRepDuration, pacingRestDuration, performedAt, setGroups, targetReps, timerElapsedBase, timerStartedAt])
 
   const activeWorkouts = useMemo(() => workouts.filter((workout) => !workout.deletedAt), [workouts])
   const archivedWorkouts = useMemo(() => workouts.filter((workout) => workout.deletedAt), [workouts])
@@ -195,8 +210,34 @@ export default function App() {
     setPacingMode('automatic')
   }
 
+  function restoreDraft(draft: ActiveWorkoutDraft) {
+    setTargetReps(draft.targetReps)
+    setPerformedAt(draft.performedAt)
+    setDuration(draft.duration)
+    setSetGroups(draft.setGroups)
+    setNotes(draft.notes)
+    setTimerStartedAt(draft.timerStartedAt)
+    setTimerElapsedBase(draft.timerElapsedBase)
+    setPacingRepDuration(draft.pacingRepDuration)
+    setPacingRestDuration(draft.pacingRestDuration)
+    setPacingMode(draft.pacingMode)
+    setPacingPhase(draft.pacingPhase)
+    setPacingPausedPhase(draft.pacingPausedPhase)
+    setPacingBlockIndex(draft.pacingBlockIndex)
+    setPacingPhaseStartedAt(draft.pacingPhaseStartedAt)
+    setPacingPhaseElapsedBase(draft.pacingPhaseElapsedBase)
+    setPacingBlocks(draft.pacingBlocks)
+    setPacingEvents(draft.pacingEvents)
+    setLastRepCue(draft.lastRepCue)
+    setTimerNow(Date.now())
+    setDraftActive(true)
+  }
+
   function openNewWorkout() {
-    resetForm()
+    if (!draftActive) {
+      resetForm()
+      setDraftActive(true)
+    }
     setSaveStatus(null)
     setScreen('new')
   }
@@ -218,6 +259,7 @@ export default function App() {
       resumePacing()
     } else if ((pacingPhase === 'idle' || pacingPhase === 'complete') && pacingPlan.length > 0 && pacingRepSeconds > 0) {
       startPacing(now)
+      window.setTimeout(() => pacingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
     } else {
       setTimerStartedAt(now)
     }
@@ -391,6 +433,8 @@ export default function App() {
       notes: notes.trim(),
     })
     await saveWorkout(workout)
+    await clearActiveWorkoutDraft()
+    setDraftActive(false)
     setWorkouts((current) => [workout, ...current].sort((a, b) => b.performedAt.localeCompare(a.performedAt)))
     setSaveStatus('Treino salvo neste aparelho.')
     setScreen('home')
@@ -418,6 +462,7 @@ export default function App() {
           </div>
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
+          {draftActive && <button type="button" className="active-session-banner" onClick={openNewWorkout}><span>Treino em andamento</span><strong>Retomar registro →</strong></button>}
 
           <div className="period-picker" role="group" aria-label="Período do resumo">
             {(['all', 'year', 'month'] as const).map((option) => (
@@ -461,9 +506,9 @@ export default function App() {
             </fieldset>
 
             <section className="timer-section" aria-labelledby="timer-title">
-              <div><p className="eyebrow">Cronômetro</p><h2 id="timer-title">{formatStopwatch(timerElapsedSeconds)}</h2></div>
+              <div><p className="eyebrow">Cronômetro</p><h2 id="timer-title">{formatStopwatch(timerElapsedSeconds)}</h2>{pacingPhase === 'warmup' ? <p className="timer-status preparing">Warm-up em andamento — o tempo oficial começa no primeiro set.</p> : timerStartedAt !== null ? <p className="timer-status running">● Treino em andamento</p> : <p className="timer-status">Pronto para iniciar</p>}</div>
               <div className="timer-actions">
-                {timerStartedAt === null ? <button type="button" className="primary-action" onClick={startTimer}>{timerElapsedSeconds > 0 ? 'Retomar' : 'Iniciar'}</button> : <button type="button" className="secondary-action" onClick={pauseTimer}>Pausar</button>}
+                {pacingPhase === 'warmup' ? <button type="button" className="secondary-action" disabled>Warm-up</button> : timerStartedAt === null ? <button type="button" className="primary-action" onClick={startTimer}>{timerElapsedSeconds > 0 ? 'Retomar' : 'Iniciar'}</button> : <button type="button" className="secondary-action" onClick={pauseTimer}>Pausar</button>}
                 {timerElapsedSeconds > 0 && <button type="button" className="text-button" onClick={resetTimer}>Zerar</button>}
               </div>
             </section>
@@ -499,7 +544,7 @@ export default function App() {
               {setGroups.length > 0 && <p className={currentSetTotal === targetReps ? 'set-total valid' : 'set-total'}>Total dos sets: <strong>{currentSetTotal}</strong> / {targetReps} NSBs</p>}
             </section>
 
-            <section className="pacing-section" aria-labelledby="pacing-title">
+            <section className="pacing-section" ref={pacingSectionRef} aria-labelledby="pacing-title">
               <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Ritmo por repetição</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
               <p>O cronômetro inicia o warm-up de {DEFAULT_WARMUP_SECONDS}s e aplica o ritmo a cada bloco da estrutura de sets.</p>
               <div className="pacing-mode-picker" role="group" aria-label="Modo do pacing">
