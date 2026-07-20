@@ -119,9 +119,19 @@ export default function App() {
   }, [timerStartedAt, pacingPhaseStartedAt])
 
   useEffect(() => {
-    const interval = window.setInterval(() => setHomeMessageIndex((index) => (index + 1) % HOME_MESSAGES.length), 7_000)
+    const interval = window.setInterval(() => setHomeMessageIndex((index) => {
+      if (HOME_MESSAGES.length < 2) return index
+      let next = index
+      while (next === index) next = Math.floor(Math.random() * HOME_MESSAGES.length)
+      return next
+    }), 30_000)
     return () => window.clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    const total = getSetGroupTotal(setGroups)
+    if (setGroups.length > 0 && REP_TARGETS.includes(total as RepTarget)) setTargetReps(total as RepTarget)
+  }, [setGroups])
 
   useEffect(() => {
     if (!draftReady || !draftActive) return
