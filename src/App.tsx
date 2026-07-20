@@ -459,7 +459,7 @@ export default function App() {
         <section className="content home-content" aria-labelledby="home-title">
           <div className="home-intro">
             <p id="home-title">{HOME_MESSAGES[homeMessageIndex]}</p>
-            <button className="primary-action hero-action" onClick={openNewWorkout}>Registrar treino</button>
+            <button className="primary-action hero-action" onClick={openNewWorkout} aria-label="Registrar treino" title="Registrar treino">+</button>
           </div>
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
@@ -491,10 +491,8 @@ export default function App() {
       )}
 
       {screen === 'new' && (
-        <section className="content workout-form" aria-labelledby="new-title">
+        <section className="content workout-form">
           <button className="back-button" onClick={() => setScreen('home')}>← Voltar</button>
-          <p className="eyebrow">Novo registro</p>
-          <h1 id="new-title">Como foi o treino?</h1>
           <form onSubmit={handleSave}>
             <fieldset>
               <legend>Quantidade total</legend>
