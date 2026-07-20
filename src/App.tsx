@@ -18,13 +18,13 @@ type DownloadFormat = 'svg' | 'png' | 'jpeg'
 type PacingPhase = 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
 const DEFAULT_WARMUP_SECONDS = 10
 const HOME_MESSAGES = [
-  'Do what you gotta do.',
   'Do what you know you have to do.',
-  '“Failure has been achieved. Thank God.” — Tom Platz',
-  '“Who’s gonna carry the boats and the logs?” — David Goggins',
+  '“Failure has been achieved. Thank God.”',
+  '“Who’s gonna carry the boats and the logs?”',
   '“You built belief when you had nothing. Rock bottom.”',
-  '“Don’t be afraid of being hurt. Don’t be afraid of sacrificing some blood.” — Jon Jones',
-]
+  '“Don’t be afraid of being hurt. Don’t be afraid of sacrificing some blood.”',
+  'Crux Sacra Sit Mihi Lux.',
+  'Força e Honra.',]
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -34,6 +34,7 @@ function todayLocalIso(): string {
 
 function parseDuration(value: string): number | null {
   const parts = value.trim().split(':').map(Number)
+  if (parts.length === 1 && Number.isInteger(parts[0]) && parts[0] >= 0) return parts[0]
   if (parts.length === 2 && Number.isInteger(parts[0]) && Number.isInteger(parts[1]) && parts[0] >= 0 && parts[1] >= 0 && parts[1] < 60) return parts[0] * 60 + parts[1]
   if (parts.length === 3 && Number.isInteger(parts[0]) && Number.isInteger(parts[1]) && Number.isInteger(parts[2]) && parts[0] >= 0 && parts[1] >= 0 && parts[1] < 60 && parts[2] >= 0 && parts[2] < 60) return parts[0] * 3600 + parts[1] * 60 + parts[2]
   return null
@@ -226,6 +227,17 @@ export default function App() {
     setTimerElapsedBase(0)
     setTimerNow(Date.now())
     setDuration('')
+    resetPacingProgress()
+  }
+
+  function resetPacingProgress() {
+    setPacingPhase('idle')
+    setPacingBlockIndex(0)
+    setPacingPhaseStartedAt(null)
+    setPacingPhaseElapsedBase(0)
+    setPacingBlocks([])
+    setPacingEvents([])
+    setLastRepCue(0)
   }
 
   function emitPacingSignal(kind: 'set' | 'rest' | 'complete' | 'rep') {
@@ -278,6 +290,10 @@ export default function App() {
         setPacingPhase('complete')
         setPacingPhaseStartedAt(null)
         setPacingPhaseElapsedBase(actualSeconds)
+        const totalElapsed = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((Date.now() - timerStartedAt) / 1000))
+        setTimerElapsedBase(totalElapsed)
+        setTimerStartedAt(null)
+        setDuration(formatDuration(totalElapsed))
         appendPacingEvent('session-completed', transition, pacingBlockIndex)
         emitPacingSignal('complete')
         return
