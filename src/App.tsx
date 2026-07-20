@@ -5,7 +5,7 @@ import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
 import { deleteLegacyDailyVolumes, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type RepTarget, type SetGroup, type Workout } from './types'
+import { REP_TARGETS, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type Workout } from './types'
 
 type Screen = 'home' | 'new' | 'history' | 'data'
 type Period = 'month' | 'year' | 'all'
@@ -41,6 +41,7 @@ function parseDuration(value: string): number | null {
 }
 
 function formatStopwatch(seconds: number): string {
+  seconds = Math.max(0, seconds)
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const remainingSeconds = seconds % 60
@@ -89,6 +90,7 @@ export default function App() {
   const [pacingPhaseElapsedBase, setPacingPhaseElapsedBase] = useState(0)
   const [pacingBlocks, setPacingBlocks] = useState<{ reps: number; targetSeconds: number; actualSeconds: number }[]>([])
   const [pacingEvents, setPacingEvents] = useState<{ type: import('./types').PacingEventType; elapsedSeconds: number; blockIndex?: number; transition: 'automatic' | 'manual' }[]>([])
+  const [pacingMode, setPacingMode] = useState<PacingMode>('automatic')
   const [lastRepCue, setLastRepCue] = useState(0)
 
   useEffect(() => {
@@ -158,7 +160,8 @@ export default function App() {
   const pacingPhaseTarget = pacingPhase === 'warmup' ? DEFAULT_WARMUP_SECONDS : pacingPhase === 'set' ? (pacingPlan[pacingBlockIndex] ?? 0) * pacingRepSeconds : pacingPhase === 'rest' ? pacingRestSeconds : 0
 
   useEffect(() => {
-    if ((pacingPhase !== 'warmup' && pacingPhase !== 'set' && pacingPhase !== 'rest') || pacingPhaseTarget <= 0 || pacingPhaseElapsed < pacingPhaseTarget) return
+    const advancesAutomatically = pacingPhase === 'warmup' || pacingMode === 'automatic' || pacingMode === 'hybrid' || (pacingMode === 'manual-rest' && pacingPhase === 'set')
+    if (!advancesAutomatically || (pacingPhase !== 'warmup' && pacingPhase !== 'set' && pacingPhase !== 'rest') || pacingPhaseTarget <= 0 || pacingPhaseElapsed < pacingPhaseTarget) return
     advancePacingPhase('automatic')
   }, [pacingPhaseElapsed, pacingPhase, pacingPhaseTarget])
 
@@ -189,6 +192,7 @@ export default function App() {
     setPacingBlocks([])
     setPacingEvents([])
     setLastRepCue(0)
+    setPacingMode('automatic')
   }
 
   function openNewWorkout() {
@@ -278,7 +282,7 @@ export default function App() {
       setPacingPhaseElapsedBase(0)
       setPacingPhaseStartedAt(now)
       setLastRepCue(0)
-      appendPacingEvent('set-started', transition, 0)
+      appendPacingEvent('set-started', transition, pacingBlockIndex)
       emitPacingSignal('set')
       return
     }
@@ -315,14 +319,20 @@ export default function App() {
       return
     }
     if (pacingPhase === 'rest') {
-      setPacingBlockIndex((index) => index + 1)
-      setPacingPhase('set')
+      const nextBlockIndex = pacingBlockIndex + 1
+      setPacingBlockIndex(nextBlockIndex)
       setPacingPhaseElapsedBase(0)
       setPacingPhaseStartedAt(now)
       setLastRepCue(0)
       appendPacingEvent('rest-completed', transition, pacingBlockIndex)
-      appendPacingEvent('set-started', transition, pacingBlockIndex + 1)
-      emitPacingSignal('set')
+      if (pacingMode === 'manual-rest' || pacingMode === 'free') {
+        setPacingPhase('warmup')
+        appendPacingEvent('warmup-started', transition, nextBlockIndex)
+      } else {
+        setPacingPhase('set')
+        appendPacingEvent('set-started', transition, nextBlockIndex)
+        emitPacingSignal('set')
+      }
     }
   }
 
@@ -355,7 +365,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
-      pacingSession: pacingBlocks.length > 0 ? { mode: 'automatic', warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks, events: pacingEvents } : undefined,
+      pacingSession: pacingBlocks.length > 0 ? { mode: pacingMode, warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks, events: pacingEvents } : undefined,
       notes: notes.trim(),
     })
     if (validation) {
@@ -368,7 +378,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
-      pacingSession: pacingBlocks.length > 0 ? { mode: 'automatic', warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks, events: pacingEvents } : undefined,
+      pacingSession: pacingBlocks.length > 0 ? { mode: pacingMode, warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, blocks: pacingBlocks, events: pacingEvents } : undefined,
       notes: notes.trim(),
     })
     await saveWorkout(workout)
@@ -483,6 +493,13 @@ export default function App() {
             <section className="pacing-section" aria-labelledby="pacing-title">
               <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Ritmo por repetição</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
               <p>O cronômetro inicia o warm-up de {DEFAULT_WARMUP_SECONDS}s e aplica o ritmo a cada bloco da estrutura de sets.</p>
+              <div className="pacing-mode-picker" role="group" aria-label="Modo do pacing">
+                <button type="button" className={pacingMode === 'automatic' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('automatic')}>Auto</button>
+                <button type="button" className={pacingMode === 'manual-rest' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('manual-rest')}>Descanso manual</button>
+                <button type="button" className={pacingMode === 'hybrid' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('hybrid')}>Híbrido</button>
+                <button type="button" className={pacingMode === 'free' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('free')}>Livre</button>
+              </div>
+              <p className="pacing-mode-note">{pacingMode === 'automatic' ? 'O plano troca set e descanso sozinho.' : pacingMode === 'manual-rest' ? 'O set encerra na meta; você aciona o próximo set e seu warm-up.' : pacingMode === 'hybrid' ? 'O plano é automático, mas você pode adiantar qualquer fase.' : 'Você conduz os sets e descansos; o app mantém as metas como referência.'}</p>
               <div className="field-grid pacing-fields">
                 <label><span>Ritmo por repetição</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={pacingRepDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRepDuration(formatDurationInput(event.target.value))} /></label>
                 <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
@@ -490,7 +507,7 @@ export default function App() {
               {pacingPlan.length > 0 && pacingRepSeconds > 0 && pacingPhase === 'idle' && <p className="pacing-plan">Plano: {pacingPlan.map((reps, index) => <span key={`${reps}-${index}`}>{reps} NSBs · {formatDuration(reps * pacingRepSeconds)}</span>)}</p>}
               {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingPlan[pacingBlockIndex]} NSBs · sinal a cada {formatDuration(pacingRepSeconds)}</span>}</div>}
               <div className="pacing-actions">
-                {pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && pacingPhase !== 'complete' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>Avançar</button></>}
+                {pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && pacingPhase !== 'complete' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && (pacingMode === 'manual-rest' || pacingMode === 'free') ? 'Iniciar próximo set' : 'Avançar'}</button></>}
               </div>
               {pacingBlocks.length > 0 && <p className="pacing-summary">{pacingBlocks.length} de {pacingPlan.length} sets concluídos · tempos reais registrados no treino.</p>}
             </section>

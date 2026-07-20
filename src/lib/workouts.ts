@@ -32,9 +32,10 @@ export function formatDuration(seconds: number): string {
 }
 
 export function formatDurationInput(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 5)
-  if (digits.length <= 2) return digits
-  if (digits.length <= 4) return `${digits.slice(0, -2)}:${digits.slice(-2)}`
+  const rawDigits = value.replace(/\D/g, '').slice(-5)
+  const digits = rawDigits.replace(/^0+(?=\d)/, '') || '0'
+  if (digits.length <= 2) return `00:${digits.padStart(2, '0')}`
+  if (digits.length <= 4) return `${digits.slice(0, -2).padStart(2, '0')}:${digits.slice(-2)}`
   return `${digits.slice(0, 1)}:${digits.slice(1, 3)}:${digits.slice(3)}`
 }
 

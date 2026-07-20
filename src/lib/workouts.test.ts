@@ -13,8 +13,9 @@ describe('workout validation', () => {
   })
 
   it('formats typed durations as mm:ss or h:mm:ss', () => {
-    expect(formatDurationInput('4')).toBe('4')
-    expect(formatDurationInput('256')).toBe('2:56')
+    expect(formatDurationInput('4')).toBe('00:04')
+    expect(formatDurationInput('30')).toBe('00:30')
+    expect(formatDurationInput('256')).toBe('02:56')
     expect(formatDurationInput('1842')).toBe('18:42')
     expect(formatDurationInput('12345')).toBe('1:23:45')
   })
