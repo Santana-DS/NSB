@@ -14,7 +14,7 @@ export interface PacingBlock {
   actualSeconds: number
 }
 
-export type PacingMode = 'automatic' | 'manual-rest' | 'hybrid' | 'free'
+export type PacingMode = 'automatic' | 'manual-rest'
 export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'
 
 export interface PacingEvent {

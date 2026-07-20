@@ -160,7 +160,7 @@ export default function App() {
   const pacingPhaseTarget = pacingPhase === 'warmup' ? DEFAULT_WARMUP_SECONDS : pacingPhase === 'set' ? (pacingPlan[pacingBlockIndex] ?? 0) * pacingRepSeconds : pacingPhase === 'rest' ? pacingRestSeconds : 0
 
   useEffect(() => {
-    const advancesAutomatically = pacingPhase === 'warmup' || pacingMode === 'automatic' || pacingMode === 'hybrid' || (pacingMode === 'manual-rest' && pacingPhase === 'set')
+    const advancesAutomatically = pacingPhase === 'warmup' || pacingMode === 'automatic' || (pacingMode === 'manual-rest' && pacingPhase === 'set')
     if (!advancesAutomatically || (pacingPhase !== 'warmup' && pacingPhase !== 'set' && pacingPhase !== 'rest') || pacingPhaseTarget <= 0 || pacingPhaseElapsed < pacingPhaseTarget) return
     advancePacingPhase('automatic')
   }, [pacingPhaseElapsed, pacingPhase, pacingPhaseTarget])
@@ -212,10 +212,15 @@ export default function App() {
   function startTimer() {
     const now = Date.now()
     setTimerNow(now)
-    setTimerStartedAt(now)
     setPerformedAt(todayLocalIso())
-    if (pacingPhase === 'paused') resumePacing()
-    else if ((pacingPhase === 'idle' || pacingPhase === 'complete') && pacingPlan.length > 0 && pacingRepSeconds > 0) startPacing(now)
+    if (pacingPhase === 'paused') {
+      if (pacingPausedPhase !== 'warmup') setTimerStartedAt(now)
+      resumePacing()
+    } else if ((pacingPhase === 'idle' || pacingPhase === 'complete') && pacingPlan.length > 0 && pacingRepSeconds > 0) {
+      startPacing(now)
+    } else {
+      setTimerStartedAt(now)
+    }
   }
 
   function pauseTimer() {
@@ -278,6 +283,10 @@ export default function App() {
   function advancePacingPhase(transition: 'automatic' | 'manual' = 'manual') {
     const now = Date.now()
     if (pacingPhase === 'warmup') {
+      if (timerStartedAt === null) {
+        setTimerElapsedBase(0)
+        setTimerStartedAt(now)
+      }
       setPacingPhase('set')
       setPacingPhaseElapsedBase(0)
       setPacingPhaseStartedAt(now)
@@ -325,7 +334,7 @@ export default function App() {
       setPacingPhaseStartedAt(now)
       setLastRepCue(0)
       appendPacingEvent('rest-completed', transition, pacingBlockIndex)
-      if (pacingMode === 'manual-rest' || pacingMode === 'free') {
+      if (pacingMode === 'manual-rest') {
         setPacingPhase('warmup')
         appendPacingEvent('warmup-started', transition, nextBlockIndex)
       } else {
@@ -496,10 +505,8 @@ export default function App() {
               <div className="pacing-mode-picker" role="group" aria-label="Modo do pacing">
                 <button type="button" className={pacingMode === 'automatic' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('automatic')}>Auto</button>
                 <button type="button" className={pacingMode === 'manual-rest' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('manual-rest')}>Descanso manual</button>
-                <button type="button" className={pacingMode === 'hybrid' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('hybrid')}>Híbrido</button>
-                <button type="button" className={pacingMode === 'free' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('free')}>Livre</button>
               </div>
-              <p className="pacing-mode-note">{pacingMode === 'automatic' ? 'O plano troca set e descanso sozinho.' : pacingMode === 'manual-rest' ? 'O set encerra na meta; você aciona o próximo set e seu warm-up.' : pacingMode === 'hybrid' ? 'O plano é automático, mas você pode adiantar qualquer fase.' : 'Você conduz os sets e descansos; o app mantém as metas como referência.'}</p>
+              <p className="pacing-mode-note">{pacingMode === 'automatic' ? 'O plano troca set e descanso sozinho.' : 'O set encerra na meta; você aciona o próximo set e seu warm-up.'}</p>
               <div className="field-grid pacing-fields">
                 <label><span>Ritmo por repetição</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={pacingRepDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRepDuration(formatDurationInput(event.target.value))} /></label>
                 <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
@@ -507,7 +514,7 @@ export default function App() {
               {pacingPlan.length > 0 && pacingRepSeconds > 0 && pacingPhase === 'idle' && <p className="pacing-plan">Plano: {pacingPlan.map((reps, index) => <span key={`${reps}-${index}`}>{reps} NSBs · {formatDuration(reps * pacingRepSeconds)}</span>)}</p>}
               {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingPlan[pacingBlockIndex]} NSBs · sinal a cada {formatDuration(pacingRepSeconds)}</span>}</div>}
               <div className="pacing-actions">
-                {pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && pacingPhase !== 'complete' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && (pacingMode === 'manual-rest' || pacingMode === 'free') ? 'Iniciar próximo set' : 'Avançar'}</button></>}
+                {pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && pacingPhase !== 'complete' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && pacingMode === 'manual-rest' ? 'Iniciar próximo set' : 'Avançar'}</button></>}
               </div>
               {pacingBlocks.length > 0 && <p className="pacing-summary">{pacingBlocks.length} de {pacingPlan.length} sets concluídos · tempos reais registrados no treino.</p>}
             </section>
