@@ -173,6 +173,7 @@ export default function App() {
   const pacingPlan = useMemo(() => setGroups.flatMap((group) => Array.from({ length: Math.max(0, group.setCount) }, () => group.repsPerSet)), [setGroups])
   const pacingPhaseElapsed = pacingPhaseElapsedBase + (pacingPhaseStartedAt === null ? 0 : Math.floor((timerNow - pacingPhaseStartedAt) / 1000))
   const pacingPhaseTarget = pacingPhase === 'warmup' ? DEFAULT_WARMUP_SECONDS : pacingPhase === 'set' ? (pacingPlan[pacingBlockIndex] ?? 0) * pacingRepSeconds : pacingPhase === 'rest' ? pacingRestSeconds : 0
+  const pacingRepCount = pacingPhase === 'set' && pacingRepSeconds > 0 ? Math.min(pacingPlan[pacingBlockIndex] ?? 0, Math.floor(pacingPhaseElapsed / pacingRepSeconds)) : 0
 
   useEffect(() => {
     const advancesAutomatically = pacingPhase === 'warmup' || pacingMode === 'automatic' || (pacingMode === 'manual-rest' && pacingPhase === 'set')
@@ -462,7 +463,6 @@ export default function App() {
           </div>
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
-          {draftActive && <button type="button" className="active-session-banner" onClick={openNewWorkout}><span>Treino em andamento</span><strong>Retomar registro →</strong></button>}
 
           <div className="period-picker" role="group" aria-label="Período do resumo">
             {(['all', 'year', 'month'] as const).map((option) => (
@@ -506,7 +506,7 @@ export default function App() {
             </fieldset>
 
             <section className="timer-section" aria-labelledby="timer-title">
-              <div><p className="eyebrow">Cronômetro</p><h2 id="timer-title">{formatStopwatch(timerElapsedSeconds)}</h2>{pacingPhase === 'warmup' ? <p className="timer-status preparing">Warm-up em andamento — o tempo oficial começa no primeiro set.</p> : timerStartedAt !== null ? <p className="timer-status running">● Treino em andamento</p> : <p className="timer-status">Pronto para iniciar</p>}</div>
+              <div><p className="eyebrow">Cronômetro</p><div className="timer-readout"><h2 id="timer-title">{formatStopwatch(timerElapsedSeconds)}</h2>{(pacingPhase === 'warmup' || timerStartedAt !== null) && <i className={pacingPhase === 'warmup' ? 'timer-indicator preparing' : 'timer-indicator running'} aria-label={pacingPhase === 'warmup' ? 'Warm-up em andamento' : 'Treino em andamento'} />}</div></div>
               <div className="timer-actions">
                 {pacingPhase === 'warmup' ? <button type="button" className="secondary-action" disabled>Warm-up</button> : timerStartedAt === null ? <button type="button" className="primary-action" onClick={startTimer}>{timerElapsedSeconds > 0 ? 'Retomar' : 'Iniciar'}</button> : <button type="button" className="secondary-action" onClick={pauseTimer}>Pausar</button>}
                 {timerElapsedSeconds > 0 && <button type="button" className="text-button" onClick={resetTimer}>Zerar</button>}
@@ -557,7 +557,7 @@ export default function App() {
                 <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
               </div>
               {pacingPlan.length > 0 && pacingRepSeconds > 0 && pacingPhase === 'idle' && <p className="pacing-plan">Plano: {pacingPlan.map((reps, index) => <span key={`${reps}-${index}`}>{reps} NSBs · {formatDuration(reps * pacingRepSeconds)}</span>)}</p>}
-              {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingPlan[pacingBlockIndex]} NSBs · sinal a cada {formatDuration(pacingRepSeconds)}</span>}</div>}
+              {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingRepCount} / {pacingPlan[pacingBlockIndex]} repetições · {formatDuration(pacingRepSeconds)} por repetição</span>}</div>}
               <div className="pacing-actions">
                 {pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && pacingPhase !== 'complete' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && pacingMode === 'manual-rest' ? 'Iniciar próximo set' : 'Avançar'}</button></>}
               </div>
