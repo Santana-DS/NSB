@@ -9,6 +9,7 @@ export interface SetGroup {
 }
 
 export interface PacingBlock {
+  groupId?: string
   reps: number
   targetSeconds: number
   actualSeconds: number
@@ -29,6 +30,7 @@ export interface PacingSession {
   warmupSeconds: number
   paceSeconds: number
   restTargetSeconds: number
+  groupPaces?: Record<string, number>
   blocks: PacingBlock[]
   events: PacingEvent[]
 }
@@ -45,6 +47,7 @@ export interface ActiveWorkoutDraft {
   timerElapsedBase: number
   pacingRepDuration: string
   pacingRestDuration: string
+  pacingGroupDurations: Record<string, string>
   pacingMode: PacingMode
   pacingPhase: 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
   pacingPausedPhase: 'warmup' | 'set' | 'rest'
