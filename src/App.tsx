@@ -99,6 +99,8 @@ export default function App() {
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [timerNow, setTimerNow] = useState(Date.now())
   const [pacingRepDuration, setPacingRepDuration] = useState('')
+  const [pacingTargetMode, setPacingTargetMode] = useState<'pace' | 'total'>('pace')
+  const [pacingTotalDuration, setPacingTotalDuration] = useState('')
   const [pacingRestDuration, setPacingRestDuration] = useState('')
   const [pacingGroupDurations, setPacingGroupDurations] = useState<Record<string, string>>({})
   const [pacingGroupRests, setPacingGroupRests] = useState<Record<string, string>>({})
@@ -156,7 +158,7 @@ export default function App() {
     if (!draftReady || !draftActive) return
     const draft: ActiveWorkoutDraft = {
       id: 'current', updatedAt: new Date().toISOString(), targetReps, performedAt, duration, setGroups, notes,
-      timerStartedAt, timerElapsedBase, pacingRepDuration, pacingRestDuration, pacingGroupDurations, pacingGroupRests, pacingMode, pacingPhase,
+      timerStartedAt, timerElapsedBase, pacingRepDuration, pacingTargetMode, pacingTotalDuration, pacingRestDuration, pacingGroupDurations, pacingGroupRests, pacingMode, pacingPhase,
       pacingPausedPhase, pacingBlockIndex, pacingPhaseStartedAt, pacingPhaseElapsedBase, pacingBlocks,
       pacingEvents, lastRepCue,
     }
@@ -197,8 +199,19 @@ export default function App() {
 
   const currentSetTotal = getSetGroupTotal(setGroups)
   const timerElapsedSeconds = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((timerNow - timerStartedAt) / 1000))
-  const pacingRepSeconds = parseDuration(pacingRepDuration) ?? 0
+  const manualPacingRepSeconds = parseDuration(pacingRepDuration) ?? 0
+  const pacingTotalTargetSeconds = parseDuration(pacingTotalDuration) ?? 0
   const pacingRestSeconds = parseDuration(pacingRestDuration) ?? 0
+  const pacingGroupDefinitions = useMemo(() => setGroups.map((group) => {
+    const groupPace = parseDuration(pacingGroupDurations[group.id] ?? '')
+    const groupRest = parseDuration(pacingGroupRests[group.id] ?? '')
+    return { group, paceSeconds: groupPace && groupPace > 0 ? groupPace : null, restSeconds: groupRest && groupRest > 0 ? groupRest : pacingRestSeconds }
+  }), [pacingGroupDurations, pacingGroupRests, pacingRestSeconds, setGroups])
+  const plannedRestSeconds = pacingGroupDefinitions.reduce((total, item, index) => total + item.restSeconds * Math.max(0, item.group.setCount - (index === pacingGroupDefinitions.length - 1 ? 1 : 0)), 0)
+  const overriddenActiveSeconds = pacingGroupDefinitions.reduce((total, item) => total + (item.paceSeconds ?? 0) * item.group.repsPerSet * item.group.setCount, 0)
+  const adjustableReps = pacingGroupDefinitions.reduce((total, item) => total + (item.paceSeconds === null ? item.group.repsPerSet * item.group.setCount : 0), 0)
+  const calculatedPacingRepSeconds = pacingTargetMode === 'total' && pacingTotalTargetSeconds > 0 && adjustableReps > 0 ? (pacingTotalTargetSeconds - plannedRestSeconds - overriddenActiveSeconds) / adjustableReps : 0
+  const pacingRepSeconds = pacingTargetMode === 'total' ? calculatedPacingRepSeconds : manualPacingRepSeconds
   const pacingPlan = useMemo(() => setGroups.flatMap((group) => {
     const groupPace = parseDuration(pacingGroupDurations[group.id] ?? '')
     const paceSeconds = groupPace && groupPace > 0 ? groupPace : pacingRepSeconds
@@ -237,6 +250,8 @@ export default function App() {
     setTimerElapsedBase(0)
     setTimerNow(Date.now())
     setPacingRepDuration('')
+    setPacingTargetMode('pace')
+    setPacingTotalDuration('')
     setPacingRestDuration('')
     setPacingGroupDurations({})
     setPacingGroupRests({})
@@ -259,6 +274,8 @@ export default function App() {
     setTimerStartedAt(draft.timerStartedAt)
     setTimerElapsedBase(draft.timerElapsedBase)
     setPacingRepDuration(draft.pacingRepDuration)
+    setPacingTargetMode(draft.pacingTargetMode ?? 'pace')
+    setPacingTotalDuration(draft.pacingTotalDuration ?? '')
     setPacingRestDuration(draft.pacingRestDuration)
     setPacingGroupDurations(draft.pacingGroupDurations ?? {})
     setPacingGroupRests(draft.pacingGroupRests ?? {})
@@ -293,6 +310,10 @@ export default function App() {
   }
 
   function startTimer() {
+    if (pacingTargetMode === 'total' && pacingPlan.length > 0 && (pacingTotalTargetSeconds <= 0 || pacingRepSeconds <= 0)) {
+      setError('A meta total precisa cobrir os descansos e deixar tempo para os grupos no ritmo geral.')
+      return
+    }
     const now = Date.now()
     setTimerNow(now)
     setPerformedAt(todayLocalIso())
@@ -474,7 +495,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
-      pacingSession: pacingBlocks.length > 0 ? { mode: pacingMode, warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, groupPaces: getPacingGroupPaces(), groupRests: getPacingGroupRests(), blocks: pacingBlocks, events: pacingEvents } : undefined,
+      pacingSession: pacingBlocks.length > 0 ? { mode: pacingMode, targetMode: pacingTargetMode, totalTargetSeconds: pacingTargetMode === 'total' ? pacingTotalTargetSeconds : undefined, warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, groupPaces: getPacingGroupPaces(), groupRests: getPacingGroupRests(), blocks: pacingBlocks, events: pacingEvents } : undefined,
       notes: notes.trim(),
     })
     if (validation) {
@@ -487,7 +508,7 @@ export default function App() {
       performedAt: new Date(performedAt).toISOString(),
       durationSeconds,
       setGroups,
-      pacingSession: pacingBlocks.length > 0 ? { mode: pacingMode, warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, groupPaces: getPacingGroupPaces(), groupRests: getPacingGroupRests(), blocks: pacingBlocks, events: pacingEvents } : undefined,
+      pacingSession: pacingBlocks.length > 0 ? { mode: pacingMode, targetMode: pacingTargetMode, totalTargetSeconds: pacingTargetMode === 'total' ? pacingTotalTargetSeconds : undefined, warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, groupPaces: getPacingGroupPaces(), groupRests: getPacingGroupRests(), blocks: pacingBlocks, events: pacingEvents } : undefined,
       notes: notes.trim(),
     })
     await saveWorkout(workout)
@@ -600,17 +621,19 @@ export default function App() {
             </section>
 
             <section className="pacing-section" ref={pacingSectionRef} aria-labelledby="pacing-title">
-              <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Ritmo por repetição</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
+              <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Meta de pacing</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
               <p>O cronômetro inicia o warm-up de {DEFAULT_WARMUP_SECONDS}s e aplica o ritmo a cada bloco da estrutura de sets.</p>
+              <div className="pacing-target-picker" role="group" aria-label="Tipo de meta de pacing"><button type="button" className={pacingTargetMode === 'pace' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingTargetMode('pace')}>Ritmo</button><button type="button" className={pacingTargetMode === 'total' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingTargetMode('total')}>Meta total</button></div>
               <div className="pacing-mode-picker" role="group" aria-label="Modo do pacing">
                 <button type="button" className={pacingMode === 'automatic' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('automatic')}>Auto</button>
                 <button type="button" className={pacingMode === 'manual-rest' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('manual-rest')}>Descanso manual</button>
               </div>
               <p className="pacing-mode-note">{pacingMode === 'automatic' ? 'O plano troca set e descanso sozinho.' : 'O set encerra na meta; você aciona o próximo set e seu warm-up.'}</p>
               <div className="field-grid pacing-fields">
-                <label><span>Ritmo por repetição</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={pacingRepDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRepDuration(formatDurationInput(event.target.value))} /></label>
+                <label><span>{pacingTargetMode === 'total' ? 'Meta total' : 'Ritmo por repetição'}</span><input inputMode="numeric" maxLength={7} placeholder={pacingTargetMode === 'total' ? '20:00' : '00:08'} value={pacingTargetMode === 'total' ? pacingTotalDuration : pacingRepDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => pacingTargetMode === 'total' ? setPacingTotalDuration(formatDurationInput(event.target.value)) : setPacingRepDuration(formatDurationInput(event.target.value))} /></label>
                 <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
               </div>
+              {pacingTargetMode === 'total' && pacingRepSeconds > 0 && <p className="pacing-mode-note">Ritmo calculado: <strong>{formatDuration(pacingRepSeconds)} / rep.</strong></p>}
               {setGroups.length > 1 && <details className="pacing-group-settings"><summary>Ajustar ritmo por grupo</summary><div className="pacing-group-headings"><span>Ritmo</span><span>Descanso</span></div>{setGroups.map((group, index) => <label key={group.id}><span>Grupo {index + 1} · {group.setCount} × {group.repsPerSet}</span><input inputMode="numeric" maxLength={7} placeholder="Geral" value={pacingGroupDurations[group.id] ?? ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => { const digits = event.target.value.replace(/\D/g, ''); setPacingGroupDurations((current) => ({ ...current, [group.id]: digits.replace(/0/g, '') === '' ? '' : formatDurationInput(event.target.value) })) }} /><input inputMode="numeric" maxLength={7} placeholder="Geral" value={pacingGroupRests[group.id] ?? ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => { const digits = event.target.value.replace(/\D/g, ''); setPacingGroupRests((current) => ({ ...current, [group.id]: digits.replace(/0/g, '') === '' ? '' : formatDurationInput(event.target.value) })) }} /></label>)}</details>}
               {pacingPlan.some((block) => block.paceSeconds > 0) && pacingPhase === 'idle' && <p className="pacing-plan">Plano: {pacingPlan.map((block, index) => <span key={`${block.groupId}-${index}`}>{block.reps} NSBs · {formatDuration(block.reps * block.paceSeconds)}</span>)}</p>}
               {pacingPlan.some((block) => block.paceSeconds > 0) && <p className="pacing-projection">Projeção total <strong>{formatDuration(pacingProjectionSeconds)}</strong></p>}

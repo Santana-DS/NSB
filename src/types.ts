@@ -27,6 +27,8 @@ export interface PacingEvent {
 
 export interface PacingSession {
   mode: PacingMode
+  targetMode?: 'pace' | 'total'
+  totalTargetSeconds?: number
   warmupSeconds: number
   paceSeconds: number
   restTargetSeconds: number
@@ -47,6 +49,8 @@ export interface ActiveWorkoutDraft {
   timerStartedAt: number | null
   timerElapsedBase: number
   pacingRepDuration: string
+  pacingTargetMode: 'pace' | 'total'
+  pacingTotalDuration: string
   pacingRestDuration: string
   pacingGroupDurations: Record<string, string>
   pacingGroupRests: Record<string, string>

@@ -23,6 +23,7 @@ export function validateWorkout(draft: WorkoutDraft): string | null {
 }
 
 export function formatDuration(seconds: number): string {
+  seconds = Math.max(0, Math.round(seconds))
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor(seconds / 60)
   const remainingMinutes = Math.floor((seconds % 3600) / 60)
