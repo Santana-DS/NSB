@@ -10,7 +10,7 @@
 8. Quantidades padrão personalizáveis: uma interface visual para editar a matriz de quantidades e, opcionalmente, permitir entradas livres, sem comprometer os atalhos iniciais de 100 a 500 em incrementos de 50.
 9. [x] Sessão ativa persistente: salvar e restaurar localmente o registro, cronômetro e estado de pacing em andamento.
 10. [x] Estatísticas de pacing: integrar o ritmo de execução dos treinos guiados ao cartão de cada quantidade.
-11. [x] Ritmo por grupo de sets: ritmo-base com ajustes opcionais por grupo e fotografia do plano no treino salvo.
+11. [x] Ritmo e descanso por grupo de sets: valores gerais com ajustes opcionais por grupo e fotografia do plano no treino salvo.
 12. Meta total de sessão: calcular ritmo-base e duração dos blocos a partir do tempo total desejado, descansos e multiplicadores por grupo; indicar projeção em modos de descanso manual.
 13. Camada nativa móvel: alarmes/áudio de pacing confiáveis em segundo plano, além de integração com Wake Lock e notificações locais.
 14. Temas e cores: selecionar paletas de visualização e oferecer modo claro, escuro ou automático conforme a preferência do sistema.
