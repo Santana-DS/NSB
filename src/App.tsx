@@ -53,6 +53,20 @@ function dateLabel(iso: string): string {
   return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(iso))
 }
 
+function getPacingProjection({ phase, pausedPhase, phaseElapsed, blockIndex, plan, restSeconds, timerElapsedSeconds, plannedSeconds }: { phase: PacingPhase; pausedPhase: 'warmup' | 'set' | 'rest'; phaseElapsed: number; blockIndex: number; plan: { reps: number; paceSeconds: number }[]; restSeconds: number; timerElapsedSeconds: number; plannedSeconds: number }): number {
+  if (phase === 'idle' || phase === 'warmup') return plannedSeconds
+  if (phase === 'complete') return timerElapsedSeconds
+  const activePhase = phase === 'paused' ? pausedPhase : phase
+  if (activePhase === 'set') {
+    const currentTarget = (plan[blockIndex]?.reps ?? 0) * (plan[blockIndex]?.paceSeconds ?? 0)
+    const futureSets = plan.slice(blockIndex + 1).reduce((total, block) => total + block.reps * block.paceSeconds, 0)
+    return timerElapsedSeconds + Math.max(0, currentTarget - phaseElapsed) + futureSets + restSeconds * Math.max(0, plan.length - blockIndex - 1)
+  }
+  const futureSets = plan.slice(blockIndex + 1).reduce((total, block) => total + block.reps * block.paceSeconds, 0)
+  const futureRests = Math.max(0, plan.length - blockIndex - 2)
+  return timerElapsedSeconds + Math.max(0, restSeconds - phaseElapsed) + futureSets + restSeconds * futureRests
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
   const [workouts, setWorkouts] = useState<Workout[]>([])
@@ -190,6 +204,8 @@ export default function App() {
   const pacingPhaseElapsed = pacingPhaseElapsedBase + (pacingPhaseStartedAt === null ? 0 : Math.floor((timerNow - pacingPhaseStartedAt) / 1000))
   const pacingPhaseTarget = pacingPhase === 'warmup' ? DEFAULT_WARMUP_SECONDS : pacingPhase === 'set' ? (pacingPlan[pacingBlockIndex]?.reps ?? 0) * (pacingPlan[pacingBlockIndex]?.paceSeconds ?? 0) : pacingPhase === 'rest' ? pacingRestSeconds : 0
   const pacingRepCount = pacingPhase === 'set' && (pacingPlan[pacingBlockIndex]?.paceSeconds ?? 0) > 0 ? Math.min(pacingPlan[pacingBlockIndex]?.reps ?? 0, Math.floor(pacingPhaseElapsed / (pacingPlan[pacingBlockIndex]?.paceSeconds ?? 1))) : 0
+  const plannedPacingSeconds = pacingPlan.reduce((total, block) => total + block.reps * block.paceSeconds, 0) + pacingRestSeconds * Math.max(0, pacingPlan.length - 1)
+  const pacingProjectionSeconds = getPacingProjection({ phase: pacingPhase, pausedPhase: pacingPausedPhase, phaseElapsed: pacingPhaseElapsed, blockIndex: pacingBlockIndex, plan: pacingPlan, restSeconds: pacingRestSeconds, timerElapsedSeconds, plannedSeconds: plannedPacingSeconds })
 
   useEffect(() => {
     const advancesAutomatically = pacingPhase === 'warmup' || pacingMode === 'automatic' || (pacingMode === 'manual-rest' && pacingPhase === 'set')
@@ -582,6 +598,7 @@ export default function App() {
               </div>
               {setGroups.length > 1 && <details className="pacing-group-settings"><summary>Ajustar ritmo por grupo</summary>{setGroups.map((group, index) => <label key={group.id}><span>Grupo {index + 1} · {group.setCount} × {group.repsPerSet}</span><input inputMode="numeric" maxLength={7} placeholder="Ritmo geral" value={pacingGroupDurations[group.id] ?? ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => { const digits = event.target.value.replace(/\D/g, ''); setPacingGroupDurations((current) => ({ ...current, [group.id]: digits.replace(/0/g, '') === '' ? '' : formatDurationInput(event.target.value) })) }} /></label>)}</details>}
               {pacingPlan.some((block) => block.paceSeconds > 0) && pacingPhase === 'idle' && <p className="pacing-plan">Plano: {pacingPlan.map((block, index) => <span key={`${block.groupId}-${index}`}>{block.reps} NSBs · {formatDuration(block.reps * block.paceSeconds)}</span>)}</p>}
+              {pacingPlan.some((block) => block.paceSeconds > 0) && <p className="pacing-projection">Projeção total <strong>{formatDuration(pacingProjectionSeconds)}</strong></p>}
               {pacingPhase !== 'idle' && <div className="pacing-clock"><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingRepCount} / {pacingPlan[pacingBlockIndex]?.reps} repetições · {formatDuration(pacingPlan[pacingBlockIndex]?.paceSeconds ?? 0)} por repetição</span>}</div>}
               <div className="pacing-actions">
                 {pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && pacingPhase !== 'complete' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && pacingMode === 'manual-rest' ? 'Iniciar próximo set' : 'Avançar'}</button></>}
