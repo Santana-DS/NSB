@@ -16,7 +16,7 @@ export default defineConfig({
         display: 'standalone',
         lang: 'pt-BR',
         icons: [
-          { src: 'nsb-icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: 'nsb-icon.png', sizes: '1024x1024', type: 'image/png', purpose: 'any maskable' },
         ],
       },
     }),

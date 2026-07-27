@@ -757,7 +757,7 @@ export default function App() {
     <main className="app-shell">
       <header className="app-header">
         <button className="brand" onClick={() => setScreen('home')} aria-label="Ir para início">
-          <span className="brand-mark" aria-hidden="true"><svg viewBox="0 0 108 108" focusable="false"><rect width="108" height="108" rx="25" fill="#0d2c3d" /><g className="brand-mark-figure"><circle cx="23" cy="32" r="4" /><path d="M29 33 42 27 63 31 84 42 79 47 60 38 44 37 37 53H31l4-18Z" /><path d="m43 36-4 17h-6l3-18Z" /></g><path fill="#fff" d="M18 77V55h7l10 16V55h7v22h-7L25 61v16zm27-6c0 5 4 7 10 7 7 0 11-4 11-9 0-5-5-7-9-8-3-1-5-2-5-4s1-3 4-3c2 0 4 2 4 4h7c0-5-4-9-10-9s-10 4-10 9c0 5 5 7 9 8 3 1 5 2 5 4s-2 3-4 3c-3 0-4-2-4-5zm24-16h11c7 0 11 4 11 10 0 4-2 6-5 7 4 1 6 4 6 9 0 6-4 10-11 10H69zm7 6v6h3c2 0 4-1 4-3s-2-3-4-3zm0 11v6h4c3 0 4-1 4-3s-2-3-4-3z" /></svg></span>
+          <img className="brand-mark" src="/nsb-icon.png" alt="" />
           <span>Navy Seal Burpees</span>
         </button>
         <nav aria-label="Navegação principal">
