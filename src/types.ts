@@ -16,7 +16,7 @@ export interface PacingBlock {
 }
 
 export type PacingMode = 'automatic' | 'manual-rest'
-export type SoundProfileId = 'precise' | 'command' | 'quiet'
+export type SoundProfileId = 'precise' | 'command' | 'pulse' | 'siren' | 'horn' | 'quiet'
 
 export interface AppSettings {
   id: 'preferences'

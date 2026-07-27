@@ -27,10 +27,13 @@ const HOME_MESSAGES = [
   'Crux Sacra Sit Mihi Lux.',
   'Força e Honra.',]
 
-const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string; volume: number; notes: Record<'warmup' | 'set' | 'rest' | 'complete' | 'rep', number[]> }> = {
-  precise: { name: 'Preciso', description: 'Sinais claros e equilibrados.', volume: .06, notes: { warmup: [560, 660], set: [880, 880], rest: [440], complete: [880, 1040, 1320], rep: [660] } },
-  command: { name: 'Comando', description: 'Mais firme para treinos intensos.', volume: .09, notes: { warmup: [520, 720], set: [980, 980], rest: [320], complete: [780, 1040, 1320], rep: [760] } },
-  quiet: { name: 'Discreto', description: 'Mais curto e menos invasivo.', volume: .035, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
+const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string; volume: number; waveform: OscillatorType; noteSeconds: number; notes: Record<'warmup' | 'set' | 'rest' | 'complete' | 'rep', number[]> }> = {
+  precise: { name: 'Preciso', description: 'Bips claros e equilibrados.', volume: .06, waveform: 'sine', noteSeconds: .12, notes: { warmup: [560, 660], set: [880, 880], rest: [440], complete: [880, 1040, 1320], rep: [660] } },
+  command: { name: 'Comando', description: 'Bips firmes para treino intenso.', volume: .09, waveform: 'square', noteSeconds: .14, notes: { warmup: [520, 720], set: [980, 980], rest: [320], complete: [780, 1040, 1320], rep: [760] } },
+  pulse: { name: 'Pulso', description: 'Batidas secas de metrônomo.', volume: .075, waveform: 'triangle', noteSeconds: .08, notes: { warmup: [620, 740], set: [920, 920], rest: [360], complete: [740, 920, 1100], rep: [760] } },
+  siren: { name: 'Sirene', description: 'Alertas ascendentes e incisivos.', volume: .065, waveform: 'sawtooth', noteSeconds: .11, notes: { warmup: [480, 620, 760], set: [760, 1000], rest: [300, 360], complete: [720, 920, 1160], rep: [680] } },
+  horn: { name: 'Buzina', description: 'Tons graves, marcantes e espaçados.', volume: .055, waveform: 'square', noteSeconds: .18, notes: { warmup: [330, 440], set: [520, 520], rest: [220], complete: [440, 550, 660], rep: [440] } },
+  quiet: { name: 'Discreto', description: 'Sinais leves e pouco invasivos.', volume: .035, waveform: 'sine', noteSeconds: .09, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
 }
 
 function todayLocalIso(): string {
@@ -431,11 +434,12 @@ export default function App() {
       const oscillator = context.createOscillator()
       const gain = context.createGain()
       oscillator.frequency.value = frequency
+      oscillator.type = profile.waveform
       gain.gain.setValueAtTime(profile.volume, context.currentTime + index * .15)
-      gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + index * .15 + .12)
+      gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + index * .15 + profile.noteSeconds)
       oscillator.connect(gain).connect(context.destination)
       oscillator.start(context.currentTime + index * .15)
-      oscillator.stop(context.currentTime + index * .15 + .13)
+      oscillator.stop(context.currentTime + index * .15 + profile.noteSeconds + .01)
     })
     window.setTimeout(() => void context.close(), notes.length * 150 + 200)
   }
@@ -728,7 +732,7 @@ export default function App() {
               {pacingPlan.some((block) => block.paceSeconds > 0) && <p className="pacing-projection">Projeção total <strong>{formatDuration(displayedPacingProjectionSeconds)}</strong></p>}
               {pacingPhase !== 'idle' && <div className={(pacingPhase === 'warmup' || (pacingPhase === 'rest' && pacingWarmupCueSent)) ? 'pacing-clock preparing' : 'pacing-clock'}><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}{(pacingPhase === 'warmup' || (pacingPhase === 'rest' && pacingWarmupCueSent)) && <i className="pacing-prep-indicator" aria-label="Preparação em andamento" />}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingRepCount} / {pacingPlan[pacingBlockIndex]?.reps} repetições · {formatDuration(pacingPlan[pacingBlockIndex]?.paceSeconds ?? 0)} por repetição</span>}{pacingPhase === 'complete' && <span className={overtimeIncluded ? 'pacing-overtime included' : 'pacing-overtime'}>+ {formatStopwatch(overtimeElapsedSeconds)}</span>}</div>}
               <div className="pacing-actions">
-                {pacingPhase === 'complete' ? overtimeIncluded ? <button type="button" className="overtime-revert" onClick={revertOvertime} aria-label="Reverter adicional" title="Reverter adicional">−</button> : <button type="button" className="secondary-action" onClick={includeOvertime}>Incluir adicional</button> : pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && pacingMode === 'manual-rest' ? 'Iniciar próximo set' : 'Avançar'}</button></>}
+                {pacingPhase === 'complete' ? overtimeIncluded ? <button type="button" className="overtime-revert" onClick={revertOvertime} aria-label="Reverter adicional" title="Reverter adicional">↶</button> : <button type="button" className="secondary-action" onClick={includeOvertime}>Incluir adicional</button> : pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && pacingMode === 'manual-rest' ? 'Iniciar próximo set' : 'Avançar'}</button></>}
               </div>
               {pacingBlocks.length > 0 && <p className="pacing-summary">{pacingBlocks.length} de {pacingPlan.length} sets concluídos · tempos reais registrados no treino.</p>}
             </section>
