@@ -930,18 +930,19 @@ export default function App() {
             <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Aplicar nos gráficos e calendário</span><i aria-hidden="true" /></button>
           </div>
           <div className="settings-group">
-            <div className="section-heading"><h2>Frases iniciais</h2><button type="button" className="secondary-action" onClick={() => setHomeMessages((messages) => [...messages, ''])}>Adicionar</button></div>
-            <div className="home-message-list">
-              {homeMessages.map((message, index) => <div key={index}><input value={message} maxLength={120} aria-label={`Frase ${index + 1}`} onChange={(event) => updateHomeMessage(index, event.target.value)} onBlur={commitHomeMessages} /><button type="button" className="remove-button" onClick={() => saveHomeMessages(homeMessages.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Excluir frase ${index + 1}`}>Excluir</button></div>)}
-            </div>
-            <button type="button" className="text-button restore-messages" onClick={() => saveHomeMessages(DEFAULT_HOME_MESSAGES)}>Restaurar frases padrão</button>
-          </div>
-          <div className="settings-group">
             <h2>Sons do pacing</h2>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
           </div>
           </div>
+          <details className="settings-group home-message-settings">
+            <summary>Frases iniciais</summary>
+            <div className="section-heading"><p>Exibidas alternadamente na tela inicial.</p><button type="button" className="secondary-action" onClick={() => setHomeMessages((messages) => [...messages, ''])}>Adicionar</button></div>
+            <div className="home-message-list">
+              {homeMessages.map((message, index) => <div key={index}><input value={message} maxLength={120} aria-label={`Frase ${index + 1}`} onChange={(event) => updateHomeMessage(index, event.target.value)} onBlur={commitHomeMessages} /><button type="button" className="remove-button" onClick={() => saveHomeMessages(homeMessages.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Excluir frase ${index + 1}`}>Excluir</button></div>)}
+            </div>
+            <button type="button" className="text-button restore-messages" onClick={() => saveHomeMessages(DEFAULT_HOME_MESSAGES)}>Restaurar frases padrão</button>
+          </details>
         </section>
       )}
 
