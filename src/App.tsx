@@ -42,6 +42,8 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
 const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
   { id: 'navy', name: 'Azul' }, { id: 'ocean', name: 'Oceano' }, { id: 'cobalt', name: 'Cobalto' }, { id: 'forest', name: 'Floresta' }, { id: 'lime', name: 'Lima' }, { id: 'ember', name: 'Brasa' }, { id: 'gold', name: 'Ouro' }, { id: 'plum', name: 'Ameixa' }, { id: 'ruby', name: 'Rubi' },
 ]
+const MIN_FONT_SCALE = 90
+const MAX_FONT_SCALE = 110
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -101,6 +103,7 @@ export default function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
   const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
   const [visualPalette, setVisualPalette] = useState(true)
+  const [fontScale, setFontScale] = useState(100)
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
@@ -166,6 +169,7 @@ export default function App() {
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
+        if (typeof settings?.fontScale === 'number' && settings.fontScale >= MIN_FONT_SCALE && settings.fontScale <= MAX_FONT_SCALE) setFontScale(settings.fontScale)
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
@@ -186,6 +190,7 @@ export default function App() {
 
   useEffect(() => { document.body.dataset.palette = colorPalette }, [colorPalette])
   useEffect(() => { document.body.dataset.visualPalette = visualPalette ? 'on' : 'off' }, [visualPalette])
+  useEffect(() => { document.documentElement.style.fontSize = `${fontScale}%` }, [fontScale])
 
   useEffect(() => {
     if (timerStartedAt === null && pacingPhaseStartedAt === null && overtimeStartedAt === null) return
@@ -473,23 +478,29 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette, fontScale })
   }
 
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette, fontScale })
   }
 
   function selectColorPalette(palette: ColorPalette) {
     setColorPalette(palette)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette, fontScale })
   }
 
   function toggleVisualPalette() {
     const next = !visualPalette
     setVisualPalette(next)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale })
+  }
+
+  function selectFontScale(next: number) {
+    const scale = Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, next))
+    setFontScale(scale)
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale })
   }
 
   function preparePacingAudio(): Promise<void> {
@@ -881,11 +892,15 @@ export default function App() {
             </div>
           </div>
           <div className="settings-group">
+            <h2>Texto</h2>
+            <div className="font-scale-control"><span className="font-scale-small" aria-hidden="true">A</span><input type="range" min={MIN_FONT_SCALE} max={MAX_FONT_SCALE} value={fontScale} aria-label="Tamanho do texto" onChange={(event) => selectFontScale(Number(event.target.value))} /><span className="font-scale-large" aria-hidden="true">A</span><output aria-label={`${fontScale}% do tamanho padrão`}>{fontScale}%</output></div>
+          </div>
+          <div className="settings-group">
             <h2>Paleta</h2>
             <div className="palette-picker" role="radiogroup" aria-label="Paleta de cores">
               {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{palette.name}</button>)}
             </div>
-            <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Colorir evolução</span><i aria-hidden="true" /></button>
+            <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Aplicar nos gráficos e calendário</span><i aria-hidden="true" /></button>
           </div>
           <div className="settings-group">
             <h2>Sons do pacing</h2>
