@@ -84,16 +84,24 @@ function formatStopwatch(seconds: number): string {
   return [hours, minutes, remainingSeconds].map((part) => String(part).padStart(2, '0')).join(':')
 }
 
-function timbrePartials(timbre: SoundTimbre): [number, number][] {
-  if (timbre === 'bell') return [[1, .7], [2.4, .22], [3.1, .08]]
-  if (timbre === 'horn') return [[1, .7], [1.5, .22], [2, .08]]
-  if (timbre === 'bass') return [[1, .8], [2, .16]]
-  if (timbre === 'cardio') return [[1, .8], [1.25, .12]]
-  if (timbre === 'command') return [[1, .75], [2, .1]]
-  if (timbre === 'alarm') return [[1, .72], [3, .06]]
-  if (timbre === 'siren') return [[1, .7], [1.02, .18]]
-  if (timbre === 'pulse') return [[1, .82], [2, .08]]
-  return [[1, 1]]
+function canonicalWave(phase: number, waveform: OscillatorType): number {
+  if (waveform === 'square') return Math.sin(phase) >= 0 ? 1 : -1
+  if (waveform === 'triangle') return (2 / Math.PI) * Math.asin(Math.sin(phase))
+  if (waveform === 'sawtooth') return 2 * ((phase / (2 * Math.PI)) - Math.floor(.5 + phase / (2 * Math.PI)))
+  return Math.sin(phase)
+}
+
+function canonicalThemeSample(phase: number, localTime: number, waveform: OscillatorType, timbre: SoundTimbre): number {
+  const base = canonicalWave(phase, waveform)
+  if (timbre === 'bell') return .7 * Math.sin(phase) + .22 * Math.sin(phase * 2.4) + .08 * Math.sin(phase * 3.1)
+  if (timbre === 'horn') return .7 * Math.sin(phase) + .22 * Math.sin(phase * 1.5) + .08 * Math.sin(phase * 2)
+  if (timbre === 'bass') return .8 * Math.sin(phase) + .16 * Math.sin(phase * 2)
+  if (timbre === 'cardio') return .8 * Math.sin(phase) + .12 * Math.sin(phase * 1.25)
+  if (timbre === 'siren') { const wobble = 1 + .045 * Math.sin(2 * Math.PI * 7 * localTime); return .7 * Math.sin(phase * wobble) + .18 * Math.sin(phase * 1.02 * wobble) }
+  if (timbre === 'command') return .75 * base + .1 * Math.sin(phase * 2)
+  if (timbre === 'alarm') return .72 * base + .06 * Math.sin(phase * 3)
+  if (timbre === 'pulse') return .82 * base + .08 * Math.sin(phase * 2)
+  return base
 }
 
 function dateLabel(iso: string): string {
@@ -185,6 +193,7 @@ export default function App() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const pacingIsActiveRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const activeWebSoundSourcesRef = useRef<AudioBufferSourceNode[]>([])
   const nativeScheduleActiveRef = useRef(false)
   const nativeControlRef = useRef<(action: 'advance' | 'pause') => void>(() => undefined)
   const soundPreviewTimersRef = useRef<number[]>([])
@@ -640,22 +649,32 @@ export default function App() {
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') audioContextRef.current = new AudioContext()
     const context = audioContextRef.current
     if (context.state === 'suspended') void context.resume()
+    if (replace) {
+      activeWebSoundSourcesRef.current.forEach((source) => { try { source.stop() } catch { /* source already finished */ } })
+      activeWebSoundSourcesRef.current = []
+    }
     const profile = SOUND_PROFILES[profileId]
-    const notes = profile.notes[kind]
-    notes.forEach((frequency, index) => {
-      timbrePartials(profile.timbre).forEach(([ratio, weight]) => {
-        const oscillator = context.createOscillator()
-        const gain = context.createGain()
-        oscillator.frequency.value = frequency * ratio
-        oscillator.type = profile.waveform
-        if (profile.timbre === 'siren') oscillator.detune.setValueAtTime(-55, context.currentTime + index * .15), oscillator.detune.linearRampToValueAtTime(55, context.currentTime + index * .15 + profile.noteSeconds)
-        gain.gain.setValueAtTime(Math.min(.92, profile.volume * (soundVolume / 100) * weight), context.currentTime + index * .15)
-        gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + index * .15 + profile.noteSeconds)
-        oscillator.connect(gain).connect(context.destination)
-        oscillator.start(context.currentTime + index * .15)
-        oscillator.stop(context.currentTime + index * .15 + profile.noteSeconds + .01)
-      })
+    const sampleRate = 44_100
+    const slotSeconds = .15
+    const totalSamples = Math.max(1, Math.floor(sampleRate * ((profile.notes[kind].length - 1) * slotSeconds + profile.noteSeconds + .015)))
+    const buffer = context.createBuffer(1, totalSamples, sampleRate)
+    const samples = buffer.getChannelData(0)
+    const amplitude = Math.min(.72, Math.max(.006, profile.volume * Math.max(1, soundVolume) / 100))
+    samples.forEach((_, index) => {
+      const time = index / sampleRate
+      const toneIndex = Math.min(profile.notes[kind].length - 1, Math.floor(time / slotSeconds))
+      const localTime = time - toneIndex * slotSeconds
+      if (localTime > profile.noteSeconds) return
+      const phase = 2 * Math.PI * profile.notes[kind][toneIndex] * localTime
+      const fade = Math.min(1, Math.min(localTime / .008, (profile.noteSeconds - localTime) / .012))
+      samples[index] = canonicalThemeSample(phase, localTime, profile.waveform, profile.timbre) * amplitude * Math.max(0, fade)
     })
+    const source = context.createBufferSource()
+    source.buffer = buffer
+    source.connect(context.destination)
+    source.onended = () => { activeWebSoundSourcesRef.current = activeWebSoundSourcesRef.current.filter((item) => item !== source) }
+    activeWebSoundSourcesRef.current.push(source)
+    source.start()
   }
 
   function startNativePacingAudio() {
