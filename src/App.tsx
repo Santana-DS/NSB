@@ -91,17 +91,25 @@ function canonicalWave(phase: number, waveform: OscillatorType): number {
   return Math.sin(phase)
 }
 
-function canonicalThemeSample(phase: number, localTime: number, waveform: OscillatorType, timbre: SoundTimbre): number {
+function canonicalThemeSample(phase: number, waveform: OscillatorType, timbre: SoundTimbre): number {
   const base = canonicalWave(phase, waveform)
   if (timbre === 'bell') return .7 * Math.sin(phase) + .22 * Math.sin(phase * 2.4) + .08 * Math.sin(phase * 3.1)
-  if (timbre === 'horn') return .7 * Math.sin(phase) + .22 * Math.sin(phase * 1.5) + .08 * Math.sin(phase * 2)
-  if (timbre === 'bass') return .8 * Math.sin(phase) + .16 * Math.sin(phase * 2)
-  if (timbre === 'cardio') return .8 * Math.sin(phase) + .12 * Math.sin(phase * 1.25)
-  if (timbre === 'siren') { const wobble = 1 + .045 * Math.sin(2 * Math.PI * 7 * localTime); return .7 * Math.sin(phase * wobble) + .18 * Math.sin(phase * 1.02 * wobble) }
+  if (timbre === 'horn') return .52 * Math.sin(phase) + .3 * Math.sin(phase * 2) + .16 * Math.sin(phase * 3)
+  if (timbre === 'bass') return .5 * Math.sin(phase) + .3 * Math.sin(phase * 2) + .16 * Math.sin(phase * 3)
+  if (timbre === 'cardio') return .5 * Math.sin(phase) + .28 * Math.sin(phase * 2) + .17 * Math.sin(phase * 3)
+  if (timbre === 'siren') return .65 * base + .12 * Math.sin(phase * 2)
   if (timbre === 'command') return .75 * base + .1 * Math.sin(phase * 2)
   if (timbre === 'alarm') return .72 * base + .06 * Math.sin(phase * 3)
   if (timbre === 'pulse') return .82 * base + .08 * Math.sin(phase * 2)
   return base
+}
+
+function canonicalAmplitude(timbre: SoundTimbre, profileGain: number, volume: number): number {
+  const lowFrequency = timbre === 'horn' || timbre === 'bass' || timbre === 'cardio'
+  const sensitive = timbre === 'command' || timbre === 'alarm' || timbre === 'siren'
+  const compensation = lowFrequency ? 1.7 : 1
+  const ceiling = lowFrequency ? .58 : sensitive ? .18 : .48
+  return Math.min(ceiling, Math.max(.006, profileGain * Math.max(1, volume) / 100 * compensation))
 }
 
 function dateLabel(iso: string): string {
@@ -659,7 +667,7 @@ export default function App() {
     const totalSamples = Math.max(1, Math.floor(sampleRate * ((profile.notes[kind].length - 1) * slotSeconds + profile.noteSeconds + .015)))
     const buffer = context.createBuffer(1, totalSamples, sampleRate)
     const samples = buffer.getChannelData(0)
-    const amplitude = Math.min(.72, Math.max(.006, profile.volume * Math.max(1, soundVolume) / 100))
+    const amplitude = canonicalAmplitude(profile.timbre, profile.volume, soundVolume)
     samples.forEach((_, index) => {
       const time = index / sampleRate
       const toneIndex = Math.min(profile.notes[kind].length - 1, Math.floor(time / slotSeconds))
@@ -667,7 +675,7 @@ export default function App() {
       if (localTime > profile.noteSeconds) return
       const phase = 2 * Math.PI * profile.notes[kind][toneIndex] * localTime
       const fade = Math.min(1, Math.min(localTime / .008, (profile.noteSeconds - localTime) / .012))
-      samples[index] = canonicalThemeSample(phase, localTime, profile.waveform, profile.timbre) * amplitude * Math.max(0, fade)
+      samples[index] = canonicalThemeSample(phase, profile.waveform, profile.timbre) * amplitude * Math.max(0, fade)
     })
     const source = context.createBufferSource()
     source.buffer = buffer
