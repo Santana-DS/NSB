@@ -40,7 +40,7 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
   quiet: { name: 'Discreto', description: 'Sinais leves e pouco invasivos.', volume: .035, waveform: 'sine', noteSeconds: .09, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
 }
 const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
-  { id: 'navy', name: 'Azul-marinho' }, { id: 'ocean', name: 'Oceano' }, { id: 'forest', name: 'Floresta' }, { id: 'ember', name: 'Brasa' }, { id: 'gold', name: 'Ouro' }, { id: 'plum', name: 'Ameixa' },
+  { id: 'navy', name: 'Azul' }, { id: 'ocean', name: 'Oceano' }, { id: 'cobalt', name: 'Cobalto' }, { id: 'forest', name: 'Floresta' }, { id: 'lime', name: 'Lima' }, { id: 'ember', name: 'Brasa' }, { id: 'gold', name: 'Ouro' }, { id: 'plum', name: 'Ameixa' }, { id: 'ruby', name: 'Rubi' },
 ]
 
 function todayLocalIso(): string {
@@ -164,7 +164,7 @@ export default function App() {
         setMediaAttachments(storedAttachments)
         if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
-        if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'forest' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum') setColorPalette(settings.palette)
+        if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
         if (draft) restoreDraft(draft)
       })
@@ -1286,7 +1286,7 @@ function getMonthBins(records: VolumeRecord[], year: number) {
 
 function volumeColor(value: number, maximum: number, palette?: ColorPalette): string {
   const intensity = maximum === 0 ? 0 : value / maximum
-  const hue = palette === 'navy' ? 197 : palette === 'ocean' ? 187 : palette === 'forest' ? 151 : palette === 'ember' ? 15 : palette === 'gold' ? 42 : palette === 'plum' ? 270 : 164
+  const hue = palette === 'navy' ? 197 : palette === 'ocean' ? 187 : palette === 'cobalt' ? 221 : palette === 'forest' ? 151 : palette === 'lime' ? 93 : palette === 'ember' ? 15 : palette === 'gold' ? 42 : palette === 'plum' ? 270 : palette === 'ruby' ? 344 : 164
   return `hsl(${hue} ${palette ? 48 : 42}% ${76 - intensity * 36}%)`
 }
 
