@@ -31,6 +31,7 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
   precise: { name: 'Preciso', description: 'Bips claros e equilibrados.', volume: .06, waveform: 'sine', noteSeconds: .12, notes: { warmup: [560, 660], set: [880, 880], rest: [440], complete: [880, 1040, 1320], rep: [660] } },
   command: { name: 'Comando', description: 'Bips firmes para treino intenso.', volume: .09, waveform: 'square', noteSeconds: .14, notes: { warmup: [520, 720], set: [980, 980], rest: [320], complete: [780, 1040, 1320], rep: [760] } },
   pulse: { name: 'Pulso', description: 'Batidas secas de metrônomo.', volume: .075, waveform: 'triangle', noteSeconds: .08, notes: { warmup: [620, 740], set: [920, 920], rest: [360], complete: [740, 920, 1100], rep: [760] } },
+  cardio: { name: 'Cardio', description: 'Pulso baixo e suave, inspirado em ECG.', volume: .045, waveform: 'triangle', noteSeconds: .1, notes: { warmup: [280, 340], set: [420, 420], rest: [220], complete: [320, 420, 520], rep: [360] } },
   beacon: { name: 'Farol', description: 'Bips espaçados, fáceis de distinguir.', volume: .055, waveform: 'sine', noteSeconds: .1, notes: { warmup: [440, 620, 800], set: [840, 840], rest: [420, 420], complete: [660, 880, 1100], rep: [620] } },
   siren: { name: 'Sirene', description: 'Alertas ascendentes e incisivos.', volume: .065, waveform: 'sawtooth', noteSeconds: .11, notes: { warmup: [480, 620, 760], set: [760, 1000], rest: [300, 360], complete: [720, 920, 1160], rep: [680] } },
   alarm: { name: 'Alarme', description: 'Sinal agudo de máxima urgência.', volume: .08, waveform: 'square', noteSeconds: .1, notes: { warmup: [680, 880], set: [1120, 1120, 1120], rest: [360, 360], complete: [880, 1120, 1400], rep: [820] } },
@@ -142,6 +143,7 @@ export default function App() {
   const pacingSectionRef = useRef<HTMLElement>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const pacingIsActiveRef = useRef(false)
+  const audioContextRef = useRef<AudioContext | null>(null)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -158,6 +160,11 @@ export default function App() {
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
+  }, [])
+
+  useEffect(() => () => {
+    const context = audioContextRef.current
+    if (context && context.state !== 'closed') void context.close()
   }, [])
 
   useEffect(() => {
@@ -384,6 +391,7 @@ export default function App() {
     if (pacingTargetMode === 'total' && pacingPlan.length > 0 && adjustableReps === 0) setPacingTotalDuration(formatDuration(plannedPacingSeconds))
     const now = Date.now()
     void requestWakeLock()
+    void preparePacingAudio()
     setTimerNow(now)
     setPerformedAt(todayLocalIso())
     if (pacingPhase === 'paused') {
@@ -448,6 +456,12 @@ export default function App() {
     void saveAppSettings({ id: 'preferences', soundProfile: profile })
   }
 
+  function preparePacingAudio(): Promise<void> {
+    if (!('AudioContext' in window)) return Promise.resolve()
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') audioContextRef.current = new AudioContext()
+    return audioContextRef.current.state === 'suspended' ? audioContextRef.current.resume().catch(() => undefined) : Promise.resolve()
+  }
+
   async function requestWakeLock() {
     if (!('wakeLock' in navigator) || wakeLockRef.current) return
     try {
@@ -467,7 +481,9 @@ export default function App() {
 
   function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile) {
     if (!('AudioContext' in window)) return
-    const context = new AudioContext()
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') audioContextRef.current = new AudioContext()
+    const context = audioContextRef.current
+    if (context.state === 'suspended') void context.resume()
     const profile = SOUND_PROFILES[profileId]
     const notes = profile.notes[kind]
     notes.forEach((frequency, index) => {
@@ -481,7 +497,6 @@ export default function App() {
       oscillator.start(context.currentTime + index * .15)
       oscillator.stop(context.currentTime + index * .15 + profile.noteSeconds + .01)
     })
-    window.setTimeout(() => void context.close(), notes.length * 150 + 200)
   }
 
   function appendPacingEvent(type: import('./types').PacingEventType, transition: 'automatic' | 'manual', blockIndex?: number) {
