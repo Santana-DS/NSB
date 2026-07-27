@@ -101,3 +101,21 @@ textarea { resize: vertical; }
 .sound-preview { width: 3.1rem; border: 0; border-left: 1px solid #dce5e2; background: #f0f6f4; color: #0d5261; font-size: 1rem; font-weight: 700; }
 .sound-preview:hover { background: #dcece8; }
 .nav-settings { min-width: 2rem; padding-inline: .4rem; font-size: 1.1rem; }
+.settings-group { margin: 1.75rem 0 2.25rem; }.settings-group > p { margin: .45rem 0 .8rem; color: #61717a; }.theme-picker { display: inline-flex; gap: .25rem; padding: .25rem; border: 1px solid #cdd8d6; border-radius: .65rem; background: #fff; }.theme-picker button { border: 0; border-radius: .42rem; padding: .48rem .7rem; background: transparent; color: #4c5d67; font-size: .84rem; font-weight: 700; }.theme-picker button.selected { background: #0d5261; color: #fff; }
+
+body[data-theme='dark'] { color-scheme: dark; background: #0b161c; color: #dce9e7; }
+body[data-theme='dark'] .app-shell { background: #0b161c; }
+body[data-theme='dark'] :is(.brand, .nav-link.active, h1, h2, .home-intro p, .summary-grid strong, .workout-list time, .time-stat-grid dd, .strategy-stat-grid dd, .stat-best, .chart-download, .sound-preview, .pacing-projection strong) { color: #dcefeb; }
+body[data-theme='dark'] :is(.nav-link, .text-button, .back-button, .lead, .summary-grid span, .workout-list span, .sets-section p, small, .bar-value, .bar-label, .chart-unit, .comparison-label, .comparison-legend button, .settings-group > p, .sound-profile-list span) { color: #a9bcbf; }
+body[data-theme='dark'] :is(.download-menu, .period-picker, .view-picker, .target-filter > button, .target-filter-options button, .time-stat-grid article, .strategy-stat-grid article, .target, input, textarea, select, .theme-picker, .sound-profile-list article, .comparison-dialog, .day-detail) { background: #13242c; border-color: #31505b; color: #dce9e7; }
+body[data-theme='dark'] :is(.period-picker button, .view-picker button, .theme-picker button, .pacing-mode-picker button, .pacing-target-picker button) { color: #b9cdcf; }
+body[data-theme='dark'] :is(.period-picker button.selected, .view-picker button.selected, .theme-picker button.selected, .target-filter > button.selected, .target-filter-options button.selected, .target.selected, .pacing-mode-picker button.selected) { background: #1e7783; color: #fff; border-color: #4cabb2; }
+body[data-theme='dark'] :is(.primary-action, .hero-action) { background: linear-gradient(135deg, #1e7783, #2496a1); }
+body[data-theme='dark'] :is(.secondary-action, .download-menu button, .target-filter-toggle, .pacing-group-settings summary) { color: #92d9d2; border-color: #397b7d; }
+body[data-theme='dark'] :is(.summary-grid article, .workout-list, .workout-list li, .sets-section, .timer-section, .pacing-section, .day-list, .performance-form, .performance-sets) { border-color: #31505b; }
+body[data-theme='dark'] :is(.pacing-clock, .pacing-plan span, .pacing-status, .daily-grid li, .consistency-heatmap li) { background: #18313a; color: #c9dcda; }
+body[data-theme='dark'] :is(.pacing-clock time, .pacing-clock) { color: #dcefeb; }
+body[data-theme='dark'] :is(.daily-grid li.has-volume, .heatmap-scale i) { background: #286b69; color: #e2f0ee; }
+body[data-theme='dark'] .bar { background: #3c8f82; } body[data-theme='dark'] .chart-bar-button:hover .bar, body[data-theme='dark'] .chart-bar-button:focus-visible .bar { background: #54b4ae; }
+body[data-theme='dark'] :is(.comparison-axis, .comparison-grid) { stroke: #3b5960; } body[data-theme='dark'] .comparison-backdrop, body[data-theme='dark'] .day-detail-backdrop { background: #02080bcc; }
+body[data-theme='dark'] .sound-preview { background: #18363b; border-color: #31505b; } body[data-theme='dark'] .sound-preview:hover { background: #21474c; }

@@ -5,7 +5,7 @@ import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
 import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type ActiveWorkoutDraft, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type Workout } from './types'
+import { REP_TARGETS, type ActiveWorkoutDraft, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type ThemePreference, type Workout } from './types'
 
 type Screen = 'home' | 'new' | 'history' | 'data' | 'settings'
 type Period = 'month' | 'year' | 'all'
@@ -95,6 +95,7 @@ export default function App() {
   const [mediaAttachments, setMediaAttachments] = useState<MediaAttachment[]>([])
   const [loading, setLoading] = useState(true)
   const [soundProfile, setSoundProfile] = useState<SoundProfileId>('precise')
+  const [themePreference, setThemePreference] = useState<ThemePreference>('system')
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
@@ -157,6 +158,7 @@ export default function App() {
         setHistoricalPerformances(storedPerformances.sort((a, b) => b.date.localeCompare(a.date)))
         setMediaAttachments(storedAttachments)
         if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
+        if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
@@ -166,6 +168,14 @@ export default function App() {
     const context = audioContextRef.current
     if (context && context.state !== 'closed') void context.close()
   }, [])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const applyTheme = () => { document.body.dataset.theme = themePreference === 'system' ? (media.matches ? 'dark' : 'light') : themePreference }
+    applyTheme()
+    if (themePreference === 'system') media.addEventListener('change', applyTheme)
+    return () => media.removeEventListener('change', applyTheme)
+  }, [themePreference])
 
   useEffect(() => {
     if (timerStartedAt === null && pacingPhaseStartedAt === null && overtimeStartedAt === null) return
@@ -453,7 +463,12 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference })
+  }
+
+  function selectThemePreference(theme: ThemePreference) {
+    setThemePreference(theme)
+    void saveAppSettings({ id: 'preferences', soundProfile, theme })
   }
 
   function preparePacingAudio(): Promise<void> {
@@ -837,10 +852,20 @@ export default function App() {
       {screen === 'settings' && (
         <section className="content settings-screen" aria-labelledby="settings-title">
           <p className="eyebrow">Ajustes</p>
-          <h1 id="settings-title">Sons do pacing</h1>
-          <p className="lead">Cada perfil mantém sinais distintos para preparação, set, descanso, repetição e conclusão.</p>
+          <h1 id="settings-title">Preferências</h1>
+          <div className="settings-group">
+            <h2>Aparência</h2>
+            <p>Escolha como o app acompanha o ambiente.</p>
+            <div className="theme-picker" role="radiogroup" aria-label="Aparência">
+              {([['system', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']] as [ThemePreference, string][]).map(([theme, label]) => <button key={theme} type="button" role="radio" aria-checked={themePreference === theme} className={themePreference === theme ? 'selected' : ''} onClick={() => selectThemePreference(theme)}>{label}</button>)}
+            </div>
+          </div>
+          <div className="settings-group">
+            <h2>Sons do pacing</h2>
+            <p>Cada perfil mantém sinais distintos para preparação, set, descanso, repetição e conclusão.</p>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
+          </div>
           </div>
         </section>
       )}
