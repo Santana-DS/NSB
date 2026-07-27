@@ -50,4 +50,4 @@ Nesta primeira base, o app já é empacotável. Alarmes, vibração e áudio rea
 - Sets são opcionais; se existirem, a soma deve corresponder à meta.
 - Estatísticas e PRs são derivados dos treinos, nunca gravados como uma segunda fonte de verdade.
 
-Consulte [arquitetura inicial](docs/architecture.md) para os próximos componentes.
+Consulte a [arquitetura inicial](docs/architecture.md) e o [roadmap](docs/roadmap.md) para os próximos componentes.

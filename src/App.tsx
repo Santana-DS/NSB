@@ -172,6 +172,7 @@ export default function App() {
   const [hiddenComparisonYears, setHiddenComparisonYears] = useState<number[]>([])
   const [homeMessages, setHomeMessages] = useState<string[]>(DEFAULT_HOME_MESSAGES)
   const [homeMessageIndex, setHomeMessageIndex] = useState(0)
+  const [brandInfoOpen, setBrandInfoOpen] = useState(false)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [overtimeStartedAt, setOvertimeStartedAt] = useState<number | null>(null)
@@ -206,6 +207,8 @@ export default function App() {
   const nativeScheduleActiveRef = useRef(false)
   const nativeControlRef = useRef<(action: 'advance' | 'pause') => void>(() => undefined)
   const soundPreviewTimersRef = useRef<number[]>([])
+  const brandPressTimerRef = useRef<number | null>(null)
+  const brandLongPressRef = useRef(false)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -473,6 +476,19 @@ export default function App() {
     }
     setSaveStatus(null)
     setScreen('new')
+  }
+
+  function beginBrandPress() {
+    brandLongPressRef.current = false
+    brandPressTimerRef.current = window.setTimeout(() => {
+      brandLongPressRef.current = true
+      setBrandInfoOpen(true)
+    }, 650)
+  }
+
+  function endBrandPress() {
+    if (brandPressTimerRef.current !== null) window.clearTimeout(brandPressTimerRef.current)
+    brandPressTimerRef.current = null
   }
 
   function addSetGroup() {
@@ -909,8 +925,8 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <header className="app-header">
-        <button className="brand" onClick={() => setScreen('home')} aria-label="Ir para início">
+      <header className={`app-header ${screen === 'history' ? 'sticky-header' : ''} ${brandInfoOpen ? 'brand-story-open' : ''}`}>
+        <button className="brand" onPointerDown={beginBrandPress} onPointerUp={endBrandPress} onPointerCancel={endBrandPress} onClick={() => { if (brandLongPressRef.current) { brandLongPressRef.current = false; return }; setScreen('home') }} aria-label="Ir para início. Pressione e segure para saber mais sobre o desafio.">
           <img className="brand-mark" src="/nsb-icon.png" alt="" />
           <span>Navy Seal Burpees</span>
         </button>
@@ -920,6 +936,7 @@ export default function App() {
           <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
           <button className={screen === 'settings' ? 'nav-link nav-settings active' : 'nav-link nav-settings'} onClick={() => setScreen('settings')} aria-label="Ajustes" title="Ajustes">⚙</button>
         </nav>
+        {brandInfoOpen && <section className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><button type="button" className="brand-story-dismiss" onClick={() => setBrandInfoOpen(false)} aria-label="Fechar">×</button><h2>Navy Seal Burpee</h2><p>Três flexões e mountain climbers em cada repetição: força, cardio, coordenação e disciplina em um único movimento.</p><p>O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source. Inspirado por <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
       </header>
 
       {screen === 'home' && (
