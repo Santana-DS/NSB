@@ -31,6 +31,18 @@ npm test
 npm run build
 ```
 
+## Android instalável
+
+O projeto nativo Android está em `android/` e usa Capacitor. A interface React continua sendo a fonte única da interface; após qualquer mudança web, sincronize-a com:
+
+```bash
+npm run android:sync
+```
+
+Para gerar e instalar o APK de depuração, abra a pasta `android/` no Android Studio (com o SDK Android instalado) e execute o alvo `app`. O Android Studio fornece o JDK compatível e permite testar diretamente em aparelho físico. O artefato de depuração será gerado em `android/app/build/outputs/apk/debug/`.
+
+Nesta primeira base, o app já é empacotável. Alarmes, vibração e áudio realmente confiável em segundo plano serão implementados na camada Android nas próximas etapas.
+
 ## Regras de domínio iniciais
 
 - Metas permitidas: 100 a 500, em incrementos de 50.

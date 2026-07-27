@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Navy Seal Burpees</string>
+    <string name="title_activity_main">Navy Seal Burpees</string>
+    <string name="package_name">com.santanads.nsb</string>
+    <string name="custom_url_scheme">com.santanads.nsb</string>
+</resources>
