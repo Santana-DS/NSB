@@ -1126,17 +1126,18 @@ function ActivityList({ workouts, legacyVolumes, onArchive }: { workouts: Workou
   </ol>
 }
 
-function ArchivedWorkoutList({ workouts, onRestore, onDeletePermanently }: { workouts: Workout[]; onRestore: (workout: Workout) => void; onDeletePermanently: (ids: string[]) => Promise<boolean> }) {
+function ArchivedWorkoutList({ workouts, onRestore, onDeletePermanently }: { workouts: Workout[]; onRestore: (workout: Workout) => Promise<void>; onDeletePermanently: (ids: string[]) => Promise<boolean> }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const allSelected = workouts.length > 0 && selectedIds.length === workouts.length
   const toggleWorkout = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
   const selectAll = () => setSelectedIds((current) => current.length === workouts.length ? [] : workouts.map((workout) => workout.id))
   const deleteSelected = () => { void onDeletePermanently(selectedIds).then((deleted) => { if (deleted) setSelectedIds([]) }) }
+  const restoreSelected = () => { void Promise.all(workouts.filter((workout) => selectedIds.includes(workout.id)).map(onRestore)).then(() => setSelectedIds([])) }
   return <section className="trash-section" aria-labelledby="trash-title">
     <div className="section-heading"><div><p className="eyebrow">Lixeira</p><h2 id="trash-title">Treinos arquivados</h2></div></div>
-    <div className="trash-actions"><label className="trash-select-all"><input type="checkbox" checked={allSelected} onChange={selectAll} /> Selecionar todos</label><div>{selectedIds.length > 0 && <button type="button" className="archive-button" onClick={deleteSelected}>Excluir selecionados</button>}<button type="button" className="archive-button" onClick={() => { void onDeletePermanently(workouts.map((workout) => workout.id)) }}>Excluir todos</button></div></div>
+    <div className="trash-actions"><label className="trash-select-all"><input type="checkbox" checked={allSelected} onChange={selectAll} /> Selecionar todos</label>{selectedIds.length > 0 && <div><button type="button" className="secondary-action" onClick={restoreSelected}>Restaurar selecionados</button><button type="button" className="archive-button" onClick={deleteSelected}>Excluir selecionados</button></div>}</div>
     <ol className="workout-list">
-      {workouts.map((workout) => <li key={workout.id}><label className="trash-item-select"><input type="checkbox" checked={selectedIds.includes(workout.id)} onChange={() => toggleWorkout(workout.id)} aria-label={`Selecionar treino de ${workout.targetReps} NSBs`} /></label><div><strong>{workout.targetReps} NSBs</strong><span>{dateLabel(workout.performedAt)}</span></div><div className="workout-actions"><button type="button" className="secondary-action" onClick={() => onRestore(workout)}>Restaurar</button><button type="button" className="archive-button" onClick={() => { void onDeletePermanently([workout.id]) }}>Excluir</button></div></li>)}
+      {workouts.map((workout) => <li key={workout.id}><label className="trash-item-select"><input type="checkbox" checked={selectedIds.includes(workout.id)} onChange={() => toggleWorkout(workout.id)} aria-label={`Selecionar treino de ${workout.targetReps} NSBs`} /></label><div><strong>{workout.targetReps} NSBs</strong><span>{dateLabel(workout.performedAt)}</span></div><div className="workout-actions"><button type="button" className="secondary-action" onClick={() => { void onRestore(workout) }}>Restaurar</button><button type="button" className="archive-button" onClick={() => { void onDeletePermanently([workout.id]) }}>Excluir</button></div></li>)}
     </ol>
   </section>
 }
