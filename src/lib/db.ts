@@ -63,6 +63,10 @@ export async function saveWorkout(workout: Workout): Promise<void> {
   await (await database).put('workouts', workout)
 }
 
+export async function deleteWorkout(id: string): Promise<void> {
+  await (await database).delete('workouts', id)
+}
+
 export async function saveWorkouts(workouts: Workout[]): Promise<void> {
   const db = await database
   const transaction = db.transaction('workouts', 'readwrite')
