@@ -53,8 +53,8 @@ const MAX_SOUND_VOLUME = 1000
 interface NativePacingAudioPlugin {
   start(): Promise<void>
   stop(): Promise<void>
-  signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number }): Promise<void>
-  schedule(options: { volume: number; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep' }[] }): Promise<void>
+  signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number; profile: SoundProfileId }): Promise<void>
+  schedule(options: { volume: number; profile: SoundProfileId; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep' }[] }): Promise<void>
   cancelSchedule(): Promise<void>
 }
 const NativePacingAudio = registerPlugin<NativePacingAudioPlugin>('PacingAudio')
@@ -582,7 +582,7 @@ export default function App() {
   function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile) {
     if (Capacitor.getPlatform() === 'android') {
       if (nativeScheduleActiveRef.current) return
-      void NativePacingAudio.signal({ kind, volume: Math.min(100, Math.max(1, Math.round(soundVolume))) }).catch(() => undefined)
+      void NativePacingAudio.signal({ kind, profile: profileId, volume: Math.min(100, Math.max(1, Math.round(soundVolume))) }).catch(() => undefined)
       return
     }
     if (!('AudioContext' in window)) return
@@ -630,7 +630,7 @@ export default function App() {
       elapsedSeconds += block.restSeconds
     })
     nativeScheduleActiveRef.current = true
-    void NativePacingAudio.schedule({ volume: Math.min(100, Math.max(1, Math.round(soundVolume))), events }).catch(() => { nativeScheduleActiveRef.current = false })
+    void NativePacingAudio.schedule({ profile: soundProfile, volume: Math.min(100, Math.max(1, Math.round(soundVolume))), events }).catch(() => { nativeScheduleActiveRef.current = false })
   }
 
   function appendPacingEvent(type: import('./types').PacingEventType, transition: 'automatic' | 'manual', blockIndex?: number) {
@@ -652,6 +652,10 @@ export default function App() {
   }
 
   function advancePacingPhase(transition: 'automatic' | 'manual' = 'manual') {
+    if (transition === 'manual' && nativeScheduleActiveRef.current) {
+      nativeScheduleActiveRef.current = false
+      if (Capacitor.getPlatform() === 'android') void NativePacingAudio.cancelSchedule().catch(() => undefined)
+    }
     const now = Date.now()
     if (pacingPhase === 'warmup') {
       if (timerStartedAt === null) {
