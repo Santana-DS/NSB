@@ -100,6 +100,7 @@ export default function App() {
   const [soundProfile, setSoundProfile] = useState<SoundProfileId>('precise')
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
   const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
+  const [visualPalette, setVisualPalette] = useState(true)
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
@@ -164,6 +165,7 @@ export default function App() {
         if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (settings?.palette === 'navy' || settings?.palette === 'forest' || settings?.palette === 'ember' || settings?.palette === 'plum') setColorPalette(settings.palette)
+        if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
@@ -183,6 +185,7 @@ export default function App() {
   }, [themePreference])
 
   useEffect(() => { document.body.dataset.palette = colorPalette }, [colorPalette])
+  useEffect(() => { document.body.dataset.visualPalette = visualPalette ? 'on' : 'off' }, [visualPalette])
 
   useEffect(() => {
     if (timerStartedAt === null && pacingPhaseStartedAt === null && overtimeStartedAt === null) return
@@ -470,17 +473,23 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette })
   }
 
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette })
   }
 
   function selectColorPalette(palette: ColorPalette) {
     setColorPalette(palette)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette })
+  }
+
+  function toggleVisualPalette() {
+    const next = !visualPalette
+    setVisualPalette(next)
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next })
   }
 
   function preparePacingAudio(): Promise<void> {
@@ -748,7 +757,7 @@ export default function App() {
 
       {screen === 'new' && (
         <section className="content workout-form">
-          <button className="back-button" onClick={() => setScreen('home')}>← Voltar</button>
+          <button className="workout-close" type="button" onClick={() => setScreen('home')} aria-label="Voltar ao início" title="Voltar ao início">←</button>
           <form onSubmit={handleSave}>
             <fieldset>
               <legend>Quantidade total</legend>
@@ -878,6 +887,7 @@ export default function App() {
             <div className="palette-picker" role="radiogroup" aria-label="Paleta de cores">
               {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{palette.name}</button>)}
             </div>
+            <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Aplicar também nos gráficos e calendário</span><i aria-hidden="true" /></button>
           </div>
           <div className="settings-group">
             <h2>Sons do pacing</h2>

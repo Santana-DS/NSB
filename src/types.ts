@@ -25,6 +25,7 @@ export interface AppSettings {
   soundProfile: SoundProfileId
   theme?: ThemePreference
   palette?: ColorPalette
+  visualPalette?: boolean
 }
 export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'
 
