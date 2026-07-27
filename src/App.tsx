@@ -31,8 +31,11 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
   precise: { name: 'Preciso', description: 'Bips claros e equilibrados.', volume: .06, waveform: 'sine', noteSeconds: .12, notes: { warmup: [560, 660], set: [880, 880], rest: [440], complete: [880, 1040, 1320], rep: [660] } },
   command: { name: 'Comando', description: 'Bips firmes para treino intenso.', volume: .09, waveform: 'square', noteSeconds: .14, notes: { warmup: [520, 720], set: [980, 980], rest: [320], complete: [780, 1040, 1320], rep: [760] } },
   pulse: { name: 'Pulso', description: 'Batidas secas de metrônomo.', volume: .075, waveform: 'triangle', noteSeconds: .08, notes: { warmup: [620, 740], set: [920, 920], rest: [360], complete: [740, 920, 1100], rep: [760] } },
+  beacon: { name: 'Farol', description: 'Bips espaçados, fáceis de distinguir.', volume: .055, waveform: 'sine', noteSeconds: .1, notes: { warmup: [440, 620, 800], set: [840, 840], rest: [420, 420], complete: [660, 880, 1100], rep: [620] } },
   siren: { name: 'Sirene', description: 'Alertas ascendentes e incisivos.', volume: .065, waveform: 'sawtooth', noteSeconds: .11, notes: { warmup: [480, 620, 760], set: [760, 1000], rest: [300, 360], complete: [720, 920, 1160], rep: [680] } },
+  alarm: { name: 'Alarme', description: 'Sinal agudo de máxima urgência.', volume: .08, waveform: 'square', noteSeconds: .1, notes: { warmup: [680, 880], set: [1120, 1120, 1120], rest: [360, 360], complete: [880, 1120, 1400], rep: [820] } },
   horn: { name: 'Buzina', description: 'Tons graves, marcantes e espaçados.', volume: .055, waveform: 'square', noteSeconds: .18, notes: { warmup: [330, 440], set: [520, 520], rest: [220], complete: [440, 550, 660], rep: [440] } },
+  bass: { name: 'Grave', description: 'Tons baixos para não cansar o ouvido.', volume: .07, waveform: 'triangle', noteSeconds: .15, notes: { warmup: [260, 330], set: [390, 390], rest: [180], complete: [330, 440, 520], rep: [330] } },
   quiet: { name: 'Discreto', description: 'Sinais leves e pouco invasivos.', volume: .035, waveform: 'sine', noteSeconds: .09, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
 }
 
@@ -137,6 +140,8 @@ export default function App() {
   const [draftActive, setDraftActive] = useState(false)
   const [draftReady, setDraftReady] = useState(false)
   const pacingSectionRef = useRef<HTMLElement>(null)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
+  const pacingIsActiveRef = useRef(false)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -160,6 +165,21 @@ export default function App() {
     const interval = window.setInterval(() => setTimerNow(Date.now()), 250)
     return () => window.clearInterval(interval)
   }, [timerStartedAt, pacingPhaseStartedAt, overtimeStartedAt])
+
+  useEffect(() => {
+    pacingIsActiveRef.current = timerStartedAt !== null || pacingPhase === 'warmup' || pacingPhase === 'set' || pacingPhase === 'rest'
+  }, [pacingPhase, timerStartedAt])
+
+  useEffect(() => {
+    const restoreWakeLock = () => {
+      if (document.visibilityState === 'visible' && pacingIsActiveRef.current) void requestWakeLock()
+    }
+    document.addEventListener('visibilitychange', restoreWakeLock)
+    return () => {
+      document.removeEventListener('visibilitychange', restoreWakeLock)
+      void releaseWakeLock()
+    }
+  }, [])
 
   useEffect(() => {
     const interval = window.setInterval(() => setHomeMessageIndex((index) => {
@@ -363,6 +383,7 @@ export default function App() {
     }
     if (pacingTargetMode === 'total' && pacingPlan.length > 0 && adjustableReps === 0) setPacingTotalDuration(formatDuration(plannedPacingSeconds))
     const now = Date.now()
+    void requestWakeLock()
     setTimerNow(now)
     setPerformedAt(todayLocalIso())
     if (pacingPhase === 'paused') {
@@ -382,6 +403,7 @@ export default function App() {
     setTimerStartedAt(null)
     setDuration(formatDuration(elapsed))
     pausePacing()
+    void releaseWakeLock()
   }
 
   function includeOvertime() {
@@ -405,6 +427,7 @@ export default function App() {
     setOvertimeStartedAt(null)
     setOvertimeElapsedBase(0)
     resetPacingProgress()
+    void releaseWakeLock()
   }
 
   function resetPacingProgress() {
@@ -423,6 +446,23 @@ export default function App() {
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
     void saveAppSettings({ id: 'preferences', soundProfile: profile })
+  }
+
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator) || wakeLockRef.current) return
+    try {
+      const lock = await navigator.wakeLock.request('screen')
+      wakeLockRef.current = lock
+      lock.addEventListener('release', () => { if (wakeLockRef.current === lock) wakeLockRef.current = null })
+    } catch {
+      // Some mobile browsers reject screen wake locks while backgrounded or in battery saver mode.
+    }
+  }
+
+  async function releaseWakeLock() {
+    const lock = wakeLockRef.current
+    wakeLockRef.current = null
+    if (lock && !lock.released) await lock.release()
   }
 
   function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile) {
@@ -493,6 +533,7 @@ export default function App() {
         setOvertimeStartedAt(now)
         setOvertimeElapsedBase(0)
         setOvertimeIncluded(false)
+        void releaseWakeLock()
         appendPacingEvent('session-completed', transition, pacingBlockIndex)
         emitPacingSignal('complete')
         return
@@ -549,10 +590,12 @@ export default function App() {
     setPacingPhaseStartedAt(null)
     setPacingPhase('paused')
     appendPacingEvent('paused', 'manual', pacingBlockIndex)
+    void releaseWakeLock()
   }
 
   function resumePacing() {
     const now = Date.now()
+    void requestWakeLock()
     setPacingPhaseStartedAt(now)
     setPacingPhase(pacingPausedPhase)
     appendPacingEvent('resumed', 'manual', pacingBlockIndex)

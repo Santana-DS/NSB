@@ -12,6 +12,6 @@
 10. [x] Estatísticas de pacing: integrar o ritmo de execução dos treinos guiados ao cartão de cada quantidade.
 11. [x] Ritmo e descanso por grupo de sets: valores gerais com ajustes opcionais por grupo e fotografia do plano no treino salvo.
 12. [x] Meta total de sessão: calcular ritmo-base e duração dos blocos a partir do tempo total desejado, descansos e ajustes por grupo; indicar projeção em modos de descanso manual.
-13. Camada nativa móvel: alarmes/áudio de pacing confiáveis em segundo plano, além de integração com Wake Lock e notificações locais.
+13. [~] Camada móvel: Wake Lock para manter a tela ativa durante o cronômetro foi iniciado no web app. Alarmes/áudio confiáveis em segundo plano e notificações locais exigem uma etapa nativa dedicada.
 14. Temas e cores: selecionar paletas de visualização e oferecer modo claro, escuro ou automático conforme a preferência do sistema.
 15. Baixa prioridade — Idioma geral do aplicativo: tela de configurações para alternar entre português, inglês e espanhol, com preferência salva localmente.
