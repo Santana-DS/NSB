@@ -48,6 +48,8 @@ export interface ActiveWorkoutDraft {
   notes: string
   timerStartedAt: number | null
   timerElapsedBase: number
+  overtimeStartedAt: number | null
+  overtimeElapsedBase: number
   pacingRepDuration: string
   pacingTargetMode: 'pace' | 'total'
   pacingTotalDuration: string
