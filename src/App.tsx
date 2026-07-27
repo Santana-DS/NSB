@@ -3,11 +3,11 @@ import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
-import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, getActiveWorkoutDraft, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
+import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type ActiveWorkoutDraft, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type Workout } from './types'
+import { REP_TARGETS, type ActiveWorkoutDraft, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type Workout } from './types'
 
-type Screen = 'home' | 'new' | 'history' | 'data'
+type Screen = 'home' | 'new' | 'history' | 'data' | 'settings'
 type Period = 'month' | 'year' | 'all'
 type AnalyticsView = 'drilldown' | 'comparison' | 'statistics'
 interface VolumeRecord { date: string; reps: number }
@@ -26,6 +26,12 @@ const HOME_MESSAGES = [
   '“Don’t be afraid of being hurt. Don’t be afraid of sacrificing some blood.”',
   'Crux Sacra Sit Mihi Lux.',
   'Força e Honra.',]
+
+const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string; volume: number; notes: Record<'warmup' | 'set' | 'rest' | 'complete' | 'rep', number[]> }> = {
+  precise: { name: 'Preciso', description: 'Sinais claros e equilibrados.', volume: .06, notes: { warmup: [560, 660], set: [880, 880], rest: [440], complete: [880, 1040, 1320], rep: [660] } },
+  command: { name: 'Comando', description: 'Mais firme para treinos intensos.', volume: .09, notes: { warmup: [520, 720], set: [980, 980], rest: [320], complete: [780, 1040, 1320], rep: [760] } },
+  quiet: { name: 'Discreto', description: 'Mais curto e menos invasivo.', volume: .035, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
+}
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -81,6 +87,7 @@ export default function App() {
   const [historicalPerformances, setHistoricalPerformances] = useState<HistoricalPerformance[]>([])
   const [mediaAttachments, setMediaAttachments] = useState<MediaAttachment[]>([])
   const [loading, setLoading] = useState(true)
+  const [soundProfile, setSoundProfile] = useState<SoundProfileId>('precise')
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
@@ -130,8 +137,8 @@ export default function App() {
 
   useEffect(() => {
     void navigator.storage?.persist?.()
-    Promise.all([listWorkouts(), listLegacyDailyVolumes(), listHistoricalPerformances(), listMediaAttachments(), getActiveWorkoutDraft()])
-      .then(async ([storedWorkouts, storedVolumes, storedPerformances, storedAttachments, draft]) => {
+    Promise.all([listWorkouts(), listLegacyDailyVolumes(), listHistoricalPerformances(), listMediaAttachments(), getActiveWorkoutDraft(), getAppSettings()])
+      .then(async ([storedWorkouts, storedVolumes, storedPerformances, storedAttachments, draft, settings]) => {
         const nonZeroVolumes = storedVolumes.filter((volume) => volume.reps > 0)
         const zeroIds = storedVolumes.filter((volume) => volume.reps === 0).map((volume) => volume.id)
         if (zeroIds.length > 0) await deleteLegacyDailyVolumes(zeroIds)
@@ -139,6 +146,7 @@ export default function App() {
         setLegacyDailyVolumes(nonZeroVolumes.sort((a, b) => b.date.localeCompare(a.date)))
         setHistoricalPerformances(storedPerformances.sort((a, b) => b.date.localeCompare(a.date)))
         setMediaAttachments(storedAttachments)
+        if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
@@ -409,15 +417,21 @@ export default function App() {
     setLastRepCue(0)
   }
 
-  function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep') {
+  function selectSoundProfile(profile: SoundProfileId) {
+    setSoundProfile(profile)
+    void saveAppSettings({ id: 'preferences', soundProfile: profile })
+  }
+
+  function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile) {
     if (!('AudioContext' in window)) return
     const context = new AudioContext()
-    const notes = kind === 'complete' ? [880, 1040, 1320] : kind === 'set' ? [880, 880] : kind === 'rest' ? [440] : kind === 'warmup' ? [560, 660] : [660]
+    const profile = SOUND_PROFILES[profileId]
+    const notes = profile.notes[kind]
     notes.forEach((frequency, index) => {
       const oscillator = context.createOscillator()
       const gain = context.createGain()
       oscillator.frequency.value = frequency
-      gain.gain.setValueAtTime(.06, context.currentTime + index * .15)
+      gain.gain.setValueAtTime(profile.volume, context.currentTime + index * .15)
       gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + index * .15 + .12)
       oscillator.connect(gain).connect(context.destination)
       oscillator.start(context.currentTime + index * .15)
@@ -604,6 +618,7 @@ export default function App() {
           <button className={screen === 'home' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('home')}>Início</button>
           <button className={screen === 'history' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('history')}>Treinos</button>
           <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
+          <button className={screen === 'settings' ? 'nav-link nav-settings active' : 'nav-link nav-settings'} onClick={() => setScreen('settings')} aria-label="Ajustes" title="Ajustes">⚙</button>
         </nav>
       </header>
 
@@ -754,6 +769,17 @@ export default function App() {
           {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} />}
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
           {error && <p className="error-message" role="alert">{error}</p>}
+        </section>
+      )}
+
+      {screen === 'settings' && (
+        <section className="content settings-screen" aria-labelledby="settings-title">
+          <p className="eyebrow">Ajustes</p>
+          <h1 id="settings-title">Sons do pacing</h1>
+          <p className="lead">Cada perfil mantém sinais distintos para preparação, set, descanso, repetição e conclusão.</p>
+          <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
+            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
+          </div>
         </section>
       )}
 

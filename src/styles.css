@@ -91,3 +91,13 @@ textarea { resize: vertical; }
 .set-total { margin-top: .75rem !important; }.set-total.valid { color: #147050; }.notes-field { display: block; margin: 1.75rem 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media (max-width: 640px) { .app-header { padding: 1rem; align-items: center; gap: .35rem; }.brand { flex: 0 1 auto; gap: .4rem; font-size: .9rem; }.brand-mark { width: 2rem; height: 2rem; }.app-header nav { min-width: 0; flex: 0 0 auto; flex-wrap: nowrap; gap: 0; white-space: nowrap; }.nav-link { padding: .4rem .35rem; font-size: .9rem; }.content { padding: 2.5rem 1rem; }.home-content { padding-top: 1.25rem; }.home-intro { margin-bottom: .5rem; }.home-intro p { font-size: 1.05rem; }.summary-grid { grid-template-columns: 1fr; gap: 1.25rem; }.target-grid { grid-template-columns: repeat(3, 1fr); }.field-grid { grid-template-columns: 1fr; }.timer-section { align-items: flex-start; flex-direction: column; }.set-row { grid-template-columns: 1fr 4rem auto 4rem; }.remove-button { grid-column: 1 / -1; justify-self: start; padding-left: 0; }.workout-list li { align-items: flex-start; }.workout-actions { align-items: flex-end; flex-direction: column; }.undo-toast { width: calc(100% - 2rem); justify-content: space-between; } }
+.settings-screen { max-width: 44rem; }
+.sound-profile-list { display: grid; gap: .65rem; margin-top: 1.6rem; }
+.sound-profile-list article { display: grid; grid-template-columns: 1fr auto; align-items: stretch; overflow: hidden; border: 1px solid #cdd8d6; border-radius: .7rem; background: #fff; }
+.sound-profile-list article.selected { border-color: #0d5261; box-shadow: inset 0 0 0 1px #0d5261; }
+.sound-profile-list article > button:first-child { display: grid; gap: .25rem; width: 100%; border: 0; padding: .9rem 1rem; background: transparent; color: #17303d; text-align: left; }
+.sound-profile-list strong { font-size: 1rem; }
+.sound-profile-list span { color: #61717a; font-size: .84rem; }
+.sound-preview { width: 3.1rem; border: 0; border-left: 1px solid #dce5e2; background: #f0f6f4; color: #0d5261; font-size: 1rem; font-weight: 700; }
+.sound-preview:hover { background: #dcece8; }
+.nav-settings { min-width: 2rem; padding-inline: .4rem; font-size: 1.1rem; }

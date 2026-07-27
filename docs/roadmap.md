@@ -6,7 +6,7 @@
 4. [x] Estatísticas de tempo: mínimo, máximo, média, mediana e tempo médio por repetição para cada quantidade.
 5. [x] Estratégias de sets: comparar tempo e ritmo de estruturas como `2 × 50` e `5 × 20`.
 6. **Plano de pacing guiado:** o usuário define meta, estrutura de sets, tempo-alvo por set e descanso. Durante o treino, o app acompanha o estado `pronto → set → descanso → próximo set`, mostra o contador/cronômetro e dispara alertas sonoros locais no início do set, fim do set e fim do descanso. O plano permite pausar, retomar, pular fase e salvar os tempos efetivos de cada bloco. Áudio deve ser ativado por uma ação explícita do usuário; vibração será uma melhoria opcional e compatível com o aparelho.
-7. Escolha de alertas sonoros do pacing: selecionar conjuntos de sons e, futuramente, vibração compatível com o aparelho.
+7. [x] Perfis de alertas sonoros do pacing: seleção local de conjuntos distintos; vibração compatível com o aparelho permanece como evolução futura.
 8. Quantidades padrão personalizáveis: uma interface visual para editar a matriz de quantidades e, opcionalmente, permitir entradas livres, sem comprometer os atalhos iniciais de 100 a 500 em incrementos de 50.
 9. [x] Sessão ativa persistente: salvar e restaurar localmente o registro, cronômetro e estado de pacing em andamento.
 10. [x] Estatísticas de pacing: integrar o ritmo de execução dos treinos guiados ao cartão de cada quantidade.

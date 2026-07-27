@@ -1,5 +1,5 @@
 import { openDB, type DBSchema } from 'idb'
-import type { ActiveWorkoutDraft, HistoricalPerformance, LegacyDailyVolume, MediaAttachment, Workout } from '../types'
+import type { ActiveWorkoutDraft, AppSettings, HistoricalPerformance, LegacyDailyVolume, MediaAttachment, Workout } from '../types'
 
 interface NsbDatabase extends DBSchema {
   workouts: {
@@ -26,9 +26,13 @@ interface NsbDatabase extends DBSchema {
     key: string
     value: ActiveWorkoutDraft
   }
+  appSettings: {
+    key: string
+    value: AppSettings
+  }
 }
 
-const database = openDB<NsbDatabase>('nsb-tracker', 5, {
+const database = openDB<NsbDatabase>('nsb-tracker', 6, {
   upgrade(db, oldVersion) {
     if (oldVersion < 1) {
       const store = db.createObjectStore('workouts', { keyPath: 'id' })
@@ -47,6 +51,7 @@ const database = openDB<NsbDatabase>('nsb-tracker', 5, {
       store.createIndex('by-performance-id', 'performanceId')
     }
     if (oldVersion < 5) db.createObjectStore('activeWorkoutDrafts', { keyPath: 'id' })
+    if (oldVersion < 6) db.createObjectStore('appSettings', { keyPath: 'id' })
   },
 })
 
@@ -112,4 +117,12 @@ export async function saveActiveWorkoutDraft(draft: ActiveWorkoutDraft): Promise
 
 export async function clearActiveWorkoutDraft(): Promise<void> {
   await (await database).delete('activeWorkoutDrafts', 'current')
+}
+
+export async function getAppSettings(): Promise<AppSettings | undefined> {
+  return (await database).get('appSettings', 'preferences')
+}
+
+export async function saveAppSettings(settings: AppSettings): Promise<void> {
+  await (await database).put('appSettings', settings)
 }
