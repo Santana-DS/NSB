@@ -50,6 +50,7 @@ export interface ActiveWorkoutDraft {
   timerElapsedBase: number
   overtimeStartedAt: number | null
   overtimeElapsedBase: number
+  overtimeIncluded: boolean
   pacingRepDuration: string
   pacingTargetMode: 'pace' | 'total'
   pacingTotalDuration: string
@@ -62,6 +63,8 @@ export interface ActiveWorkoutDraft {
   pacingBlockIndex: number
   pacingPhaseStartedAt: number | null
   pacingPhaseElapsedBase: number
+  pacingWarmupTargetSeconds: number
+  pacingWarmupInitial: boolean
   pacingBlocks: PacingBlock[]
   pacingEvents: PacingEvent[]
   lastRepCue: number
