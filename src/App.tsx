@@ -5,7 +5,7 @@ import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
 import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type ActiveWorkoutDraft, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type ThemePreference, type Workout } from './types'
+import { REP_TARGETS, type ActiveWorkoutDraft, type ColorPalette, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type ThemePreference, type Workout } from './types'
 
 type Screen = 'home' | 'new' | 'history' | 'data' | 'settings'
 type Period = 'month' | 'year' | 'all'
@@ -39,6 +39,9 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
   bass: { name: 'Grave', description: 'Tons baixos para não cansar o ouvido.', volume: .07, waveform: 'triangle', noteSeconds: .15, notes: { warmup: [260, 330], set: [390, 390], rest: [180], complete: [330, 440, 520], rep: [330] } },
   quiet: { name: 'Discreto', description: 'Sinais leves e pouco invasivos.', volume: .035, waveform: 'sine', noteSeconds: .09, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
 }
+const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
+  { id: 'navy', name: 'Azul-marinho' }, { id: 'forest', name: 'Floresta' }, { id: 'ember', name: 'Brasa' }, { id: 'plum', name: 'Ameixa' },
+]
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -96,6 +99,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [soundProfile, setSoundProfile] = useState<SoundProfileId>('precise')
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
+  const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
@@ -159,6 +163,7 @@ export default function App() {
         setMediaAttachments(storedAttachments)
         if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
+        if (settings?.palette === 'navy' || settings?.palette === 'forest' || settings?.palette === 'ember' || settings?.palette === 'plum') setColorPalette(settings.palette)
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
@@ -176,6 +181,8 @@ export default function App() {
     if (themePreference === 'system') media.addEventListener('change', applyTheme)
     return () => media.removeEventListener('change', applyTheme)
   }, [themePreference])
+
+  useEffect(() => { document.body.dataset.palette = colorPalette }, [colorPalette])
 
   useEffect(() => {
     if (timerStartedAt === null && pacingPhaseStartedAt === null && overtimeStartedAt === null) return
@@ -463,12 +470,17 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette })
   }
 
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette })
+  }
+
+  function selectColorPalette(palette: ColorPalette) {
+    setColorPalette(palette)
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette })
   }
 
   function preparePacingAudio(): Promise<void> {
@@ -858,6 +870,13 @@ export default function App() {
             <p>Escolha como o app acompanha o ambiente.</p>
             <div className="theme-picker" role="radiogroup" aria-label="Aparência">
               {([['system', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']] as [ThemePreference, string][]).map(([theme, label]) => <button key={theme} type="button" role="radio" aria-checked={themePreference === theme} className={themePreference === theme ? 'selected' : ''} onClick={() => selectThemePreference(theme)}>{label}</button>)}
+            </div>
+          </div>
+          <div className="settings-group">
+            <h2>Paleta</h2>
+            <p>A cor de destaque, independente do modo de aparência.</p>
+            <div className="palette-picker" role="radiogroup" aria-label="Paleta de cores">
+              {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{palette.name}</button>)}
             </div>
           </div>
           <div className="settings-group">

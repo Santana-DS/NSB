@@ -18,11 +18,13 @@ export interface PacingBlock {
 export type PacingMode = 'automatic' | 'manual-rest'
 export type SoundProfileId = 'precise' | 'command' | 'pulse' | 'cardio' | 'beacon' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet'
 export type ThemePreference = 'system' | 'light' | 'dark'
+export type ColorPalette = 'navy' | 'forest' | 'ember' | 'plum'
 
 export interface AppSettings {
   id: 'preferences'
   soundProfile: SoundProfileId
   theme?: ThemePreference
+  palette?: ColorPalette
 }
 export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'
 

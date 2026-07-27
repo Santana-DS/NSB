@@ -119,3 +119,22 @@ body[data-theme='dark'] :is(.daily-grid li.has-volume, .heatmap-scale i) { backg
 body[data-theme='dark'] .bar { background: #3c8f82; } body[data-theme='dark'] .chart-bar-button:hover .bar, body[data-theme='dark'] .chart-bar-button:focus-visible .bar { background: #54b4ae; }
 body[data-theme='dark'] :is(.comparison-axis, .comparison-grid) { stroke: #3b5960; } body[data-theme='dark'] .comparison-backdrop, body[data-theme='dark'] .day-detail-backdrop { background: #02080bcc; }
 body[data-theme='dark'] .sound-preview { background: #18363b; border-color: #31505b; } body[data-theme='dark'] .sound-preview:hover { background: #21474c; }
+body[data-theme='dark'] :is(.eyebrow, label > span, .set-row > span, .pacing-section > p, .day-list p, .performance-form > p, .pacing-clock time span, .pacing-clock > span, .pacing-status, .pacing-group-headings, .pacing-group-settings label > span, .pacing-section .pacing-mode-note, .pacing-projection, .pacing-overtime, .historical-badge, .empty-state, .data-summary, .legacy-import > p, .strategy-stat-grid article > p, .time-stat-grid h3 span, .strategy-stat-grid dt, .time-stat-grid dt) { color: #b7cbcd !important; }
+body[data-theme='dark'] :is(input, textarea, select)::placeholder { color: #8eaaad; opacity: 1; }
+body[data-theme='dark'] .pacing-clock.preparing { background: #3b3020; } body[data-theme='dark'] .pacing-clock > .pacing-overtime.included { color: #f0b36d; }
+
+.palette-picker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem; max-width: 26rem; }.palette-picker button { display: inline-flex; align-items: center; gap: .45rem; border: 1px solid #cdd8d6; border-radius: .55rem; padding: .58rem .7rem; background: #fff; color: #334951; font-size: .84rem; font-weight: 700; text-align: left; }.palette-picker button.selected { box-shadow: inset 0 0 0 1px currentColor; }.palette-swatch { width: .85rem; height: .85rem; flex: 0 0 auto; border-radius: 50%; background: #0d5261; }.palette-swatch.forest { background: #27735a; }.palette-swatch.ember { background: #b75435; }.palette-swatch.plum { background: #7153a3; }
+body[data-theme='dark'] .palette-picker button { border-color: #31505b; background: #13242c; color: #dce9e7; }
+
+body[data-palette='navy'] { --palette-accent: #0d5261; --palette-bright: #087181; --palette-soft: #dceeea; --palette-border: #9bc8c0; }
+body[data-palette='forest'] { --palette-accent: #27735a; --palette-bright: #3f9476; --palette-soft: #dceee1; --palette-border: #9bcbb4; }
+body[data-palette='ember'] { --palette-accent: #a6472e; --palette-bright: #c86644; --palette-soft: #f6e1d8; --palette-border: #e5ae9c; }
+body[data-palette='plum'] { --palette-accent: #654591; --palette-bright: #8767b7; --palette-soft: #e9e0f4; --palette-border: #c7b5df; }
+body[data-palette] :is(.brand-mark, .primary-action, .target.selected, .target-filter > button.selected, .target-filter-options button.selected, .period-picker button.selected, .view-picker button.selected, .theme-picker button.selected, .pacing-mode-picker button.selected) { background: var(--palette-accent); }
+body[data-palette] .hero-action { background: linear-gradient(135deg, var(--palette-accent), var(--palette-bright)); }
+body[data-palette] :is(.secondary-action, .download-menu button, .target-filter-toggle, .pacing-group-settings summary, .workout-list time, .stat-best, .chart-download, .pacing-projection strong) { color: var(--palette-accent); border-color: var(--palette-border); }
+body[data-palette] :is(.bar, .daily-grid li.has-volume, .heatmap-scale i) { background: var(--palette-bright); }
+body[data-palette] :is(.chart-bar-button:hover .bar, .chart-bar-button:focus-visible .bar, .sound-preview:hover) { background: var(--palette-soft); }
+body[data-theme='dark'][data-palette] :is(.brand-mark, .primary-action, .target.selected, .target-filter > button.selected, .target-filter-options button.selected, .period-picker button.selected, .view-picker button.selected, .theme-picker button.selected, .pacing-mode-picker button.selected) { background: var(--palette-bright); }
+body[data-theme='dark'][data-palette] :is(.secondary-action, .download-menu button, .target-filter-toggle, .pacing-group-settings summary, .workout-list time, .stat-best, .chart-download, .pacing-projection strong) { color: #dcefeb; border-color: var(--palette-bright); }
+body[data-theme='dark'][data-palette] :is(.bar, .daily-grid li.has-volume, .heatmap-scale i) { background: var(--palette-bright); }
