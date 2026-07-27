@@ -54,8 +54,8 @@ interface NativePacingAudioPlugin {
   start(): Promise<void>
   stop(): Promise<void>
   update(options: { elapsed: string; phase: string; progress: string }): Promise<void>
-  signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number; profile: SoundProfileId }): Promise<void>
-  schedule(options: { volume: number; profile: SoundProfileId; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep' }[] }): Promise<void>
+  signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number; tones: number[]; waveform: OscillatorType; noteDurationMs: number; profileGain: number; replace?: boolean }): Promise<void>
+  schedule(options: { volume: number; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; noteDurationMs: number; profileGain: number }[] }): Promise<void>
   cancelSchedule(): Promise<void>
   addListener(eventName: 'control', listenerFunc: (event: { action: 'advance' | 'pause' }) => void): Promise<{ remove: () => Promise<void> }>
 }
@@ -174,6 +174,7 @@ export default function App() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const nativeScheduleActiveRef = useRef(false)
   const nativeControlRef = useRef<(action: 'advance' | 'pause') => void>(() => undefined)
+  const soundPreviewTimersRef = useRef<number[]>([])
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -533,6 +534,16 @@ export default function App() {
     void saveAppSettings({ id: 'preferences', soundProfile: profile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
+  function previewSoundProfile(profile: SoundProfileId) {
+    soundPreviewTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    soundPreviewTimersRef.current = []
+    selectSoundProfile(profile)
+    ;(['warmup', 'set', 'rest', 'complete'] as const).forEach((kind, index) => {
+      const timer = window.setTimeout(() => emitPacingSignal(kind, profile, true), 30 + index * 520)
+      soundPreviewTimersRef.current.push(timer)
+    })
+  }
+
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
     void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
@@ -605,10 +616,11 @@ export default function App() {
     if (lock && !lock.released) await lock.release()
   }
 
-  function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile) {
+  function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile, replace = false) {
     if (Capacitor.getPlatform() === 'android') {
       if (nativeScheduleActiveRef.current) return
-      void NativePacingAudio.signal({ kind, profile: profileId, volume: Math.min(100, Math.max(1, Math.round(soundVolume))) }).catch(() => undefined)
+      const profile = SOUND_PROFILES[profileId]
+      void NativePacingAudio.signal({ kind, volume: Math.round(soundVolume), tones: profile.notes[kind], waveform: profile.waveform, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume, replace }).catch(() => undefined)
       return
     }
     if (!('AudioContext' in window)) return
@@ -644,19 +656,21 @@ export default function App() {
 
   function scheduleNativeAutomaticPacing() {
     if (Capacitor.getPlatform() !== 'android' || pacingMode !== 'automatic' || pacingPlan.length === 0) return
-    const events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep' }[] = []
+    const events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; noteDurationMs: number; profileGain: number }[] = []
+    const profile = SOUND_PROFILES[soundProfile]
+    const addEvent = (delayMs: number, kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep') => events.push({ delayMs, kind, tones: profile.notes[kind], waveform: profile.waveform, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume })
     let elapsedSeconds = DEFAULT_WARMUP_SECONDS
     pacingPlan.forEach((block, blockIndex) => {
-      events.push({ delayMs: elapsedSeconds * 1000, kind: 'set' })
-      for (let rep = 1; rep < block.reps; rep += 1) events.push({ delayMs: (elapsedSeconds + rep * block.paceSeconds) * 1000, kind: 'rep' })
+      addEvent(elapsedSeconds * 1000, 'set')
+      for (let rep = 1; rep < block.reps; rep += 1) addEvent((elapsedSeconds + rep * block.paceSeconds) * 1000, 'rep')
       elapsedSeconds += block.reps * block.paceSeconds
-      if (blockIndex === pacingPlan.length - 1) { events.push({ delayMs: elapsedSeconds * 1000, kind: 'complete' }); return }
-      events.push({ delayMs: elapsedSeconds * 1000, kind: 'rest' })
-      if (block.restSeconds > DEFAULT_WARMUP_SECONDS) events.push({ delayMs: (elapsedSeconds + block.restSeconds - DEFAULT_WARMUP_SECONDS) * 1000, kind: 'warmup' })
+      if (blockIndex === pacingPlan.length - 1) { addEvent(elapsedSeconds * 1000, 'complete'); return }
+      addEvent(elapsedSeconds * 1000, 'rest')
+      if (block.restSeconds > DEFAULT_WARMUP_SECONDS) addEvent((elapsedSeconds + block.restSeconds - DEFAULT_WARMUP_SECONDS) * 1000, 'warmup')
       elapsedSeconds += block.restSeconds
     })
     nativeScheduleActiveRef.current = true
-    void NativePacingAudio.schedule({ profile: soundProfile, volume: Math.min(100, Math.max(1, Math.round(soundVolume))), events }).catch(() => { nativeScheduleActiveRef.current = false })
+    void NativePacingAudio.schedule({ volume: Math.round(soundVolume), events }).catch(() => { nativeScheduleActiveRef.current = false })
   }
 
   function appendPacingEvent(type: import('./types').PacingEventType, transition: 'automatic' | 'manual', blockIndex?: number) {
@@ -1025,7 +1039,7 @@ export default function App() {
             <h2>Sons do pacing</h2>
           <div className="sound-volume-control"><label htmlFor="sound-volume">Volume dos avisos</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
-            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}{soundProfile === id && <em>Selecionado</em>}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
+            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
           </div>
           </div>
           <details className="settings-group home-message-settings">

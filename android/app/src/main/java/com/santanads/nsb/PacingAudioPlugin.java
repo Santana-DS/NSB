@@ -42,13 +42,15 @@ public class PacingAudioPlugin extends Plugin {
         send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.UPDATE).putExtra("elapsed", call.getString("elapsed", "00:00")).putExtra("phase", call.getString("phase", "Cronômetro")).putExtra("progress", call.getString("progress", "Em andamento"))); call.resolve();
     }
     @PluginMethod public void signal(PluginCall call) {
-        send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.SIGNAL).putExtra("kind", call.getString("kind", "set")).putExtra("profile", call.getString("profile", "precise")).putExtra("volume", call.getInt("volume", 100))); call.resolve();
+        org.json.JSONArray tones = call.getArray("tones"); int[] values = new int[tones == null ? 0 : tones.length()];
+        for (int i = 0; i < values.length; i++) values[i] = tones.optInt(i, 440);
+        send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.SIGNAL).putExtra("tones", values).putExtra("waveform", call.getString("waveform", "sine")).putExtra("noteDurationMs", call.getInt("noteDurationMs", 120)).putExtra("profileGain", call.getDouble("profileGain", .06).floatValue()).putExtra("replace", call.getBoolean("replace", false)).putExtra("volume", call.getInt("volume", 100))); call.resolve();
     }
     @PluginMethod public void schedule(PluginCall call) {
         org.json.JSONArray input = call.getArray("events"); if (input == null) { call.reject("Eventos ausentes."); return; }
-        long[] delays = new long[input.length()]; String[] kinds = new String[input.length()];
-        for (int i = 0; i < input.length(); i++) { org.json.JSONObject event = input.optJSONObject(i); delays[i] = event == null ? 0 : event.optLong("delayMs", 0); kinds[i] = event == null ? "set" : event.optString("kind", "set"); }
-        send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.SCHEDULE).putExtra("delays", delays).putExtra("kinds", kinds).putExtra("profile", call.getString("profile", "precise")).putExtra("volume", call.getInt("volume", 100))); call.resolve();
+        long[] delays = new long[input.length()]; String[] events = new String[input.length()];
+        for (int i = 0; i < input.length(); i++) { org.json.JSONObject event = input.optJSONObject(i); delays[i] = event == null ? 0 : event.optLong("delayMs", 0); events[i] = event == null ? "{}" : event.toString(); }
+        send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.SCHEDULE).putExtra("delays", delays).putExtra("events", events).putExtra("volume", call.getInt("volume", 100))); call.resolve();
     }
     @PluginMethod public void cancelSchedule(PluginCall call) { send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.CANCEL)); call.resolve(); }
 }
