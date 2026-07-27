@@ -53,9 +53,11 @@ const MAX_SOUND_VOLUME = 1000
 interface NativePacingAudioPlugin {
   start(): Promise<void>
   stop(): Promise<void>
+  update(options: { elapsed: string; phase: string; progress: string }): Promise<void>
   signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number; profile: SoundProfileId }): Promise<void>
   schedule(options: { volume: number; profile: SoundProfileId; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep' }[] }): Promise<void>
   cancelSchedule(): Promise<void>
+  addListener(eventName: 'control', listenerFunc: (event: { action: 'advance' | 'pause' }) => void): Promise<{ remove: () => Promise<void> }>
 }
 const NativePacingAudio = registerPlugin<NativePacingAudioPlugin>('PacingAudio')
 
@@ -171,6 +173,7 @@ export default function App() {
   const pacingIsActiveRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const nativeScheduleActiveRef = useRef(false)
+  const nativeControlRef = useRef<(action: 'advance' | 'pause') => void>(() => undefined)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -223,6 +226,17 @@ export default function App() {
   useEffect(() => {
     pacingIsActiveRef.current = timerStartedAt !== null || pacingPhase === 'warmup' || pacingPhase === 'set' || pacingPhase === 'rest'
   }, [pacingPhase, timerStartedAt])
+
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'android') return
+    let disposed = false
+    let handle: { remove: () => Promise<void> } | undefined
+    void NativePacingAudio.addListener('control', ({ action }) => nativeControlRef.current(action)).then((listener) => {
+      if (disposed) void listener.remove()
+      else handle = listener
+    }).catch(() => undefined)
+    return () => { disposed = true; if (handle) void handle.remove() }
+  }, [])
 
   useEffect(() => {
     const restoreWakeLock = () => {
@@ -324,6 +338,13 @@ export default function App() {
   const plannedPacingSeconds = pacingPlan.reduce((total, block, index) => total + block.reps * block.paceSeconds + (index < pacingPlan.length - 1 ? block.restSeconds : 0), 0)
   const pacingProjectionSeconds = getPacingProjection({ phase: pacingPhase, pausedPhase: pacingPausedPhase, phaseElapsed: pacingPhaseElapsedForProjection, warmupInitial: pacingWarmupInitial, warmupTargetSeconds: pacingWarmupTargetSeconds, blockIndex: pacingBlockIndex, plan: pacingPlan, timerElapsedSeconds: timerElapsedForProjection, plannedSeconds: plannedPacingSeconds })
   const displayedPacingProjectionSeconds = pacingPhase === 'complete' && overtimeIncluded ? timerElapsedSeconds + overtimeElapsedSeconds : pacingProjectionSeconds
+
+  useEffect(() => {
+    if (Capacitor.getPlatform() !== 'android' || (timerStartedAt === null && pacingPhase !== 'warmup' && pacingPhase !== 'set' && pacingPhase !== 'rest')) return
+    const phase = pacingPhase === 'warmup' ? 'Warm-up' : pacingPhase === 'set' ? `Set ${pacingBlockIndex + 1}/${pacingPlan.length}` : pacingPhase === 'rest' ? 'Descanso' : 'Cronômetro'
+    const progress = pacingPhase === 'warmup' || pacingPhase === 'set' || pacingPhase === 'rest' ? `${formatStopwatch(pacingPhaseElapsed)} / ${formatStopwatch(pacingPhaseTarget)}` : 'Em andamento'
+    void NativePacingAudio.update({ elapsed: formatStopwatch(timerElapsedSeconds), phase, progress }).catch(() => undefined)
+  }, [pacingBlockIndex, pacingPhase, pacingPhaseElapsed, pacingPhaseTarget, pacingPlan.length, timerElapsedSeconds, timerStartedAt])
 
   useEffect(() => {
     const advancesAutomatically = pacingPhase === 'warmup' || pacingMode === 'automatic' || (pacingMode === 'manual-rest' && pacingPhase === 'set')
@@ -439,13 +460,13 @@ export default function App() {
     const now = Date.now()
     void requestWakeLock()
     void preparePacingAudio()
+    startNativePacingAudio()
     setTimerNow(now)
     setPerformedAt(todayLocalIso())
     if (pacingPhase === 'paused') {
       if (pacingPausedPhase !== 'warmup') setTimerStartedAt(now)
       resumePacing()
     } else if ((pacingPhase === 'idle' || pacingPhase === 'complete') && pacingPlan.some((block) => block.paceSeconds > 0)) {
-      startNativePacingAudio()
       startPacing(now)
       scheduleNativeAutomaticPacing()
       window.setTimeout(() => pacingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
@@ -462,6 +483,11 @@ export default function App() {
     pausePacing()
     void releaseWakeLock()
     stopNativePacingAudio()
+  }
+
+  nativeControlRef.current = (action) => {
+    if (action === 'advance') advancePacingPhase('manual')
+    if (action === 'pause') pauseTimer()
   }
 
   function includeOvertime() {
@@ -999,7 +1025,7 @@ export default function App() {
             <h2>Sons do pacing</h2>
           <div className="sound-volume-control"><label htmlFor="sound-volume">Volume dos avisos</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
-            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
+            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}{soundProfile === id && <em>Selecionado</em>}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
           </div>
           </div>
           <details className="settings-group home-message-settings">

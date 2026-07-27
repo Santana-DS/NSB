@@ -100,6 +100,7 @@ textarea { resize: vertical; }
 .sound-profile-list article.selected { border-color: #0d5261; box-shadow: inset 0 0 0 1px #0d5261; }
 .sound-profile-list article > button:first-child { display: grid; gap: .25rem; width: 100%; border: 0; padding: .9rem 1rem; background: transparent; color: #17303d; text-align: left; }
 .sound-profile-list strong { font-size: 1rem; }
+.sound-profile-list strong em { display: inline-block; margin-left: .5rem; padding: .14rem .4rem; border-radius: 999px; background: #0d5261; color: #fff; font-size: .66rem; font-style: normal; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; vertical-align: .12rem; }
 .sound-profile-list span { color: #61717a; font-size: .84rem; }
 .sound-preview { width: 3.1rem; border: 0; border-left: 1px solid #dce5e2; background: #f0f6f4; color: #0d5261; font-size: 1rem; font-weight: 700; }
 .sound-preview:hover { background: #dcece8; }
@@ -129,6 +130,7 @@ body[data-theme='dark'] :is(.comparison-axis, .comparison-grid) { stroke: #3b596
 body[data-theme='dark'] .sound-preview { background: #18363b; border-color: #31505b; } body[data-theme='dark'] .sound-preview:hover { background: #21474c; }
 body[data-theme='dark'] :is(.eyebrow, label > span, .set-row > span, .pacing-section > p, .day-list p, .performance-form > p, .pacing-clock time span, .pacing-clock > span, .pacing-status, .pacing-group-headings, .pacing-group-settings label > span, .pacing-section .pacing-mode-note, .pacing-projection, .pacing-overtime, .historical-badge, .empty-state, .data-summary, .legacy-import > p, .strategy-stat-grid article > p, .time-stat-grid h3 span, .strategy-stat-grid dt, .time-stat-grid dt) { color: #b7cbcd !important; }
 body[data-theme='dark'] :is(.sound-profile-list strong, .time-stat-grid h3, .strategy-stat-grid h3, .day-total, .performance-record > p, .pacing-group-settings summary, .pacing-target-picker button.selected, .pacing-mode-picker button.selected) { color: #e1efed !important; }
+body[data-theme='dark'] .sound-profile-list strong em { background: var(--palette-accent); color: #07171f !important; }
 body[data-theme='dark'] .workout-close { border-color: #397b7d; background: #132b32; color: #dcefeb; } body[data-theme='dark'] .workout-close:hover, body[data-theme='dark'] .workout-close:focus-visible { background: #1d4148; }
 body[data-theme='dark'] :is(input, textarea, select)::placeholder { color: #8eaaad; opacity: 1; }
 body[data-theme='dark'] .pacing-clock.preparing { background: #3b3020; } body[data-theme='dark'] .pacing-clock > .pacing-overtime.included { color: #f0b36d; }
