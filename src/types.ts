@@ -28,6 +28,7 @@ export interface AppSettings {
   visualPalette?: boolean
   fontScale?: number
   evolutionScale?: number
+  homeMessages?: string[]
 }
 export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'
 

@@ -135,6 +135,7 @@ body[data-theme='dark'] .pacing-clock.preparing { background: #3b3020; } body[da
 body[data-theme='dark'] .palette-picker button { border-color: #31505b; background: #13242c; color: #dce9e7; }
 body[data-theme='dark'] .visual-palette-switch { border-color: #31505b; background: #13242c; color: #dce9e7; } body[data-theme='dark'] .visual-palette-switch[aria-checked='false'] i { background: #38545a; }
 body[data-theme='dark'] .font-scale-control { border-color: #31505b; background: #13242c; color: #dce9e7; } body[data-theme='dark'] .font-scale-control output { color: #dcefeb; }
+.home-message-list { display: grid; gap: .5rem; max-width: 42rem; }.home-message-list > div { display: flex; align-items: center; gap: .55rem; }.home-message-list input { min-width: 0; flex: 1; }.home-message-list .remove-button { padding: .35rem; }.restore-messages { margin-top: .45rem; padding-left: 0; font-size: .85rem; }
 
 body[data-palette='navy'] { --palette-accent: #0d5261; --palette-bright: #087181; --palette-soft: #dceeea; --palette-border: #9bc8c0; }
 body[data-palette='forest'] { --palette-accent: #27735a; --palette-bright: #3f9476; --palette-soft: #dceee1; --palette-border: #9bcbb4; }

@@ -18,7 +18,7 @@ interface PacingStats { count: number; reps: number; activeSeconds: number; rest
 type DownloadFormat = 'svg' | 'png' | 'jpeg'
 type PacingPhase = 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
 const DEFAULT_WARMUP_SECONDS = 10
-const HOME_MESSAGES = [
+const DEFAULT_HOME_MESSAGES = [
   'Do what you know you have to do.',
   '“Failure has been achieved. Thank God.”',
   '“Who’s gonna carry the boats and the logs?”',
@@ -125,6 +125,7 @@ export default function App() {
   const [comparisonExpanded, setComparisonExpanded] = useState(false)
   const [comparisonZoom, setComparisonZoom] = useState(1)
   const [hiddenComparisonYears, setHiddenComparisonYears] = useState<number[]>([])
+  const [homeMessages, setHomeMessages] = useState<string[]>(DEFAULT_HOME_MESSAGES)
   const [homeMessageIndex, setHomeMessageIndex] = useState(0)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
@@ -174,6 +175,7 @@ export default function App() {
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
         if (typeof settings?.fontScale === 'number' && settings.fontScale >= MIN_FONT_SCALE && settings.fontScale <= MAX_FONT_SCALE) setFontScale(settings.fontScale)
         if (typeof settings?.evolutionScale === 'number' && settings.evolutionScale >= MIN_EVOLUTION_SCALE && settings.evolutionScale <= MAX_EVOLUTION_SCALE) setEvolutionScale(settings.evolutionScale)
+        if (Array.isArray(settings?.homeMessages) && settings.homeMessages.every((message) => typeof message === 'string')) setHomeMessages(settings.homeMessages.map((message) => message.trim()).filter(Boolean))
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
@@ -219,13 +221,13 @@ export default function App() {
 
   useEffect(() => {
     const interval = window.setInterval(() => setHomeMessageIndex((index) => {
-      if (HOME_MESSAGES.length < 2) return index
+      if (homeMessages.length < 2) return 0
       let next = index
-      while (next === index) next = Math.floor(Math.random() * HOME_MESSAGES.length)
+      while (next === index) next = Math.floor(Math.random() * homeMessages.length)
       return next
     }), 30_000)
     return () => window.clearInterval(interval)
-  }, [])
+  }, [homeMessages.length])
 
   useEffect(() => {
     const total = getSetGroupTotal(setGroups)
@@ -482,36 +484,51 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function selectColorPalette(palette: ColorPalette) {
     setColorPalette(palette)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette, fontScale, evolutionScale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function toggleVisualPalette() {
     const next = !visualPalette
     setVisualPalette(next)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale, evolutionScale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale, evolutionScale, homeMessages })
   }
 
   function selectFontScale(next: number) {
     const scale = Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, next))
     setFontScale(scale)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale, evolutionScale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale, evolutionScale, homeMessages })
   }
 
   function selectEvolutionScale(next: number) {
     const scale = Math.max(MIN_EVOLUTION_SCALE, Math.min(MAX_EVOLUTION_SCALE, next))
     setEvolutionScale(scale)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale: scale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale: scale, homeMessages })
   }
+
+  function saveHomeMessages(next: string[]) {
+    const normalized = next.map((message) => message.trim()).filter(Boolean)
+    setHomeMessages(normalized)
+    setHomeMessageIndex((index) => Math.min(index, Math.max(0, normalized.length - 1)))
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages: normalized })
+  }
+
+  function updateHomeMessage(index: number, value: string) {
+    const next = [...homeMessages]
+    next[index] = value
+    setHomeMessages(next)
+  }
+
+  function commitHomeMessages() { saveHomeMessages(homeMessages) }
 
   function preparePacingAudio(): Promise<void> {
     if (!('AudioContext' in window)) return Promise.resolve()
@@ -744,7 +761,7 @@ export default function App() {
       {screen === 'home' && (
         <section className="content home-content" aria-labelledby="home-title">
           <div className="home-intro">
-            <p id="home-title">{HOME_MESSAGES[homeMessageIndex]}</p>
+            {homeMessages.length > 0 && <p id="home-title">{homeMessages[homeMessageIndex]}</p>}
             <button className="primary-action hero-action" onClick={openNewWorkout} aria-label="Registrar treino" title="Registrar treino">+</button>
           </div>
 
@@ -911,6 +928,13 @@ export default function App() {
               {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{palette.name}</button>)}
             </div>
             <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Aplicar nos gráficos e calendário</span><i aria-hidden="true" /></button>
+          </div>
+          <div className="settings-group">
+            <div className="section-heading"><h2>Frases iniciais</h2><button type="button" className="secondary-action" onClick={() => setHomeMessages((messages) => [...messages, ''])}>Adicionar</button></div>
+            <div className="home-message-list">
+              {homeMessages.map((message, index) => <div key={index}><input value={message} maxLength={120} aria-label={`Frase ${index + 1}`} onChange={(event) => updateHomeMessage(index, event.target.value)} onBlur={commitHomeMessages} /><button type="button" className="remove-button" onClick={() => saveHomeMessages(homeMessages.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Excluir frase ${index + 1}`}>Excluir</button></div>)}
+            </div>
+            <button type="button" className="text-button restore-messages" onClick={() => saveHomeMessages(DEFAULT_HOME_MESSAGES)}>Restaurar frases padrão</button>
           </div>
           <div className="settings-group">
             <h2>Sons do pacing</h2>
