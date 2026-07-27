@@ -1133,7 +1133,7 @@ function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, 
   const isYearOverview = shownYear === null
   const barWidth = Math.round(44 * evolutionScale / 100)
   const barGap = Math.max(4, Math.round(12 * evolutionScale / 100))
-  const hideBarText = barWidth < 34 || (bins.length > 14 && barWidth < 44)
+  const hideBarText = !isYearOverview && (barWidth < 34 || (bins.length > 14 && barWidth < 44))
   const barsRef = useRef<HTMLOListElement>(null)
   const [barsViewportWidth, setBarsViewportWidth] = useState(0)
   const defaultBarsWidth = bins.length * 44 + Math.max(0, bins.length - 1) * 12
