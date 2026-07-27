@@ -1127,19 +1127,33 @@ function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onR
 function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, onEvolutionScaleChange, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; palette?: ColorPalette; evolutionScale: number; onEvolutionScaleChange: (scale: number) => void; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
   const now = new Date()
   const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
-  if (shownMonth) return <DailyVolumeGrid records={records} personalRecords={personalRecords} palette={palette} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
-
   const shownYear = expandedYear ?? (period === 'year' ? now.getFullYear() : null)
   const bins = useMemo<ChartBin[]>(() => shownYear === null ? getYearBins(records) : getMonthBins(records, shownYear), [records, shownYear])
   const highest = Math.max(...bins.map((bin) => bin.total), 1)
   const isYearOverview = shownYear === null
   const barWidth = Math.round(44 * evolutionScale / 100)
   const hideBarText = barWidth < 34 || (bins.length > 14 && barWidth < 44)
+  const barsRef = useRef<HTMLOListElement>(null)
+  const [barsViewportWidth, setBarsViewportWidth] = useState(0)
+  const defaultBarsWidth = bins.length * 44 + Math.max(0, bins.length - 1) * 12
+  const showEvolutionScale = barsViewportWidth > 0 && defaultBarsWidth > barsViewportWidth
 
+  useEffect(() => {
+    const list = barsRef.current
+    if (!list) return
+    const updateWidth = () => setBarsViewportWidth(list.clientWidth)
+    updateWidth()
+    if (!('ResizeObserver' in window)) return
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(list)
+    return () => observer.disconnect()
+  }, [bins.length])
+
+  if (shownMonth) return <DailyVolumeGrid records={records} personalRecords={personalRecords} palette={palette} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
   if (records.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados neste período para visualizar o gráfico.</p>
   return <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
-    <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div><div className="evolution-actions"><label className="evolution-scale" title="Escala do gráfico"><span aria-hidden="true">↔</span><input type="range" min={MIN_EVOLUTION_SCALE} max={MAX_EVOLUTION_SCALE} value={evolutionScale} aria-label="Escala do gráfico de evolução" onChange={(event) => onEvolutionScaleChange(Number(event.target.value))} /></label>{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div></div>
-    <ol className={hideBarText ? 'drilldown-bars compact' : 'drilldown-bars'} style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(${barWidth}px, 1fr))` }}>
+    <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div><div className="evolution-actions">{showEvolutionScale && <label className="evolution-scale" title="Escala do gráfico"><span aria-hidden="true">↔</span><input type="range" min={MIN_EVOLUTION_SCALE} max={MAX_EVOLUTION_SCALE} value={evolutionScale} aria-label="Escala do gráfico de evolução" onChange={(event) => onEvolutionScaleChange(Number(event.target.value))} /></label>}{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div></div>
+    <ol ref={barsRef} className={hideBarText ? 'drilldown-bars compact' : 'drilldown-bars'} style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(${barWidth}px, 1fr))` }}>
       {bins.map((bin) => <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}><button className="chart-bar-button" type="button" onClick={() => isYearOverview ? onExpandYear(bin.year!) : onExpandMonth({ year: shownYear!, month: bin.month! })}>{!hideBarText && <span className="bar-value">{bin.total || '—'}</span>}<span className="bar-track"><span className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%`, backgroundColor: volumeColor(bin.total, highest, palette) }} /></span>{!hideBarText && <span className="bar-label">{bin.label}</span>}</button></li>)}
     </ol>
   </section>
