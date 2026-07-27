@@ -1240,27 +1240,23 @@ function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, 
   const barWidth = Math.round(44 * evolutionScale / 100)
   const barGap = Math.max(4, Math.round(12 * evolutionScale / 100))
   const hideBarText = !isYearOverview && (barWidth < 34 || (bins.length > 14 && barWidth < 44))
-  const barsRef = useRef<HTMLOListElement>(null)
-  const [barsViewportWidth, setBarsViewportWidth] = useState(0)
-  const defaultBarsWidth = bins.length * 44 + Math.max(0, bins.length - 1) * 12
-  const showEvolutionScale = barsViewportWidth > 0 && defaultBarsWidth > barsViewportWidth
-
-  useEffect(() => {
-    const list = barsRef.current
-    if (!list) return
-    const updateWidth = () => setBarsViewportWidth(list.clientWidth)
-    updateWidth()
-    if (!('ResizeObserver' in window)) return
-    const observer = new ResizeObserver(updateWidth)
-    observer.observe(list)
-    return () => observer.disconnect()
-  }, [bins.length])
+  const pinchRef = useRef<{ distance: number; scale: number } | null>(null)
+  const touchDistance = (touches: React.TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
+  const beginPinch = (event: React.TouchEvent<HTMLOListElement>) => { if (event.touches.length === 2) pinchRef.current = { distance: touchDistance(event.touches), scale: evolutionScale } }
+  const updatePinch = (event: React.TouchEvent<HTMLOListElement>) => {
+    if (!pinchRef.current || event.touches.length !== 2) return
+    event.preventDefault()
+    const next = Math.round(pinchRef.current.scale * touchDistance(event.touches) / pinchRef.current.distance)
+    onEvolutionScaleChange(Math.max(MIN_EVOLUTION_SCALE, Math.min(MAX_EVOLUTION_SCALE, next)))
+  }
+  const endPinch = () => { pinchRef.current = null }
+  const showEvolutionScale = false
 
   if (shownMonth) return <DailyVolumeGrid records={records} personalRecords={personalRecords} palette={palette} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
   if (records.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados neste período para visualizar o gráfico.</p>
   return <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
     <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div><div className="evolution-actions">{showEvolutionScale && <label className="evolution-scale" title="Escala do gráfico"><span aria-hidden="true">↔</span><input type="range" min={MIN_EVOLUTION_SCALE} max={MAX_EVOLUTION_SCALE} value={evolutionScale} aria-label="Escala do gráfico de evolução" onChange={(event) => onEvolutionScaleChange(Number(event.target.value))} /></label>}{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div></div>
-    <ol ref={barsRef} className={hideBarText ? 'drilldown-bars compact' : 'drilldown-bars'} style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(${barWidth}px, 1fr))`, columnGap: `${barGap}px` }}>
+    <ol className={hideBarText ? 'drilldown-bars compact' : 'drilldown-bars'} onTouchStart={beginPinch} onTouchMove={updatePinch} onTouchEnd={endPinch} onTouchCancel={endPinch} style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(${barWidth}px, 1fr))`, columnGap: `${barGap}px` }}>
       {bins.map((bin) => <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}><button className="chart-bar-button" type="button" onClick={() => isYearOverview ? onExpandYear(bin.year!) : onExpandMonth({ year: shownYear!, month: bin.month! })}>{!hideBarText && <span className="bar-value">{bin.total || '—'}</span>}<span className="bar-track"><span className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%`, backgroundColor: volumeColor(bin.total, highest, palette) }} /></span>{!hideBarText && <span className="bar-label">{bin.label}</span>}</button></li>)}
     </ol>
   </section>
