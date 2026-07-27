@@ -145,6 +145,7 @@ export default function App() {
   const [mediaAttachments, setMediaAttachments] = useState<MediaAttachment[]>([])
   const [loading, setLoading] = useState(true)
   const [soundProfile, setSoundProfile] = useState<SoundProfileId>('precise')
+  const [soundEnabled, setSoundEnabled] = useState(true)
   const [soundVolume, setSoundVolume] = useState(100)
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
   const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
@@ -218,6 +219,7 @@ export default function App() {
         setHistoricalPerformances(storedPerformances.sort((a, b) => b.date.localeCompare(a.date)))
         setMediaAttachments(storedAttachments)
         if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
+        if (typeof settings?.soundEnabled === 'boolean') setSoundEnabled(settings.soundEnabled)
         if (typeof settings?.soundVolume === 'number' && settings.soundVolume >= MIN_SOUND_VOLUME && settings.soundVolume <= MAX_SOUND_VOLUME) setSoundVolume(settings.soundVolume)
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
@@ -561,7 +563,19 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+  }
+
+  function toggleSoundEnabled() {
+    const next = !soundEnabled
+    setSoundEnabled(next)
+    if (!next) {
+      nativeScheduleActiveRef.current = false
+      activeWebSoundSourcesRef.current.forEach((source) => { try { source.stop() } catch { /* source already finished */ } })
+      activeWebSoundSourcesRef.current = []
+      if (Capacitor.getPlatform() === 'android') void NativePacingAudio.cancelSchedule().catch(() => undefined)
+    }
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled: next, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function previewSoundProfile(profile: SoundProfileId) {
@@ -576,43 +590,43 @@ export default function App() {
 
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
-    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function selectColorPalette(palette: ColorPalette) {
     setColorPalette(palette)
-    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette, visualPalette, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme: themePreference, palette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function toggleVisualPalette() {
     const next = !visualPalette
     setVisualPalette(next)
-    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale, evolutionScale, homeMessages })
   }
 
   function selectFontScale(next: number) {
     const scale = Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, next))
     setFontScale(scale)
-    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale, evolutionScale, homeMessages })
   }
 
   function selectEvolutionScale(next: number) {
     const scale = Math.max(MIN_EVOLUTION_SCALE, Math.min(MAX_EVOLUTION_SCALE, next))
     setEvolutionScale(scale)
-    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale: scale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale: scale, homeMessages })
   }
 
   function selectSoundVolume(next: number) {
     const volume = Math.max(MIN_SOUND_VOLUME, Math.min(MAX_SOUND_VOLUME, next))
     setSoundVolume(volume)
-    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume: volume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume: volume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function saveHomeMessages(next: string[]) {
     const normalized = next.map((message) => message.trim()).filter(Boolean)
     setHomeMessages(normalized)
     setHomeMessageIndex((index) => Math.min(index, Math.max(0, normalized.length - 1)))
-    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages: normalized })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages: normalized })
   }
 
   function updateHomeMessage(index: number, value: string) {
@@ -647,6 +661,7 @@ export default function App() {
   }
 
   function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile, replace = false) {
+    if (!soundEnabled) return
     if (Capacitor.getPlatform() === 'android') {
       if (nativeScheduleActiveRef.current) return
       const profile = SOUND_PROFILES[profileId]
@@ -698,7 +713,7 @@ export default function App() {
   }
 
   function scheduleNativeAutomaticPacing() {
-    if (Capacitor.getPlatform() !== 'android' || pacingMode !== 'automatic' || pacingPlan.length === 0) return
+    if (!soundEnabled || Capacitor.getPlatform() !== 'android' || pacingMode !== 'automatic' || pacingPlan.length === 0) return
     const events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] = []
     const profile = SOUND_PROFILES[soundProfile]
     const addEvent = (delayMs: number, kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep') => events.push({ delayMs, kind, tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume })
@@ -996,6 +1011,7 @@ export default function App() {
 
             <section className="pacing-section" ref={pacingSectionRef} aria-labelledby="pacing-title">
               <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Meta de pacing</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
+              <button type="button" className="sound-enabled-switch pacing-sound-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>Avisos sonoros</span><i aria-hidden="true" /></button>
               <p>O cronômetro inicia o warm-up de {DEFAULT_WARMUP_SECONDS}s e aplica o ritmo a cada bloco da estrutura de sets.</p>
               <div className="pacing-target-picker" role="group" aria-label="Tipo de meta de pacing"><button type="button" className={pacingTargetMode === 'pace' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingTargetMode('pace')}>Ritmo</button><button type="button" className={pacingTargetMode === 'total' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingTargetMode('total')}>Meta total</button></div>
               <div className="pacing-mode-picker" role="group" aria-label="Modo do pacing">
@@ -1080,6 +1096,7 @@ export default function App() {
           </div>
           <div className="settings-group">
             <h2>Sons do pacing</h2>
+          <button type="button" className="sound-enabled-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>Avisos sonoros</span><i aria-hidden="true" /></button>
           <div className="sound-volume-control"><label htmlFor="sound-volume">Volume dos avisos</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
