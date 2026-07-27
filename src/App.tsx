@@ -46,6 +46,8 @@ const MIN_FONT_SCALE = 90
 const MAX_FONT_SCALE = 110
 const MIN_EVOLUTION_SCALE = 40
 const MAX_EVOLUTION_SCALE = 140
+const MIN_SOUND_VOLUME = 25
+const MAX_SOUND_VOLUME = 250
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -102,6 +104,7 @@ export default function App() {
   const [mediaAttachments, setMediaAttachments] = useState<MediaAttachment[]>([])
   const [loading, setLoading] = useState(true)
   const [soundProfile, setSoundProfile] = useState<SoundProfileId>('precise')
+  const [soundVolume, setSoundVolume] = useState(100)
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
   const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
   const [visualPalette, setVisualPalette] = useState(true)
@@ -170,6 +173,7 @@ export default function App() {
         setHistoricalPerformances(storedPerformances.sort((a, b) => b.date.localeCompare(a.date)))
         setMediaAttachments(storedAttachments)
         if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
+        if (typeof settings?.soundVolume === 'number' && settings.soundVolume >= MIN_SOUND_VOLUME && settings.soundVolume <= MAX_SOUND_VOLUME) setSoundVolume(settings.soundVolume)
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
@@ -484,42 +488,48 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function selectColorPalette(palette: ColorPalette) {
     setColorPalette(palette)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function toggleVisualPalette() {
     const next = !visualPalette
     setVisualPalette(next)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale, evolutionScale, homeMessages })
   }
 
   function selectFontScale(next: number) {
     const scale = Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, next))
     setFontScale(scale)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale, evolutionScale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale, evolutionScale, homeMessages })
   }
 
   function selectEvolutionScale(next: number) {
     const scale = Math.max(MIN_EVOLUTION_SCALE, Math.min(MAX_EVOLUTION_SCALE, next))
     setEvolutionScale(scale)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale: scale, homeMessages })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale: scale, homeMessages })
+  }
+
+  function selectSoundVolume(next: number) {
+    const volume = Math.max(MIN_SOUND_VOLUME, Math.min(MAX_SOUND_VOLUME, next))
+    setSoundVolume(volume)
+    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume: volume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
   function saveHomeMessages(next: string[]) {
     const normalized = next.map((message) => message.trim()).filter(Boolean)
     setHomeMessages(normalized)
     setHomeMessageIndex((index) => Math.min(index, Math.max(0, normalized.length - 1)))
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages: normalized })
+    void saveAppSettings({ id: 'preferences', soundProfile, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages: normalized })
   }
 
   function updateHomeMessage(index: number, value: string) {
@@ -565,7 +575,7 @@ export default function App() {
       const gain = context.createGain()
       oscillator.frequency.value = frequency
       oscillator.type = profile.waveform
-      gain.gain.setValueAtTime(profile.volume, context.currentTime + index * .15)
+      gain.gain.setValueAtTime(Math.min(.3, profile.volume * (soundVolume / 100)), context.currentTime + index * .15)
       gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + index * .15 + profile.noteSeconds)
       oscillator.connect(gain).connect(context.destination)
       oscillator.start(context.currentTime + index * .15)
@@ -931,6 +941,7 @@ export default function App() {
           </div>
           <div className="settings-group">
             <h2>Sons do pacing</h2>
+          <div className="sound-volume-control"><label htmlFor="sound-volume">Volume dos avisos</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
           </div>

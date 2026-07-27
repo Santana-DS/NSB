@@ -23,6 +23,7 @@ export type ColorPalette = 'navy' | 'ocean' | 'cobalt' | 'forest' | 'lime' | 'em
 export interface AppSettings {
   id: 'preferences'
   soundProfile: SoundProfileId
+  soundVolume?: number
   theme?: ThemePreference
   palette?: ColorPalette
   visualPalette?: boolean
