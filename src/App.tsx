@@ -876,22 +876,19 @@ export default function App() {
           <h1 id="settings-title">Preferências</h1>
           <div className="settings-group">
             <h2>Aparência</h2>
-            <p>Escolha como o app acompanha o ambiente.</p>
             <div className="theme-picker" role="radiogroup" aria-label="Aparência">
               {([['system', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']] as [ThemePreference, string][]).map(([theme, label]) => <button key={theme} type="button" role="radio" aria-checked={themePreference === theme} className={themePreference === theme ? 'selected' : ''} onClick={() => selectThemePreference(theme)}>{label}</button>)}
             </div>
           </div>
           <div className="settings-group">
             <h2>Paleta</h2>
-            <p>A cor de destaque, independente do modo de aparência.</p>
             <div className="palette-picker" role="radiogroup" aria-label="Paleta de cores">
               {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{palette.name}</button>)}
             </div>
-            <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Aplicar também nos gráficos e calendário</span><i aria-hidden="true" /></button>
+            <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Colorir evolução</span><i aria-hidden="true" /></button>
           </div>
           <div className="settings-group">
             <h2>Sons do pacing</h2>
-            <p>Cada perfil mantém sinais distintos para preparação, set, descanso, repetição e conclusão.</p>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => { selectSoundProfile(id); window.setTimeout(() => emitPacingSignal('warmup', id), 30); window.setTimeout(() => emitPacingSignal('set', id), 550); window.setTimeout(() => emitPacingSignal('rest', id), 1_100); window.setTimeout(() => emitPacingSignal('complete', id), 1_550) }} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
           </div>
