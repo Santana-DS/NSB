@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
@@ -47,7 +48,16 @@ const MAX_FONT_SCALE = 110
 const MIN_EVOLUTION_SCALE = 40
 const MAX_EVOLUTION_SCALE = 140
 const MIN_SOUND_VOLUME = 25
-const MAX_SOUND_VOLUME = 250
+const MAX_SOUND_VOLUME = 1000
+
+interface NativePacingAudioPlugin {
+  start(): Promise<void>
+  stop(): Promise<void>
+  signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number }): Promise<void>
+  schedule(options: { volume: number; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep' }[] }): Promise<void>
+  cancelSchedule(): Promise<void>
+}
+const NativePacingAudio = registerPlugin<NativePacingAudioPlugin>('PacingAudio')
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -160,6 +170,7 @@ export default function App() {
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
   const pacingIsActiveRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const nativeScheduleActiveRef = useRef(false)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -188,6 +199,7 @@ export default function App() {
   useEffect(() => () => {
     const context = audioContextRef.current
     if (context && context.state !== 'closed') void context.close()
+    stopNativePacingAudio()
   }, [])
 
   useEffect(() => {
@@ -433,7 +445,9 @@ export default function App() {
       if (pacingPausedPhase !== 'warmup') setTimerStartedAt(now)
       resumePacing()
     } else if ((pacingPhase === 'idle' || pacingPhase === 'complete') && pacingPlan.some((block) => block.paceSeconds > 0)) {
+      startNativePacingAudio()
       startPacing(now)
+      scheduleNativeAutomaticPacing()
       window.setTimeout(() => pacingSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
     } else {
       setTimerStartedAt(now)
@@ -447,6 +461,7 @@ export default function App() {
     setDuration(formatDuration(elapsed))
     pausePacing()
     void releaseWakeLock()
+    stopNativePacingAudio()
   }
 
   function includeOvertime() {
@@ -471,6 +486,7 @@ export default function App() {
     setOvertimeElapsedBase(0)
     resetPacingProgress()
     void releaseWakeLock()
+    stopNativePacingAudio()
   }
 
   function resetPacingProgress() {
@@ -564,6 +580,11 @@ export default function App() {
   }
 
   function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile) {
+    if (Capacitor.getPlatform() === 'android') {
+      if (nativeScheduleActiveRef.current) return
+      void NativePacingAudio.signal({ kind, volume: Math.min(100, Math.max(1, Math.round(soundVolume))) }).catch(() => undefined)
+      return
+    }
     if (!('AudioContext' in window)) return
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') audioContextRef.current = new AudioContext()
     const context = audioContextRef.current
@@ -575,12 +596,41 @@ export default function App() {
       const gain = context.createGain()
       oscillator.frequency.value = frequency
       oscillator.type = profile.waveform
-      gain.gain.setValueAtTime(Math.min(.3, profile.volume * (soundVolume / 100)), context.currentTime + index * .15)
+      gain.gain.setValueAtTime(Math.min(.92, profile.volume * (soundVolume / 100)), context.currentTime + index * .15)
       gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + index * .15 + profile.noteSeconds)
       oscillator.connect(gain).connect(context.destination)
       oscillator.start(context.currentTime + index * .15)
       oscillator.stop(context.currentTime + index * .15 + profile.noteSeconds + .01)
     })
+  }
+
+  function startNativePacingAudio() {
+    if (Capacitor.getPlatform() !== 'android') return
+    void NativePacingAudio.start().catch(() => undefined)
+  }
+
+  function stopNativePacingAudio() {
+    nativeScheduleActiveRef.current = false
+    if (Capacitor.getPlatform() !== 'android') return
+    void NativePacingAudio.cancelSchedule().catch(() => undefined)
+    void NativePacingAudio.stop().catch(() => undefined)
+  }
+
+  function scheduleNativeAutomaticPacing() {
+    if (Capacitor.getPlatform() !== 'android' || pacingMode !== 'automatic' || pacingPlan.length === 0) return
+    const events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep' }[] = []
+    let elapsedSeconds = DEFAULT_WARMUP_SECONDS
+    pacingPlan.forEach((block, blockIndex) => {
+      events.push({ delayMs: elapsedSeconds * 1000, kind: 'set' })
+      for (let rep = 1; rep < block.reps; rep += 1) events.push({ delayMs: (elapsedSeconds + rep * block.paceSeconds) * 1000, kind: 'rep' })
+      elapsedSeconds += block.reps * block.paceSeconds
+      if (blockIndex === pacingPlan.length - 1) { events.push({ delayMs: elapsedSeconds * 1000, kind: 'complete' }); return }
+      events.push({ delayMs: elapsedSeconds * 1000, kind: 'rest' })
+      if (block.restSeconds > DEFAULT_WARMUP_SECONDS) events.push({ delayMs: (elapsedSeconds + block.restSeconds - DEFAULT_WARMUP_SECONDS) * 1000, kind: 'warmup' })
+      elapsedSeconds += block.restSeconds
+    })
+    nativeScheduleActiveRef.current = true
+    void NativePacingAudio.schedule({ volume: Math.min(100, Math.max(1, Math.round(soundVolume))), events }).catch(() => { nativeScheduleActiveRef.current = false })
   }
 
   function appendPacingEvent(type: import('./types').PacingEventType, transition: 'automatic' | 'manual', blockIndex?: number) {
@@ -633,6 +683,7 @@ export default function App() {
         setOvertimeElapsedBase(0)
         setOvertimeIncluded(false)
         void releaseWakeLock()
+        stopNativePacingAudio()
         appendPacingEvent('session-completed', transition, pacingBlockIndex)
         emitPacingSignal('complete')
         return
@@ -690,6 +741,7 @@ export default function App() {
     setPacingPhase('paused')
     appendPacingEvent('paused', 'manual', pacingBlockIndex)
     void releaseWakeLock()
+    stopNativePacingAudio()
   }
 
   function resumePacing() {
