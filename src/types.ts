@@ -65,6 +65,7 @@ export interface ActiveWorkoutDraft {
   pacingPhaseElapsedBase: number
   pacingWarmupTargetSeconds: number
   pacingWarmupInitial: boolean
+  pacingWarmupCueSent: boolean
   pacingBlocks: PacingBlock[]
   pacingEvents: PacingEvent[]
   lastRepCue: number

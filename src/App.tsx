@@ -119,6 +119,7 @@ export default function App() {
   const [pacingPhaseElapsedBase, setPacingPhaseElapsedBase] = useState(0)
   const [pacingWarmupTargetSeconds, setPacingWarmupTargetSeconds] = useState(DEFAULT_WARMUP_SECONDS)
   const [pacingWarmupInitial, setPacingWarmupInitial] = useState(true)
+  const [pacingWarmupCueSent, setPacingWarmupCueSent] = useState(false)
   const [pacingBlocks, setPacingBlocks] = useState<{ reps: number; targetSeconds: number; actualSeconds: number }[]>([])
   const [pacingEvents, setPacingEvents] = useState<{ type: import('./types').PacingEventType; elapsedSeconds: number; blockIndex?: number; transition: 'automatic' | 'manual' }[]>([])
   const [pacingMode, setPacingMode] = useState<PacingMode>('automatic')
@@ -169,11 +170,11 @@ export default function App() {
     const draft: ActiveWorkoutDraft = {
       id: 'current', updatedAt: new Date().toISOString(), targetReps, performedAt, duration, setGroups, notes,
       timerStartedAt, timerElapsedBase, overtimeStartedAt, overtimeElapsedBase, overtimeIncluded, pacingRepDuration, pacingTargetMode, pacingTotalDuration, pacingRestDuration, pacingGroupDurations, pacingGroupRests, pacingMode, pacingPhase,
-      pacingPausedPhase, pacingBlockIndex, pacingPhaseStartedAt, pacingPhaseElapsedBase, pacingWarmupTargetSeconds, pacingWarmupInitial, pacingBlocks,
+      pacingPausedPhase, pacingBlockIndex, pacingPhaseStartedAt, pacingPhaseElapsedBase, pacingWarmupTargetSeconds, pacingWarmupInitial, pacingWarmupCueSent, pacingBlocks,
       pacingEvents, lastRepCue,
     }
     void saveActiveWorkoutDraft(draft)
-  }, [draftActive, draftReady, duration, lastRepCue, notes, overtimeElapsedBase, overtimeIncluded, overtimeStartedAt, pacingBlockIndex, pacingBlocks, pacingEvents, pacingGroupDurations, pacingGroupRests, pacingMode, pacingPausedPhase, pacingPhase, pacingPhaseElapsedBase, pacingPhaseStartedAt, pacingRepDuration, pacingRestDuration, pacingTargetMode, pacingTotalDuration, pacingWarmupInitial, pacingWarmupTargetSeconds, performedAt, setGroups, targetReps, timerElapsedBase, timerStartedAt])
+  }, [draftActive, draftReady, duration, lastRepCue, notes, overtimeElapsedBase, overtimeIncluded, overtimeStartedAt, pacingBlockIndex, pacingBlocks, pacingEvents, pacingGroupDurations, pacingGroupRests, pacingMode, pacingPausedPhase, pacingPhase, pacingPhaseElapsedBase, pacingPhaseStartedAt, pacingRepDuration, pacingRestDuration, pacingTargetMode, pacingTotalDuration, pacingWarmupCueSent, pacingWarmupInitial, pacingWarmupTargetSeconds, performedAt, setGroups, targetReps, timerElapsedBase, timerStartedAt])
 
   const activeWorkouts = useMemo(() => workouts.filter((workout) => !workout.deletedAt), [workouts])
   const archivedWorkouts = useMemo(() => workouts.filter((workout) => workout.deletedAt), [workouts])
@@ -252,6 +253,14 @@ export default function App() {
     emitPacingSignal('rep')
   }, [lastRepCue, pacingBlockIndex, pacingPhase, pacingPhaseElapsed, pacingPlan, pacingRepSeconds])
 
+  useEffect(() => {
+    if (pacingPhase !== 'rest' || pacingWarmupCueSent) return
+    const restTarget = pacingPlan[pacingBlockIndex]?.restSeconds ?? 0
+    if (restTarget <= 0 || pacingPhaseElapsed < Math.max(0, restTarget - DEFAULT_WARMUP_SECONDS)) return
+    setPacingWarmupCueSent(true)
+    emitPacingSignal('warmup')
+  }, [pacingBlockIndex, pacingPhase, pacingPhaseElapsed, pacingPlan, pacingWarmupCueSent])
+
   function resetForm() {
     setTargetReps(100)
     setPerformedAt(todayLocalIso())
@@ -277,6 +286,7 @@ export default function App() {
     setPacingPhaseElapsedBase(0)
     setPacingWarmupTargetSeconds(DEFAULT_WARMUP_SECONDS)
     setPacingWarmupInitial(true)
+    setPacingWarmupCueSent(false)
     setPacingBlocks([])
     setPacingEvents([])
     setLastRepCue(0)
@@ -308,6 +318,7 @@ export default function App() {
     setPacingPhaseElapsedBase(draft.pacingPhaseElapsedBase)
     setPacingWarmupTargetSeconds(draft.pacingWarmupTargetSeconds ?? DEFAULT_WARMUP_SECONDS)
     setPacingWarmupInitial(draft.pacingWarmupInitial ?? true)
+    setPacingWarmupCueSent(draft.pacingWarmupCueSent ?? false)
     setPacingBlocks(draft.pacingBlocks)
     setPacingEvents(draft.pacingEvents)
     setLastRepCue(draft.lastRepCue)
@@ -376,6 +387,9 @@ export default function App() {
     setPacingBlockIndex(0)
     setPacingPhaseStartedAt(null)
     setPacingPhaseElapsedBase(0)
+    setPacingWarmupTargetSeconds(DEFAULT_WARMUP_SECONDS)
+    setPacingWarmupInitial(true)
+    setPacingWarmupCueSent(false)
     setPacingBlocks([])
     setPacingEvents([])
     setLastRepCue(0)
@@ -410,6 +424,7 @@ export default function App() {
     setPacingPhase('warmup')
     setPacingWarmupTargetSeconds(DEFAULT_WARMUP_SECONDS)
     setPacingWarmupInitial(true)
+    setPacingWarmupCueSent(true)
     setPacingEvents([{ type: 'session-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }, { type: 'warmup-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }])
     setLastRepCue(0)
     emitPacingSignal('warmup')
@@ -461,6 +476,7 @@ export default function App() {
         setPacingPhase('rest')
         setPacingPhaseElapsedBase(0)
         setPacingPhaseStartedAt(now)
+        setPacingWarmupCueSent(false)
         appendPacingEvent('rest-started', transition, pacingBlockIndex)
         emitPacingSignal('rest')
       }
@@ -478,9 +494,9 @@ export default function App() {
         if (remainingRest > 0) {
           setPacingPhase('warmup')
           setPacingWarmupInitial(false)
-          setPacingWarmupTargetSeconds(remainingRest)
+          setPacingWarmupTargetSeconds(Math.min(DEFAULT_WARMUP_SECONDS, remainingRest))
           appendPacingEvent('warmup-started', transition, nextBlockIndex)
-          emitPacingSignal('warmup')
+          if (!pacingWarmupCueSent) emitPacingSignal('warmup')
         } else {
           setPacingPhase('set')
           appendPacingEvent('set-started', transition, nextBlockIndex)
