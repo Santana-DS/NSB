@@ -3,7 +3,7 @@ import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
-import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, deleteWorkout, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
+import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, deleteWorkouts, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
 import { REP_TARGETS, type ActiveWorkoutDraft, type ColorPalette, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type ThemePreference, type Workout } from './types'
 
@@ -730,7 +730,7 @@ export default function App() {
     <main className="app-shell">
       <header className="app-header">
         <button className="brand" onClick={() => setScreen('home')} aria-label="Ir para início">
-          <span className="brand-mark">NSB</span>
+          <img className="brand-mark" src="/nsb-icon.svg" alt="" />
           <span>Navy Seal Burpees</span>
         </button>
         <nav aria-label="Navegação principal">
@@ -885,7 +885,7 @@ export default function App() {
           </div>
           <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {legacyDailyVolumes.length} dia(s) de histórico importado · {mediaAttachments.length} vídeo(s) local(is) · {archivedWorkouts.length} na lixeira</p>
           {mediaAttachments.length > 0 && <p className="data-summary">Vídeos não entram no backup JSON; baixe-os individualmente pelo detalhe da performance.</p>}
-          {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} onDeletePermanently={deleteArchivedWorkout} />}
+          {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} onDeletePermanently={deleteArchivedWorkouts} />}
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
           {error && <p className="error-message" role="alert">{error}</p>}
         </section>
@@ -1047,13 +1047,15 @@ export default function App() {
     setSaveStatus('Treino restaurado.')
   }
 
-  async function deleteArchivedWorkout(workout: Workout) {
-    if (!window.confirm(`Excluir definitivamente o treino de ${workout.targetReps} NSBs? Esta ação não pode ser desfeita.`)) return
-    await deleteWorkout(workout.id)
-    setWorkouts((current) => current.filter((item) => item.id !== workout.id))
-    setUndoWorkout((current) => current?.id === workout.id ? null : current)
+  async function deleteArchivedWorkouts(ids: string[]): Promise<boolean> {
+    const count = ids.length
+    if (count === 0 || !window.confirm(`Excluir ${count === 1 ? 'este treino' : `${count} treinos`} definitivamente? Esta ação não pode ser desfeita.`)) return false
+    await deleteWorkouts(ids)
+    setWorkouts((current) => current.filter((item) => !ids.includes(item.id)))
+    setUndoWorkout((current) => current && ids.includes(current.id) ? null : current)
     setError(null)
-    setSaveStatus('Treino excluído definitivamente.')
+    setSaveStatus(count === 1 ? 'Treino excluído definitivamente.' : `${count} treinos excluídos definitivamente.`)
+    return true
   }
 
   function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[], currentPerformances: HistoricalPerformance[]) {
@@ -1124,11 +1126,17 @@ function ActivityList({ workouts, legacyVolumes, onArchive }: { workouts: Workou
   </ol>
 }
 
-function ArchivedWorkoutList({ workouts, onRestore, onDeletePermanently }: { workouts: Workout[]; onRestore: (workout: Workout) => void; onDeletePermanently: (workout: Workout) => void }) {
+function ArchivedWorkoutList({ workouts, onRestore, onDeletePermanently }: { workouts: Workout[]; onRestore: (workout: Workout) => void; onDeletePermanently: (ids: string[]) => Promise<boolean> }) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const allSelected = workouts.length > 0 && selectedIds.length === workouts.length
+  const toggleWorkout = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
+  const selectAll = () => setSelectedIds((current) => current.length === workouts.length ? [] : workouts.map((workout) => workout.id))
+  const deleteSelected = () => { void onDeletePermanently(selectedIds).then((deleted) => { if (deleted) setSelectedIds([]) }) }
   return <section className="trash-section" aria-labelledby="trash-title">
     <div className="section-heading"><div><p className="eyebrow">Lixeira</p><h2 id="trash-title">Treinos arquivados</h2></div></div>
+    <div className="trash-actions"><label className="trash-select-all"><input type="checkbox" checked={allSelected} onChange={selectAll} /> Selecionar todos</label><div>{selectedIds.length > 0 && <button type="button" className="archive-button" onClick={deleteSelected}>Excluir selecionados</button>}<button type="button" className="archive-button" onClick={() => { void onDeletePermanently(workouts.map((workout) => workout.id)) }}>Excluir todos</button></div></div>
     <ol className="workout-list">
-      {workouts.map((workout) => <li key={workout.id}><div><strong>{workout.targetReps} NSBs</strong><span>{dateLabel(workout.performedAt)}</span></div><div className="workout-actions"><button type="button" className="secondary-action" onClick={() => onRestore(workout)}>Restaurar</button><button type="button" className="archive-button" onClick={() => onDeletePermanently(workout)}>Excluir de vez</button></div></li>)}
+      {workouts.map((workout) => <li key={workout.id}><label className="trash-item-select"><input type="checkbox" checked={selectedIds.includes(workout.id)} onChange={() => toggleWorkout(workout.id)} aria-label={`Selecionar treino de ${workout.targetReps} NSBs`} /></label><div><strong>{workout.targetReps} NSBs</strong><span>{dateLabel(workout.performedAt)}</span></div><div className="workout-actions"><button type="button" className="secondary-action" onClick={() => onRestore(workout)}>Restaurar</button><button type="button" className="archive-button" onClick={() => { void onDeletePermanently([workout.id]) }}>Excluir</button></div></li>)}
     </ol>
   </section>
 }

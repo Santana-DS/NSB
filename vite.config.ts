@@ -15,6 +15,9 @@ export default defineConfig({
         background_color: '#f7f8fa',
         display: 'standalone',
         lang: 'pt-BR',
+        icons: [
+          { src: 'nsb-icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' },
+        ],
       },
     }),
   ],

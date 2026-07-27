@@ -8,7 +8,7 @@ button { cursor: pointer; }
 .app-shell { min-height: 100vh; }
 .app-header { max-width: 960px; margin: 0 auto; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .brand { display: inline-flex; align-items: center; gap: .55rem; border: 0; background: transparent; color: #17212b; font-weight: 700; }
-.brand-mark { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border-radius: .6rem; background: #0d2c3d; color: #fff; font-size: .72rem; letter-spacing: .06em; }
+.brand-mark { display: block; width: 2.2rem; height: 2.2rem; border-radius: .6rem; }
 nav { display: flex; gap: .25rem; }
 .nav-link, .text-button, .back-button { border: 0; background: transparent; color: #4c5d67; padding: .5rem .65rem; }
 .nav-link.active { color: #0d2c3d; font-weight: 700; }
@@ -49,6 +49,7 @@ h2 { margin: 0; color: #17303d; font-size: 1.25rem; }
 .volume-chart { max-width: 680px; margin-top: 1.5rem; }
 .home-chart { margin: 0 0 3rem; }.chart-empty { margin: 0 0 3rem; }
 .data-screen { max-width: 720px; }.data-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 2rem 0 1rem; }.import-label { display: inline-flex; align-items: center; cursor: pointer; }.data-summary { color: #61717a; }.legacy-import { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid #cdd8d6; }.legacy-import > p { color: #56656d; line-height: 1.5; }.primary-action:disabled { cursor: not-allowed; opacity: .5; }.trash-section { margin-top: 2.5rem; }.undo-toast { position: fixed; left: 50%; bottom: 1rem; display: flex; gap: 1rem; align-items: center; transform: translateX(-50%); border-radius: .6rem; padding: .8rem 1rem; background: #0d2c3d; color: #fff; box-shadow: 0 10px 25px #0d2c3d44; }.undo-toast button { border: 0; background: transparent; color: #a5e4d6; font-weight: 700; }
+.trash-actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: 0 0 .6rem; font-size: .85rem; }.trash-actions > div { display: flex; gap: .8rem; }.trash-select-all, .trash-item-select { display: inline-flex; align-items: center; gap: .4rem; color: #56656d; }.trash-item-select { margin-right: -.5rem; }.trash-actions .archive-button { font-size: .8rem; }.trash-section .workout-list li { gap: .7rem; }.trash-section .workout-list li > div:nth-child(2) { flex: 1; }
 .chart-unit { color: #61717a; font-size: .85rem; font-weight: 700; }
 .volume-chart ol { display: grid; grid-template-columns: repeat(6, 1fr); align-items: end; gap: .75rem; min-height: 240px; margin: 0; padding: 1rem 0 0; list-style: none; border-bottom: 1px solid #cdd8d6; }
 .volume-chart ol.drilldown-bars { overflow-x: auto; padding-bottom: .35rem; }.volume-chart li { display: block; min-height: 210px; text-align: center; }
