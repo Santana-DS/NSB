@@ -8,7 +8,7 @@ button { cursor: pointer; }
 .app-shell { min-height: 100vh; }
 .app-header { max-width: 960px; margin: 0 auto; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .brand { display: inline-flex; align-items: center; gap: .55rem; border: 0; background: transparent; color: #17212b; font-weight: 700; }
-.brand-mark { display: block; width: 2.2rem; height: 2.2rem; border-radius: .6rem; }
+.brand-mark { display: block; width: 2.2rem; height: 2.2rem; flex: 0 0 auto; color: #65b29f; }.brand-mark svg { display: block; width: 100%; height: 100%; }.brand-mark-figure { fill: currentColor; }
 nav { display: flex; gap: .25rem; }
 .nav-link, .text-button, .back-button { border: 0; background: transparent; color: #4c5d67; padding: .5rem .65rem; }
 .nav-link.active { color: #0d2c3d; font-weight: 700; }
@@ -140,14 +140,14 @@ body[data-palette='navy'] { --palette-accent: #0d5261; --palette-bright: #087181
 body[data-palette='forest'] { --palette-accent: #27735a; --palette-bright: #3f9476; --palette-soft: #dceee1; --palette-border: #9bcbb4; }
 body[data-palette='ember'] { --palette-accent: #a6472e; --palette-bright: #c86644; --palette-soft: #f6e1d8; --palette-border: #e5ae9c; }
 body[data-palette='plum'] { --palette-accent: #654591; --palette-bright: #8767b7; --palette-soft: #e9e0f4; --palette-border: #c7b5df; }
-body[data-palette] :is(.brand-mark, .primary-action, .target.selected, .target-filter > button.selected, .target-filter-options button.selected, .period-picker button.selected, .view-picker button.selected, .theme-picker button.selected, .pacing-mode-picker button.selected, .pacing-target-picker button.selected) { background: var(--palette-accent); }
+body[data-palette] :is(.primary-action, .target.selected, .target-filter > button.selected, .target-filter-options button.selected, .period-picker button.selected, .view-picker button.selected, .theme-picker button.selected, .pacing-mode-picker button.selected, .pacing-target-picker button.selected) { background: var(--palette-accent); } body[data-palette] .brand-mark { color: var(--palette-bright); }
 body[data-palette] .hero-action { background: linear-gradient(135deg, var(--palette-accent), var(--palette-bright)); }
 body[data-palette] :is(.secondary-action, .download-menu button, .target-filter-toggle, .pacing-group-settings summary, .workout-list time, .stat-best, .chart-download, .pacing-projection strong) { color: var(--palette-accent); border-color: var(--palette-border); }
 body[data-palette] .font-scale-control input { accent-color: var(--palette-accent); } body[data-palette] .font-scale-control output { color: var(--palette-accent); }
 body[data-palette] .evolution-scale input { accent-color: var(--palette-accent); }
 body[data-palette][data-visual-palette='on'] :is(.bar, .daily-grid li.has-volume, .heatmap-scale i) { background: var(--palette-bright); }
 body[data-palette] :is(.chart-bar-button:hover .bar, .chart-bar-button:focus-visible .bar, .sound-preview:hover) { background: var(--palette-soft); }
-body[data-theme='dark'][data-palette] :is(.brand-mark, .primary-action, .target.selected, .target-filter > button.selected, .target-filter-options button.selected, .period-picker button.selected, .view-picker button.selected, .theme-picker button.selected, .pacing-mode-picker button.selected, .pacing-target-picker button.selected) { background: var(--palette-bright); }
+body[data-theme='dark'][data-palette] :is(.primary-action, .target.selected, .target-filter > button.selected, .target-filter-options button.selected, .period-picker button.selected, .view-picker button.selected, .theme-picker button.selected, .pacing-mode-picker button.selected, .pacing-target-picker button.selected) { background: var(--palette-bright); }
 body[data-theme='dark'][data-palette] :is(.secondary-action, .download-menu button, .target-filter-toggle, .pacing-group-settings summary, .workout-list time, .stat-best, .chart-download, .pacing-projection strong) { color: #dcefeb; border-color: var(--palette-bright); }
 body[data-theme='dark'][data-palette][data-visual-palette='on'] :is(.bar, .daily-grid li.has-volume, .heatmap-scale i) { background: var(--palette-bright); }
 body[data-palette='ocean'] { --palette-accent: #177b91; --palette-bright: #249eb6; --palette-soft: #d9eff3; --palette-border: #9fcfd9; }
