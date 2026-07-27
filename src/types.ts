@@ -27,6 +27,7 @@ export interface AppSettings {
   palette?: ColorPalette
   visualPalette?: boolean
   fontScale?: number
+  evolutionScale?: number
 }
 export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'
 

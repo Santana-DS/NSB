@@ -13,5 +13,5 @@
 11. [x] Ritmo e descanso por grupo de sets: valores gerais com ajustes opcionais por grupo e fotografia do plano no treino salvo.
 12. [x] Meta total de sessão: calcular ritmo-base e duração dos blocos a partir do tempo total desejado, descansos e ajustes por grupo; indicar projeção em modos de descanso manual.
 13. [~] Camada móvel: Wake Lock e sessão de áudio persistente foram iniciados no web app. Alarmes/áudio confiáveis em segundo plano e notificações locais exigem uma etapa nativa dedicada.
-14. [x] Temas e cores: modo claro, escuro ou automático, nove paletas de acento independentes, escala de texto segura e opção de aplicá-las (ou não) nos gráficos e calendário, com preferência salva localmente.
+14. [x] Temas e cores: modo claro, escuro ou automático, nove paletas de acento independentes, escalas seguras de texto e evolução, e opção de aplicá-las (ou não) nos gráficos e calendário, com preferência salva localmente.
 15. Baixa prioridade — Idioma geral do aplicativo: tela de configurações para alternar entre português, inglês e espanhol, com preferência salva localmente.

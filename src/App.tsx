@@ -44,6 +44,8 @@ const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
 ]
 const MIN_FONT_SCALE = 90
 const MAX_FONT_SCALE = 110
+const MIN_EVOLUTION_SCALE = 65
+const MAX_EVOLUTION_SCALE = 140
 
 function todayLocalIso(): string {
   const now = new Date()
@@ -104,6 +106,7 @@ export default function App() {
   const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
   const [visualPalette, setVisualPalette] = useState(true)
   const [fontScale, setFontScale] = useState(100)
+  const [evolutionScale, setEvolutionScale] = useState(100)
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
@@ -170,6 +173,7 @@ export default function App() {
         if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
         if (typeof settings?.fontScale === 'number' && settings.fontScale >= MIN_FONT_SCALE && settings.fontScale <= MAX_FONT_SCALE) setFontScale(settings.fontScale)
+        if (typeof settings?.evolutionScale === 'number' && settings.evolutionScale >= MIN_EVOLUTION_SCALE && settings.evolutionScale <= MAX_EVOLUTION_SCALE) setEvolutionScale(settings.evolutionScale)
         if (draft) restoreDraft(draft)
       })
       .finally(() => { setDraftReady(true); setLoading(false) })
@@ -478,29 +482,35 @@ export default function App() {
 
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
-    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette, fontScale })
+    void saveAppSettings({ id: 'preferences', soundProfile: profile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale })
   }
 
   function selectThemePreference(theme: ThemePreference) {
     setThemePreference(theme)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette, fontScale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale })
   }
 
   function selectColorPalette(palette: ColorPalette) {
     setColorPalette(palette)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette, fontScale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette, visualPalette, fontScale, evolutionScale })
   }
 
   function toggleVisualPalette() {
     const next = !visualPalette
     setVisualPalette(next)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette: next, fontScale, evolutionScale })
   }
 
   function selectFontScale(next: number) {
     const scale = Math.max(MIN_FONT_SCALE, Math.min(MAX_FONT_SCALE, next))
     setFontScale(scale)
-    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale })
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale: scale, evolutionScale })
+  }
+
+  function selectEvolutionScale(next: number) {
+    const scale = Math.max(MIN_EVOLUTION_SCALE, Math.min(MAX_EVOLUTION_SCALE, next))
+    setEvolutionScale(scale)
+    void saveAppSettings({ id: 'preferences', soundProfile, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale: scale })
   }
 
   function preparePacingAudio(): Promise<void> {
@@ -761,7 +771,7 @@ export default function App() {
             <button type="button" className={analyticsView === 'statistics' ? 'selected' : ''} onClick={() => { setAnalyticsView('statistics'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Estatísticas</button>
           </div>
 
-          {analyticsView === 'drilldown' ? <><PeriodVolumeChart records={filteredVolumeRecords} personalRecords={targetFilter === 'all' ? personalRecords : personalRecords.filter((record) => record.targetReps === targetFilter)} palette={visualPalette ? colorPalette : undefined} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />{period === 'all' && !expandedYear && !expandedMonth && <ConsistencyHeatmap records={filteredVolumeRecords} palette={visualPalette ? colorPalette : undefined} />}</> : analyticsView === 'comparison' ? <YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} /> : <TimeStatistics records={timedRecords} strategyRecords={strategyRecords} workouts={activeWorkouts} targetFilter={targetFilter} onOpenVolumeDay={openVolumeDay} />}
+          {analyticsView === 'drilldown' ? <><PeriodVolumeChart records={filteredVolumeRecords} personalRecords={targetFilter === 'all' ? personalRecords : personalRecords.filter((record) => record.targetReps === targetFilter)} palette={visualPalette ? colorPalette : undefined} evolutionScale={evolutionScale} onEvolutionScaleChange={selectEvolutionScale} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />{period === 'all' && !expandedYear && !expandedMonth && <ConsistencyHeatmap records={filteredVolumeRecords} palette={visualPalette ? colorPalette : undefined} />}</> : analyticsView === 'comparison' ? <YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} /> : <TimeStatistics records={timedRecords} strategyRecords={strategyRecords} workouts={activeWorkouts} targetFilter={targetFilter} onOpenVolumeDay={openVolumeDay} />}
 
         </section>
       )}
@@ -1114,7 +1124,7 @@ function ArchivedWorkoutList({ workouts, onRestore }: { workouts: Workout[]; onR
   </section>
 }
 
-function PeriodVolumeChart({ records, personalRecords, palette, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; palette?: ColorPalette; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
+function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, onEvolutionScaleChange, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; palette?: ColorPalette; evolutionScale: number; onEvolutionScaleChange: (scale: number) => void; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
   const now = new Date()
   const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
   if (shownMonth) return <DailyVolumeGrid records={records} personalRecords={personalRecords} palette={palette} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
@@ -1123,12 +1133,14 @@ function PeriodVolumeChart({ records, personalRecords, palette, period, expanded
   const bins = useMemo<ChartBin[]>(() => shownYear === null ? getYearBins(records) : getMonthBins(records, shownYear), [records, shownYear])
   const highest = Math.max(...bins.map((bin) => bin.total), 1)
   const isYearOverview = shownYear === null
+  const barWidth = Math.round(44 * evolutionScale / 100)
+  const hideBarText = barWidth < 34 || (bins.length > 14 && barWidth < 44)
 
   if (records.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados neste período para visualizar o gráfico.</p>
   return <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
-    <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div>{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div>
-    <ol className="drilldown-bars" style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(44px, 1fr))` }}>
-      {bins.map((bin) => <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}><button className="chart-bar-button" type="button" onClick={() => isYearOverview ? onExpandYear(bin.year!) : onExpandMonth({ year: shownYear!, month: bin.month! })}><span className="bar-value">{bin.total || '—'}</span><span className="bar-track"><span className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%`, backgroundColor: volumeColor(bin.total, highest, palette) }} /></span><span className="bar-label">{bin.label}</span></button></li>)}
+    <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div><div className="evolution-actions"><label className="evolution-scale" title="Escala do gráfico"><span aria-hidden="true">↔</span><input type="range" min={MIN_EVOLUTION_SCALE} max={MAX_EVOLUTION_SCALE} value={evolutionScale} aria-label="Escala do gráfico de evolução" onChange={(event) => onEvolutionScaleChange(Number(event.target.value))} /></label>{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div></div>
+    <ol className={hideBarText ? 'drilldown-bars compact' : 'drilldown-bars'} style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(${barWidth}px, 1fr))` }}>
+      {bins.map((bin) => <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}><button className="chart-bar-button" type="button" onClick={() => isYearOverview ? onExpandYear(bin.year!) : onExpandMonth({ year: shownYear!, month: bin.month! })}>{!hideBarText && <span className="bar-value">{bin.total || '—'}</span>}<span className="bar-track"><span className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%`, backgroundColor: volumeColor(bin.total, highest, palette) }} /></span>{!hideBarText && <span className="bar-label">{bin.label}</span>}</button></li>)}
     </ol>
   </section>
 }
