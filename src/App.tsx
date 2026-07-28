@@ -18,7 +18,7 @@ interface StrategyRecord extends TimedRecord { strategy: string }
 interface PacingStats { count: number; reps: number; activeSeconds: number; restSeconds: number; plannedRestSeconds: number; totalSeconds: number }
 type DownloadFormat = 'svg' | 'png' | 'jpeg'
 type PacingPhase = 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
-type AchievementNotice = { kind: 'record' | 'shot-caller'; targetReps: RepTarget; durationSeconds: number }
+type AchievementNotice = { kind: 'record' | 'pace' | 'record-and-pace' | 'shot-caller'; targetReps: RepTarget; durationSeconds: number; paceSeconds?: number }
 
 function normalizeRepTargets(values: number[]): number[] {
   return [...new Set(values.map((value) => Math.round(value)).filter((value) => Number.isFinite(value) && value > 0 && value <= 10_000))].sort((a, b) => a - b)
@@ -79,6 +79,13 @@ function automaticPresetName(preset: WorkoutPreset): string {
   const strategy = preset.setGroups.filter((group) => group.setCount > 0 && group.repsPerSet > 0).map((group) => `${group.setCount}×${group.repsPerSet}`).join(' + ')
   const projection = presetProjectionSeconds(preset)
   return `${projection === null ? '—' : formatDuration(projection)} · ${strategy || presetName(preset.targetReps, preset.setGroups)}`
+}
+
+function getWorkoutPaceSeconds(workout: Workout): number | null {
+  const blocks = workout.pacingSession?.blocks ?? []
+  const reps = blocks.reduce((total, block) => total + block.reps, 0)
+  const activeSeconds = blocks.reduce((total, block) => total + block.actualSeconds, 0)
+  return reps === workout.targetReps && activeSeconds > 0 ? activeSeconds / reps : null
 }
 type SoundTimbre = 'clean' | 'command' | 'pulse' | 'cardio' | 'bell' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet'
 const SOUND_EVENTS = ['warmup', 'set', 'rest', 'complete', 'rep'] as const
@@ -420,6 +427,7 @@ export default function App() {
     const bestDuration = Math.min(...recordsForTarget.map((record) => record.durationSeconds))
     return recordsForTarget.filter((record) => record.durationSeconds === bestDuration)
   }), [timedRecords])
+  const shotCallerUnlocked = useMemo(() => timedRecords.some((record) => record.targetReps === 500), [timedRecords])
 
   useEffect(() => {
     const years = [...new Set(filteredVolumeRecords.map((record) => new Date(record.date).getFullYear()))]
@@ -1120,14 +1128,19 @@ export default function App() {
     const previousForTarget = previousPerformances.filter((item) => item.targetReps === targetReps)
     const isNewRecord = previousForTarget.length === 0 || durationSeconds < Math.min(...previousForTarget.map((item) => item.durationSeconds))
     const isFirstFiveHundred = targetReps === 500 && !previousPerformances.some((item) => item.targetReps === 500)
+    const paceSeconds = getWorkoutPaceSeconds(workout)
+    const previousPaces = activeWorkouts.filter((item) => item.targetReps === targetReps).map(getWorkoutPaceSeconds).filter((pace): pace is number => pace !== null)
+    const isNewPaceRecord = paceSeconds !== null && (previousPaces.length === 0 || paceSeconds < Math.min(...previousPaces))
     await saveWorkout(workout)
     await clearActiveWorkoutDraft()
     setDraftActive(false)
     setWorkouts((current) => [workout, ...current].sort((a, b) => b.performedAt.localeCompare(a.performedAt)))
     setSaveStatus('Treino salvo neste aparelho.')
     setScreen('home')
-    if (isFirstFiveHundred) setAchievementNotice({ kind: 'shot-caller', targetReps, durationSeconds })
+    if (isFirstFiveHundred) setAchievementNotice({ kind: 'shot-caller', targetReps, durationSeconds, paceSeconds: paceSeconds ?? undefined })
+    else if (isNewRecord && isNewPaceRecord) setAchievementNotice({ kind: 'record-and-pace', targetReps, durationSeconds, paceSeconds: paceSeconds ?? undefined })
     else if (isNewRecord) setAchievementNotice({ kind: 'record', targetReps, durationSeconds })
+    else if (isNewPaceRecord) setAchievementNotice({ kind: 'pace', targetReps, durationSeconds, paceSeconds: paceSeconds ?? undefined })
   }
 
   return (
@@ -1143,7 +1156,7 @@ export default function App() {
           <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
           <button className={screen === 'settings' ? 'nav-link nav-settings active' : 'nav-link nav-settings'} onClick={() => setScreen('settings')} aria-label="Ajustes" title="Ajustes">⚙</button>
         </nav>
-        {brandInfoOpen && <section ref={brandStoryRef} className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><img className="brand-story-logo" src="/nsb-icon.png" alt="Logo NSB" /><h2>Navy Seal Burpee</h2><p><strong>Navy Seal Burpee é o número #1 dos exercícios.</strong> Três flexões e mountain climbers em cada repetição unem força, cardio, coordenação, agilidade, letalidade e disciplina em um único movimento.</p><p>Contar cada repetição torna-o um exercício de corpo e mente. O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source.</p><p>Salve para <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
+        {brandInfoOpen && <section ref={brandStoryRef} className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><img className="brand-story-logo" src="/nsb-icon.png" alt="Logo NSB" />{shotCallerUnlocked && <span className="shot-caller-seal story-seal">★ SHOT CALLER</span>}<h2>Navy Seal Burpee</h2><p><strong>Navy Seal Burpee é o número #1 dos exercícios.</strong> Três flexões e mountain climbers em cada repetição unem força, cardio, coordenação, agilidade, letalidade e disciplina em um único movimento.</p><p>Contar cada repetição torna-o um exercício de corpo e mente. O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source.</p><p>Salve para <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
       </header>
 
       {screen === 'home' && (
@@ -1383,7 +1396,7 @@ export default function App() {
       )}
       {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} attachments={mediaAttachments} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} onSaveWorkout={updateWorkoutFromDay} onSaveAttachment={saveAttachment} />}
       {comparisonExpanded && <div className="comparison-backdrop" role="presentation" onClick={() => setComparisonExpanded(false)}><section className="comparison-dialog" role="dialog" aria-modal="true" aria-label="Comparação anual ampliada" onClick={(event) => event.stopPropagation()}><YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} expanded zoom={comparisonZoom} chartId="annual-comparison-chart" onDownload={downloadComparison} onZoom={(delta) => setComparisonZoom((zoom) => Math.min(1.5, Math.max(1, zoom + delta)))} /></section></div>}
-      {achievementNotice && <div className="achievement-backdrop" role="presentation" onClick={() => setAchievementNotice(null)}><section className={`achievement-dialog ${achievementNotice.kind}`} role="dialog" aria-modal="true" aria-labelledby="achievement-title" onClick={(event) => event.stopPropagation()}><span aria-hidden="true">{achievementNotice.kind === 'shot-caller' ? '★' : '✦'}</span><p>{achievementNotice.kind === 'shot-caller' ? 'Conquista secreta' : 'Novo recorde pessoal'}</p><h2 id="achievement-title">{achievementNotice.kind === 'shot-caller' ? 'SHOT CALLER' : `${achievementNotice.targetReps} NSBs`}</h2><strong>{formatDuration(achievementNotice.durationSeconds)}</strong><small>{achievementNotice.kind === 'shot-caller' ? '500 NSBs. Você fez o que precisava ser feito.' : 'Seu melhor tempo para esta quantidade.'}</small><button type="button" className="primary-action" onClick={() => setAchievementNotice(null)}>Continuar</button></section></div>}
+      {achievementNotice && <div className="achievement-backdrop" role="presentation" onClick={() => setAchievementNotice(null)}><section className={`achievement-dialog ${achievementNotice.kind}`} role="dialog" aria-modal="true" aria-labelledby="achievement-title" onClick={(event) => event.stopPropagation()}><span aria-hidden="true">{achievementNotice.kind === 'shot-caller' ? '★' : '✦'}</span><p>{achievementNotice.kind === 'shot-caller' ? 'Conquista secreta' : achievementNotice.kind === 'pace' ? 'Novo recorde de ritmo' : achievementNotice.kind === 'record-and-pace' ? 'Tempo e ritmo superados' : 'Novo recorde pessoal'}</p><h2 id="achievement-title">{achievementNotice.kind === 'shot-caller' ? 'SHOT CALLER' : `${achievementNotice.targetReps} NSBs`}</h2><strong>{achievementNotice.kind === 'pace' ? `${formatDuration(Math.round(achievementNotice.paceSeconds ?? 0))} / rep.` : formatDuration(achievementNotice.durationSeconds)}</strong><small>{achievementNotice.kind === 'shot-caller' ? '500 NSBs. Você fez o que precisava ser feito.' : achievementNotice.kind === 'record-and-pace' ? `Melhor tempo e ${formatDuration(Math.round(achievementNotice.paceSeconds ?? 0))} por repetição.` : achievementNotice.kind === 'pace' ? 'Seu melhor ritmo ativo para esta quantidade.' : 'Seu melhor tempo para esta quantidade.'}</small><button type="button" className="primary-action" onClick={() => setAchievementNotice(null)}>Continuar</button></section></div>}
     </main>
   )
 
@@ -1717,7 +1730,7 @@ function TimeStatistics({ records, strategyRecords, workouts, targetFilter, onOp
     if (stats) items.push({ target, stats })
     return items
   }, [])
-  return <>{summaries.length > 0 ? <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">Desempenho</p><h2 id="time-statistics-title">Tempo por quantidade</h2></div><span className="chart-unit">Treinos e performances</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => { const pacing = targetFilter === 'all' ? null : getPacingStats(workouts.filter((workout) => workout.targetReps === target)); return <article key={target}><h3>{target} NSBs <span>{stats.count} registro(s)</span></h3><dl><div><dt>Melhor</dt><dd><button className="stat-best" type="button" onClick={() => onOpenVolumeDay(stats.best.date)} aria-label={`Abrir o volume diário do melhor tempo de ${target} NSBs`}>{formatDuration(stats.min)}</button></dd><small>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(`${stats.best.date}T12:00:00`))}</small></div><div><dt>Pior</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Mediana</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div>{pacing && <div><dt>Ritmo em set</dt><dd>{formatDuration(Math.round(pacing.activeSeconds / pacing.reps))} <small>/ rep.</small></dd><small>{pacing.count} treino(s) guiado(s)</small></div>}</dl></article>})}</div></section> : <p className="empty-state chart-empty">Registre um treino com tempo para gerar estatísticas de desempenho.</p>}<StrategyStatistics records={strategyRecords} targetFilter={targetFilter} /></>
+  return <>{summaries.length > 0 ? <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">Desempenho</p><h2 id="time-statistics-title">Tempo por quantidade</h2></div><span className="chart-unit">Treinos e performances</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => { const pacing = targetFilter === 'all' ? null : getPacingStats(workouts.filter((workout) => workout.targetReps === target)); return <article key={target}><h3>{target} NSBs {target === 500 && <span className="shot-caller-seal">★ SHOT CALLER</span>}<span>{stats.count} registro(s)</span></h3><dl><div><dt>Melhor</dt><dd><button className="stat-best" type="button" onClick={() => onOpenVolumeDay(stats.best.date)} aria-label={`Abrir o volume diário do melhor tempo de ${target} NSBs`}>{formatDuration(stats.min)}</button></dd><small>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(`${stats.best.date}T12:00:00`))}</small></div><div><dt>Pior</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Mediana</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div>{pacing && <div><dt>Ritmo em set</dt><dd>{formatDuration(Math.round(pacing.activeSeconds / pacing.reps))} <small>/ rep.</small></dd><small>{pacing.count} treino(s) guiado(s)</small></div>}</dl></article>})}</div></section> : <p className="empty-state chart-empty">Registre um treino com tempo para gerar estatísticas de desempenho.</p>}<StrategyStatistics records={strategyRecords} targetFilter={targetFilter} /></>
 }
 
 function getPacingStats(workouts: Workout[]): PacingStats | null {
