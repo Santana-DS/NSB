@@ -1684,11 +1684,11 @@ function ArchivedWorkoutList({ workouts, onRestore, onDeletePermanently }: { wor
 }
 
 function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, onEvolutionScaleChange, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; palette?: ColorPalette; evolutionScale: number; onEvolutionScaleChange: (scale: number) => void; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
-  const { t } = useTranslation()
+  const { language, t } = useTranslation()
   const now = new Date()
   const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
   const shownYear = expandedYear ?? (period === 'year' ? now.getFullYear() : null)
-  const bins = useMemo<ChartBin[]>(() => shownYear === null ? getYearBins(records) : getMonthBins(records, shownYear), [records, shownYear])
+  const bins = useMemo<ChartBin[]>(() => shownYear === null ? getYearBins(records) : getMonthBins(records, shownYear, language), [language, records, shownYear])
   const highest = Math.max(...bins.map((bin) => bin.total), 1)
   const isYearOverview = shownYear === null
   const barWidth = Math.round(44 * evolutionScale / 100)
@@ -1824,6 +1824,7 @@ function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYear
 }
 
 function DayDetail({ date, workouts, legacyVolumes, performances, attachments, onClose, onSavePerformance, onSaveWorkout, onSaveAttachment }: { date: string; workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; performances: HistoricalPerformance[]; attachments: MediaAttachment[]; onClose: () => void; onSavePerformance: (performance: HistoricalPerformance) => Promise<void>; onSaveWorkout: (workout: Workout) => Promise<void>; onSaveAttachment: (attachment: MediaAttachment) => Promise<void> }) {
+  const { language, t } = useTranslation()
   const dateWorkouts = workouts.filter((workout) => toDateKeyFromIso(workout.performedAt) === date)
   const legacyTotal = legacyVolumes.filter((volume) => volume.date === date).reduce((sum, volume) => sum + volume.reps, 0)
   const registeredVolume = legacyTotal + dateWorkouts.reduce((sum, workout) => sum + workout.targetReps, 0)
@@ -1845,8 +1846,8 @@ function DayDetail({ date, workouts, legacyVolumes, performances, attachments, o
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const durationSeconds = parseDuration(duration)
-    if (durationSeconds === null) { setError('Use mm:ss ou h:mm:ss, por exemplo 18:42 ou 1:18:42.'); return }
-    if (setGroups.length > 0 && getSetGroupTotal(setGroups) !== targetReps) { setError(`Os sets somam ${getSetGroupTotal(setGroups)} NSBs, mas a performance é de ${targetReps}.`); return }
+    if (durationSeconds === null) { setError(t('detail.invalidDuration')); return }
+    if (setGroups.length > 0 && getSetGroupTotal(setGroups) !== targetReps) { setError(t('detail.invalidSets', { total: getSetGroupTotal(setGroups), target: targetReps })); return }
     const now = new Date().toISOString()
     if (editingWorkout) await onSaveWorkout({ ...editingWorkout, targetReps, durationSeconds, setGroups, notes: notes.trim(), updatedAt: now })
     else await onSavePerformance({ id: editingPerformance?.id ?? createId(), date, targetReps, durationSeconds, setGroups, notes: notes.trim(), createdAt: editingPerformance?.createdAt ?? now, updatedAt: now })
@@ -1855,18 +1856,19 @@ function DayDetail({ date, workouts, legacyVolumes, performances, attachments, o
 
   async function attachVideo(performanceId: string, file: File | undefined) {
     if (!file) return
-    if (!file.type.startsWith('video/')) { setError('Selecione um arquivo de vídeo.'); return }
-    if (file.size > 250 * 1024 * 1024) { setError('O vídeo deve ter no máximo 250 MB para armazenamento local.'); return }
+    if (!file.type.startsWith('video/')) { setError(t('detail.invalidVideo')); return }
+    if (file.size > 250 * 1024 * 1024) { setError(t('detail.videoTooLarge')); return }
     await onSaveAttachment({ id: createId(), performanceId, filename: file.name, mimeType: file.type, size: file.size, createdAt: new Date().toISOString(), blob: file })
   }
 
-  return <div className="day-detail-backdrop" role="presentation" onClick={onClose}><section className="day-detail" role="dialog" aria-modal="true" aria-labelledby="day-detail-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><p className="eyebrow">Detalhe do dia</p><h2 id="day-detail-title">{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' }).format(new Date(`${date}T12:00:00`))}</h2></div><button className="text-button" type="button" onClick={onClose}>Fechar</button></div><p className="day-total">Volume registrado: <strong>{registeredVolume} NSBs</strong></p>{dateWorkouts.length > 0 && <section className="day-list"><h3>Treinos detalhados</h3>{dateWorkouts.map((workout) => <p key={workout.id}>{workout.targetReps} NSBs · {formatDuration(workout.durationSeconds)} · {formatSetGroups(workout.setGroups)}</p>)}</section>}{datePerformances.length > 0 && <section className="day-list"><h3>Performances registradas</h3>{datePerformances.map((performance) => <article className="performance-record" key={performance.id}><p>{performance.targetReps} NSBs · {formatDuration(performance.durationSeconds)} · {formatSetGroups(performance.setGroups)}</p>{attachments.filter((attachment) => attachment.performanceId === performance.id).map((attachment) => <AttachmentVideo key={attachment.id} attachment={attachment} />)}<label className="video-upload"><span>Anexar vídeo</span><input type="file" accept="video/*" onChange={(event) => { void attachVideo(performance.id, event.target.files?.[0]); event.currentTarget.value = '' }} /></label></article>)}</section>}<form className="performance-form" onSubmit={submit}><h3>{editingWorkout ? 'Editar treino' : editingPerformance ? 'Editar performance histórica' : 'Adicionar performance histórica'}</h3><p>{editingWorkout ? 'Atualize tempo, sets e observações do treino.' : 'Registra tempo, estrutura de sets e observações sem somar volume ao dia.'}</p><label><span>Quantidade</span><select value={targetReps} onChange={(event) => setTargetReps(Number(event.target.value) as RepTarget)}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Tempo</span><input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required /></label><section className="performance-sets"><div className="section-heading"><h3>Sets</h3><button className="secondary-action" type="button" onClick={addSetGroup}>Adicionar grupo</button></div>{setGroups.map((group) => <div className="set-row" key={group.id}><label><span className="sr-only">Número de sets</span><input type="number" min="1" value={group.setCount || ''} onChange={(event) => changeSetGroup(group.id, 'setCount', event.target.value === '' ? 0 : Number(event.target.value))} /></label><span>×</span><label><span className="sr-only">NSBs por set</span><input type="number" min="1" value={group.repsPerSet || ''} onChange={(event) => changeSetGroup(group.id, 'repsPerSet', event.target.value === '' ? 0 : Number(event.target.value))} /></label><button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</section><label><span>Observação</span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{error && <p className="error-message" role="alert">{error}</p>}<button className="primary-action" type="submit">Salvar {editingWorkout ? 'treino' : 'performance'}</button></form></section></div>
+  return <div className="day-detail-backdrop" role="presentation" onClick={onClose}><section className="day-detail" role="dialog" aria-modal="true" aria-labelledby="day-detail-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><p className="eyebrow">{t('detail.eyebrow')}</p><h2 id="day-detail-title">{new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(new Date(`${date}T12:00:00`))}</h2></div><button className="text-button" type="button" onClick={onClose}>{t('detail.close')}</button></div><p className="day-total">{t('detail.registeredVolume')}: <strong>{registeredVolume} NSBs</strong></p>{dateWorkouts.length > 0 && <section className="day-list"><h3>{t('detail.workouts')}</h3>{dateWorkouts.map((workout) => <p key={workout.id}>{workout.targetReps} NSBs · {formatDuration(workout.durationSeconds)} · {formatSetGroups(workout.setGroups)}</p>)}</section>}{datePerformances.length > 0 && <section className="day-list"><h3>{t('detail.performances')}</h3>{datePerformances.map((performance) => <article className="performance-record" key={performance.id}><p>{performance.targetReps} NSBs · {formatDuration(performance.durationSeconds)} · {formatSetGroups(performance.setGroups)}</p>{attachments.filter((attachment) => attachment.performanceId === performance.id).map((attachment) => <AttachmentVideo key={attachment.id} attachment={attachment} />)}<label className="video-upload"><span>{t('detail.attachVideo')}</span><input type="file" accept="video/*" onChange={(event) => { void attachVideo(performance.id, event.target.files?.[0]); event.currentTarget.value = '' }} /></label></article>)}</section>}<form className="performance-form" onSubmit={submit}><h3>{editingWorkout ? t('detail.editWorkout') : editingPerformance ? t('detail.editPerformance') : t('detail.addPerformance')}</h3><p>{editingWorkout ? t('detail.editHint') : t('detail.addHint')}</p><label><span>{t('detail.target')}</span><select value={targetReps} onChange={(event) => setTargetReps(Number(event.target.value) as RepTarget)}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>{t('detail.time')}</span><input inputMode="numeric" maxLength={7} placeholder="18:42 / 1:18:42" value={duration} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required /></label><section className="performance-sets"><div className="section-heading"><h3>{t('workout.sets')}</h3><button className="secondary-action" type="button" onClick={addSetGroup}>{t('workout.addGroup')}</button></div>{setGroups.map((group) => <div className="set-row" key={group.id}><label><span className="sr-only">{t('detail.setCount')}</span><input type="number" min="1" value={group.setCount || ''} onChange={(event) => changeSetGroup(group.id, 'setCount', event.target.value === '' ? 0 : Number(event.target.value))} /></label><span>×</span><label><span className="sr-only">{t('detail.repsPerSet')}</span><input type="number" min="1" value={group.repsPerSet || ''} onChange={(event) => changeSetGroup(group.id, 'repsPerSet', event.target.value === '' ? 0 : Number(event.target.value))} /></label><button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>{t('workout.remove')}</button></div>)}</section><label><span>{t('workout.notes')}</span><textarea rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} /></label>{error && <p className="error-message" role="alert">{error}</p>}<button className="primary-action" type="submit">{t('detail.save', { item: editingWorkout ? t('detail.workout') : t('detail.performance') })}</button></form></section></div>
 }
 
 function AttachmentVideo({ attachment }: { attachment: MediaAttachment }) {
+  const { t } = useTranslation()
   const url = useMemo(() => URL.createObjectURL(attachment.blob), [attachment.blob])
   useEffect(() => () => URL.revokeObjectURL(url), [url])
-  return <div className="attachment-video"><video controls preload="metadata" src={url} /><a href={url} download={attachment.filename}>Baixar {attachment.filename}</a></div>
+  return <div className="attachment-video"><video controls preload="metadata" src={url} /><a href={url} download={attachment.filename}>{t('detail.download')} {attachment.filename}</a></div>
 }
 
 function getYearBins(records: VolumeRecord[]) {
@@ -1879,8 +1881,8 @@ function getYearBins(records: VolumeRecord[]) {
   })
 }
 
-function getMonthBins(records: VolumeRecord[], year: number) {
-  const formatter = new Intl.DateTimeFormat('pt-BR', { month: 'short' })
+function getMonthBins(records: VolumeRecord[], year: number, language: AppLanguage) {
+  const formatter = new Intl.DateTimeFormat(language, { month: 'short' })
   return Array.from({ length: 12 }, (_, month) => ({ key: String(month), label: formatter.format(new Date(year, month, 1)).replace('.', ''), month, total: records.filter((record) => { const date = new Date(record.date); return date.getFullYear() === year && date.getMonth() === month }).reduce((sum, record) => sum + record.reps, 0) }))
 }
 
