@@ -1,0 +1,1512 @@
+{
+  "format": "nsb-tracker-backup",
+  "version": 3,
+  "exportedAt": "2026-07-28T03:26:20.372Z",
+  "workouts": [],
+  "legacyDailyVolumes": [
+    {
+      "id": "legacy-daily-2025-06-07",
+      "date": "2025-06-07",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2025-05-27",
+      "date": "2025-05-27",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2025-04-30",
+      "date": "2025-04-30",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2025-03-30",
+      "date": "2025-03-30",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2025-03-21",
+      "date": "2025-03-21",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2025-03-11",
+      "date": "2025-03-11",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2025-03-01",
+      "date": "2025-03-01",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2025-02-19",
+      "date": "2025-02-19",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:08.991Z"
+    },
+    {
+      "id": "legacy-daily-2024-12-23",
+      "date": "2024-12-23",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-12-21",
+      "date": "2024-12-21",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-12-14",
+      "date": "2024-12-14",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-11-26",
+      "date": "2024-11-26",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-11-23",
+      "date": "2024-11-23",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-11-15",
+      "date": "2024-11-15",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-11-10",
+      "date": "2024-11-10",
+      "reps": 500,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-11-05",
+      "date": "2024-11-05",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-11-03",
+      "date": "2024-11-03",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-30",
+      "date": "2024-10-30",
+      "reps": 500,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-27",
+      "date": "2024-10-27",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-25",
+      "date": "2024-10-25",
+      "reps": 300,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-23",
+      "date": "2024-10-23",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-19",
+      "date": "2024-10-19",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-14",
+      "date": "2024-10-14",
+      "reps": 300,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-12",
+      "date": "2024-10-12",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-09",
+      "date": "2024-10-09",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-06",
+      "date": "2024-10-06",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-02",
+      "date": "2024-10-02",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-10-01",
+      "date": "2024-10-01",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-30",
+      "date": "2024-09-30",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-28",
+      "date": "2024-09-28",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-24",
+      "date": "2024-09-24",
+      "reps": 400,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-21",
+      "date": "2024-09-21",
+      "reps": 400,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-19",
+      "date": "2024-09-19",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-14",
+      "date": "2024-09-14",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-11",
+      "date": "2024-09-11",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-10",
+      "date": "2024-09-10",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-08",
+      "date": "2024-09-08",
+      "reps": 300,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-06",
+      "date": "2024-09-06",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-05",
+      "date": "2024-09-05",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-04",
+      "date": "2024-09-04",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-09-02",
+      "date": "2024-09-02",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-31",
+      "date": "2024-08-31",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-30",
+      "date": "2024-08-30",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-23",
+      "date": "2024-08-23",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-21",
+      "date": "2024-08-21",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-19",
+      "date": "2024-08-19",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-18",
+      "date": "2024-08-18",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-14",
+      "date": "2024-08-14",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-12",
+      "date": "2024-08-12",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-11",
+      "date": "2024-08-11",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-09",
+      "date": "2024-08-09",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-07",
+      "date": "2024-08-07",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-08-01",
+      "date": "2024-08-01",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-07-30",
+      "date": "2024-07-30",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-07-27",
+      "date": "2024-07-27",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-07-24",
+      "date": "2024-07-24",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-07-19",
+      "date": "2024-07-19",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-07-15",
+      "date": "2024-07-15",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-07-04",
+      "date": "2024-07-04",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-06-28",
+      "date": "2024-06-28",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-06-23",
+      "date": "2024-06-23",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-06-11",
+      "date": "2024-06-11",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-05-27",
+      "date": "2024-05-27",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-05-07",
+      "date": "2024-05-07",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-05-04",
+      "date": "2024-05-04",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-04-29",
+      "date": "2024-04-29",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-04-26",
+      "date": "2024-04-26",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-04-20",
+      "date": "2024-04-20",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-04-17",
+      "date": "2024-04-17",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-04-05",
+      "date": "2024-04-05",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-04-03",
+      "date": "2024-04-03",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-04-01",
+      "date": "2024-04-01",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-03-29",
+      "date": "2024-03-29",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-03-20",
+      "date": "2024-03-20",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-03-12",
+      "date": "2024-03-12",
+      "reps": 400,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-03-07",
+      "date": "2024-03-07",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-03-06",
+      "date": "2024-03-06",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-03-02",
+      "date": "2024-03-02",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-29",
+      "date": "2024-02-29",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-27",
+      "date": "2024-02-27",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-26",
+      "date": "2024-02-26",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-22",
+      "date": "2024-02-22",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-14",
+      "date": "2024-02-14",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-12",
+      "date": "2024-02-12",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-08",
+      "date": "2024-02-08",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-02-03",
+      "date": "2024-02-03",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-01-24",
+      "date": "2024-01-24",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-01-20",
+      "date": "2024-01-20",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2024-01-17",
+      "date": "2024-01-17",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:21:01.784Z"
+    },
+    {
+      "id": "legacy-daily-2023-11-25",
+      "date": "2023-11-25",
+      "reps": 50,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-10-18",
+      "date": "2023-10-18",
+      "reps": 50,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-08-06",
+      "date": "2023-08-06",
+      "reps": 50,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-07-29",
+      "date": "2023-07-29",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-07-20",
+      "date": "2023-07-20",
+      "reps": 400,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-07-14",
+      "date": "2023-07-14",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-07-07",
+      "date": "2023-07-07",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-06-30",
+      "date": "2023-06-30",
+      "reps": 300,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-06-28",
+      "date": "2023-06-28",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-06-23",
+      "date": "2023-06-23",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-06-18",
+      "date": "2023-06-18",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-06-02",
+      "date": "2023-06-02",
+      "reps": 300,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-05-27",
+      "date": "2023-05-27",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-05-19",
+      "date": "2023-05-19",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-05-13",
+      "date": "2023-05-13",
+      "reps": 400,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-05-10",
+      "date": "2023-05-10",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-05-03",
+      "date": "2023-05-03",
+      "reps": 300,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-04-28",
+      "date": "2023-04-28",
+      "reps": 350,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-04-21",
+      "date": "2023-04-21",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-04-14",
+      "date": "2023-04-14",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-04-09",
+      "date": "2023-04-09",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-04-06",
+      "date": "2023-04-06",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-04-01",
+      "date": "2023-04-01",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-03-18",
+      "date": "2023-03-18",
+      "reps": 50,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-03-14",
+      "date": "2023-03-14",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-03-11",
+      "date": "2023-03-11",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-03-07",
+      "date": "2023-03-07",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-02-10",
+      "date": "2023-02-10",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-02-04",
+      "date": "2023-02-04",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-01-31",
+      "date": "2023-01-31",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-01-30",
+      "date": "2023-01-30",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-01-24",
+      "date": "2023-01-24",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-01-20",
+      "date": "2023-01-20",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2023-01-14",
+      "date": "2023-01-14",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:54.285Z"
+    },
+    {
+      "id": "legacy-daily-2022-12-31",
+      "date": "2022-12-31",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-12-28",
+      "date": "2022-12-28",
+      "reps": 50,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-12-26",
+      "date": "2022-12-26",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-12-23",
+      "date": "2022-12-23",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-12-19",
+      "date": "2022-12-19",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-11-29",
+      "date": "2022-11-29",
+      "reps": 150,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-11-23",
+      "date": "2022-11-23",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-11-07",
+      "date": "2022-11-07",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-11-06",
+      "date": "2022-11-06",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-11-05",
+      "date": "2022-11-05",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-11-04",
+      "date": "2022-11-04",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-11-02",
+      "date": "2022-11-02",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-10-28",
+      "date": "2022-10-28",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-10-13",
+      "date": "2022-10-13",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-10-06",
+      "date": "2022-10-06",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-09-09",
+      "date": "2022-09-09",
+      "reps": 250,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-09-05",
+      "date": "2022-09-05",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-09-03",
+      "date": "2022-09-03",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-09-02",
+      "date": "2022-09-02",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-31",
+      "date": "2022-08-31",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-28",
+      "date": "2022-08-28",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-26",
+      "date": "2022-08-26",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-25",
+      "date": "2022-08-25",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-24",
+      "date": "2022-08-24",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-22",
+      "date": "2022-08-22",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-19",
+      "date": "2022-08-19",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-18",
+      "date": "2022-08-18",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-17",
+      "date": "2022-08-17",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-14",
+      "date": "2022-08-14",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-11",
+      "date": "2022-08-11",
+      "reps": 200,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-09",
+      "date": "2022-08-09",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-05",
+      "date": "2022-08-05",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-04",
+      "date": "2022-08-04",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-02",
+      "date": "2022-08-02",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-08-01",
+      "date": "2022-08-01",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-28",
+      "date": "2022-07-28",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-23",
+      "date": "2022-07-23",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-22",
+      "date": "2022-07-22",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-21",
+      "date": "2022-07-21",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-19",
+      "date": "2022-07-19",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-17",
+      "date": "2022-07-17",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-15",
+      "date": "2022-07-15",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-14",
+      "date": "2022-07-14",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-13",
+      "date": "2022-07-13",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-12",
+      "date": "2022-07-12",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-10",
+      "date": "2022-07-10",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-07",
+      "date": "2022-07-07",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-07-03",
+      "date": "2022-07-03",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-06-29",
+      "date": "2022-06-29",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-06-15",
+      "date": "2022-06-15",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-06-02",
+      "date": "2022-06-02",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-05-20",
+      "date": "2022-05-20",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-05-13",
+      "date": "2022-05-13",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-05-06",
+      "date": "2022-05-06",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-04-28",
+      "date": "2022-04-28",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-04-27",
+      "date": "2022-04-27",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-04-23",
+      "date": "2022-04-23",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-04-22",
+      "date": "2022-04-22",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-04-19",
+      "date": "2022-04-19",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    },
+    {
+      "id": "legacy-daily-2022-04-16",
+      "date": "2022-04-16",
+      "reps": 100,
+      "source": "legacy-csv",
+      "importedAt": "2026-07-19T00:20:42.854Z"
+    }
+  ],
+  "historicalPerformances": [
+    {
+      "id": "ca832a68-a36d-4d6f-b724-09c0dedaeccc",
+      "date": "2024-11-05",
+      "targetReps": 100,
+      "durationSeconds": 805,
+      "setGroups": [
+        {
+          "id": "bcb3a81f-fa9c-4610-94ba-ecb72f0fff51",
+          "setCount": 1,
+          "repsPerSet": 100
+        }
+      ],
+      "notes": "",
+      "createdAt": "2026-07-19T03:54:44.950Z",
+      "updatedAt": "2026-07-19T05:03:52.814Z"
+    },
+    {
+      "id": "33229f45-8152-4596-8bc8-764689a5c626",
+      "date": "2024-10-30",
+      "targetReps": 500,
+      "durationSeconds": 6203,
+      "setGroups": [
+        {
+          "id": "76bfd0f7-c43b-42df-bfd4-30b33d501d0b",
+          "setCount": 5,
+          "repsPerSet": 100
+        }
+      ],
+      "notes": "",
+      "createdAt": "2026-07-19T03:54:21.280Z",
+      "updatedAt": "2026-07-19T05:00:19.568Z"
+    },
+    {
+      "id": "f3008a78-3faf-4a97-b384-77246205d77f",
+      "date": "2024-10-25",
+      "targetReps": 300,
+      "durationSeconds": 3405,
+      "setGroups": [
+        {
+          "id": "f650eae3-0a82-433b-8e30-c904799c03b1",
+          "setCount": 10,
+          "repsPerSet": 30
+        }
+      ],
+      "notes": "",
+      "createdAt": "2026-07-19T03:53:42.092Z",
+      "updatedAt": "2026-07-19T05:02:24.797Z"
+    },
+    {
+      "id": "cce55251-3523-4011-9030-0843b9880b3e",
+      "date": "2024-10-23",
+      "targetReps": 200,
+      "durationSeconds": 1978,
+      "setGroups": [
+        {
+          "id": "132d36d1-6223-4a5f-b31e-b2856016c96a",
+          "setCount": 10,
+          "repsPerSet": 20
+        }
+      ],
+      "notes": "",
+      "createdAt": "2026-07-19T03:53:00.341Z",
+      "updatedAt": "2026-07-27T22:35:25.415Z"
+    },
+    {
+      "id": "c87e8dd7-a9ee-4fce-93e9-d236fc04022c",
+      "date": "2024-09-24",
+      "targetReps": 400,
+      "durationSeconds": 4780,
+      "setGroups": [
+        {
+          "id": "cd7c708c-cb94-4a96-94ce-393065329a2b",
+          "setCount": 4,
+          "repsPerSet": 100
+        }
+      ],
+      "notes": "",
+      "createdAt": "2026-07-19T03:52:13.771Z",
+      "updatedAt": "2026-07-19T05:03:29.854Z"
+    }
+  ],
+  "preferences": {
+    "id": "preferences",
+    "soundProfile": "quiet",
+    "soundEnabled": true,
+    "soundVolume": 630,
+    "theme": "dark",
+    "palette": "cobalt",
+    "visualPalette": true,
+    "fontScale": 100,
+    "evolutionScale": 61,
+    "homeMessages": [
+      "Do what you know you have to do.",
+      "“Failure has been achieved. Thank God.”",
+      "“Who’s gonna carry the boats and the logs?”",
+      "“You built belief when you had nothing. Rock bottom.”",
+      "“Don’t be afraid of being hurt. Don’t be afraid of sacrificing some blood.”",
+      "Crux Sacra Sit Mihi Lux.",
+      "Força e Honra."
+    ],
+    "defaultRepTargets": [
+      100,
+      150,
+      200,
+      250,
+      300,
+      350,
+      400,
+      450,
+      500
+    ],
+    "workoutPresets": [
+      {
+        "id": "842a2f51-80da-47a1-ad57-f725cdc919f4",
+        "name": "23:25 · 10×10",
+        "nameIsAutomatic": true,
+        "targetReps": 100,
+        "setGroups": [
+          {
+            "id": "9311875d-ca01-4bed-944f-1982c9dacaa4",
+            "setCount": 10,
+            "repsPerSet": 10
+          }
+        ],
+        "paceDuration": "00:10",
+        "restDuration": "00:45",
+        "groupPaceDurations": {},
+        "groupRestDurations": {},
+        "targetMode": "pace",
+        "totalDuration": "23:25"
+      },
+      {
+        "id": "2c7f2735-e649-41c5-b079-cfe0bbf2df51",
+        "name": "17:40 · 2×50",
+        "nameIsAutomatic": true,
+        "targetReps": 100,
+        "setGroups": [
+          {
+            "id": "4f77e06a-5117-449f-8ac9-1688f4a62508",
+            "setCount": 2,
+            "repsPerSet": 50
+          }
+        ],
+        "paceDuration": "00:10",
+        "restDuration": "01:00",
+        "groupPaceDurations": {},
+        "groupRestDurations": {},
+        "targetMode": "total",
+        "totalDuration": "17:40"
+      },
+      {
+        "id": "a6b92ead-e56e-4ebd-86ee-1c08b436043d",
+        "name": "20:20 · 4×25",
+        "nameIsAutomatic": true,
+        "targetReps": 100,
+        "setGroups": [
+          {
+            "id": "705d7664-8b51-4478-848a-d86c4d3143b9",
+            "setCount": 4,
+            "repsPerSet": 25
+          }
+        ],
+        "paceDuration": "00:11",
+        "restDuration": "00:40",
+        "groupPaceDurations": {},
+        "groupRestDurations": {}
+      },
+      {
+        "id": "7b3990b0-dbdf-4950-bd43-21cac4d7ef08",
+        "name": "21:20 · 5×20",
+        "nameIsAutomatic": true,
+        "targetReps": 100,
+        "setGroups": [
+          {
+            "id": "fe78c3c9-34d4-4590-b72b-02376eaddff5",
+            "setCount": 5,
+            "repsPerSet": 20
+          }
+        ],
+        "paceDuration": "00:11",
+        "restDuration": "00:45",
+        "groupPaceDurations": {},
+        "groupRestDurations": {}
+      },
+      {
+        "id": "74df019e-a57a-41ad-8780-254632589f7d",
+        "name": "1:59:57 · 10×50",
+        "nameIsAutomatic": true,
+        "targetReps": 500,
+        "setGroups": [
+          {
+            "id": "e35f3c34-254a-4e7a-8c19-a1ae7f906c36",
+            "setCount": 10,
+            "repsPerSet": 50
+          }
+        ],
+        "paceDuration": "00:12",
+        "restDuration": "02:13",
+        "groupPaceDurations": {},
+        "groupRestDurations": {}
+      },
+      {
+        "id": "514a1c0f-f3ab-4d54-8cb9-976f50aa8e35",
+        "name": "15:00 · 1×100",
+        "nameIsAutomatic": true,
+        "targetReps": 100,
+        "setGroups": [
+          {
+            "id": "046d6cfe-185f-49d3-b504-8850c2e69ddf",
+            "setCount": 1,
+            "repsPerSet": 100
+          }
+        ],
+        "targetMode": "total",
+        "paceDuration": "",
+        "totalDuration": "15:00",
+        "restDuration": "",
+        "groupPaceDurations": {},
+        "groupRestDurations": {}
+      }
+    ]
+  }
+}
