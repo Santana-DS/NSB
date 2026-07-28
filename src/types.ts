@@ -12,6 +12,7 @@ export interface SetGroup {
 export interface WorkoutPreset {
   id: string
   name: string
+  nameIsAutomatic?: boolean
   targetReps: RepTarget
   setGroups: SetGroup[]
   paceDuration?: string

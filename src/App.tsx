@@ -27,6 +27,11 @@ function prunePacingGroupValues(values: Record<string, string>, groupIds: Set<st
   const next = Object.fromEntries(Object.entries(values).filter(([id]) => groupIds.has(id)))
   return Object.keys(next).length === Object.keys(values).length ? values : next
 }
+
+function presetName(targetReps: RepTarget, setGroups: SetGroup[]): string {
+  const strategy = setGroups.filter((group) => group.setCount > 0 && group.repsPerSet > 0).map((group) => `${group.setCount}×${group.repsPerSet}`).join(' + ')
+  return strategy ? `${strategy} · ${targetReps} NSBs` : `${targetReps} NSBs`
+}
 type SoundTimbre = 'clean' | 'command' | 'pulse' | 'cardio' | 'bell' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet'
 const DEFAULT_WARMUP_SECONDS = 10
 const DEFAULT_HOME_MESSAGES = [
@@ -166,6 +171,7 @@ export default function App() {
   const [defaultRepTargets, setDefaultRepTargets] = useState<number[]>([...REP_TARGETS])
   const [customTargetInput, setCustomTargetInput] = useState('')
   const [workoutPresets, setWorkoutPresets] = useState<WorkoutPreset[]>([])
+  const [presetTarget, setPresetTarget] = useState<RepTarget>(100)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
   const [setGroups, setSetGroups] = useState<SetGroup[]>([])
@@ -246,6 +252,7 @@ export default function App() {
         if (Array.isArray(settings?.defaultRepTargets)) {
           const targets = normalizeRepTargets(settings.defaultRepTargets)
           if (targets.length > 0) setDefaultRepTargets(targets)
+          if (targets.length > 0) setPresetTarget(targets[0])
         }
         if (Array.isArray(settings?.workoutPresets)) setWorkoutPresets(settings.workoutPresets)
         if (typeof settings?.fontScale === 'number' && settings.fontScale >= MIN_FONT_SCALE && settings.fontScale <= MAX_FONT_SCALE) setFontScale(settings.fontScale)
@@ -642,6 +649,7 @@ export default function App() {
     if (targets.length === 0) return
     setDefaultRepTargets(targets)
     if (!targets.includes(targetReps)) setTargetReps(targets[0])
+    if (!targets.includes(presetTarget)) setPresetTarget(targets[0])
     void saveAppSettings({ id: 'preferences', soundProfile, defaultRepTargets: targets })
   }
 
@@ -654,11 +662,16 @@ export default function App() {
   }
 
   function addWorkoutPreset() {
-    saveWorkoutPresets([...workoutPresets, { id: createId(), name: 'Novo preset', targetReps: defaultRepTargets[0] ?? 100, setGroups: [], paceDuration: '', restDuration: '' }])
+    const setGroups: SetGroup[] = []
+    saveWorkoutPresets([...workoutPresets, { id: createId(), name: presetName(presetTarget, setGroups), nameIsAutomatic: true, targetReps: presetTarget, setGroups, paceDuration: '', restDuration: '' }])
   }
 
   function updateWorkoutPreset(id: string, update: Partial<WorkoutPreset>) {
     saveWorkoutPresets(workoutPresets.map((preset) => preset.id === id ? { ...preset, ...update } : preset))
+  }
+
+  function updatePresetGroups(id: string, setGroups: SetGroup[]) {
+    saveWorkoutPresets(workoutPresets.map((preset) => preset.id === id ? { ...preset, setGroups, name: preset.nameIsAutomatic ? presetName(preset.targetReps, setGroups) : preset.name } : preset))
   }
 
   function applyWorkoutPreset(preset: WorkoutPreset) {
@@ -1067,7 +1080,7 @@ export default function App() {
         <section className="content workout-form">
           <button className="workout-close" type="button" onClick={() => setScreen('home')} aria-label="Voltar ao início" title="Voltar ao início">←</button>
           <form onSubmit={handleSave}>
-            {workoutPresets.length > 0 && <label className="preset-picker"><span>Preset</span><select defaultValue="" onChange={(event) => { const preset = workoutPresets.find((item) => item.id === event.target.value); if (preset) applyWorkoutPreset(preset); event.currentTarget.value = '' }}><option value="" disabled>Aplicar um preset</option>{workoutPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {preset.targetReps} NSBs</option>)}</select></label>}
+            {workoutPresets.some((preset) => preset.targetReps === targetReps) && <label className="preset-picker"><span>Preset</span><select defaultValue="" onChange={(event) => { const preset = workoutPresets.find((item) => item.id === event.target.value); if (preset) applyWorkoutPreset(preset); event.currentTarget.value = '' }}><option value="" disabled>Aplicar preset de {targetReps} NSBs</option>{workoutPresets.filter((preset) => preset.targetReps === targetReps).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>}
             <fieldset>
               <legend>Quantidade total</legend>
               <div className="target-grid">
@@ -1219,9 +1232,12 @@ export default function App() {
             <label className="free-target settings-target"><span>Adicionar meta</span><input inputMode="numeric" type="number" min="1" value={customTargetInput} placeholder="Ex.: 75" onChange={(event) => setCustomTargetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomTarget() } }} /><button type="button" className="secondary-action" onClick={addCustomTarget}>Adicionar</button></label>
           </details>
           <details className="settings-group preset-settings">
-            <summary>Presets de treino</summary>
-            <div className="section-heading"><p>Meta, sets, ritmo e descanso para iniciar rapidamente.</p><button type="button" className="secondary-action" onClick={addWorkoutPreset}>Novo preset</button></div>
-            {workoutPresets.map((preset) => <article className="preset-editor" key={preset.id}><div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 36) })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div><div className="field-grid"><label><span>Quantidade</span><select value={preset.targetReps} onChange={(event) => updateWorkoutPreset(preset.id, { targetReps: Number(event.target.value) as RepTarget })}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Ritmo</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div><div className="preset-set-list">{preset.setGroups.map((group) => <div className="set-row" key={group.id}><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item) })} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item) })} /><button type="button" className="remove-button" onClick={() => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.filter((item) => item.id !== group.id) })}>Remover</button></div>)}</div><button type="button" className="text-button" onClick={() => updateWorkoutPreset(preset.id, { setGroups: [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }] })}>+ Set</button></article>)}
+            <summary>Presets</summary>
+            <div className="preset-target-grid" role="group" aria-label="Quantidade do preset">
+              {defaultRepTargets.map((target) => <button key={target} type="button" className={target === presetTarget ? 'selected' : ''} onClick={() => setPresetTarget(target)}>{target}</button>)}
+            </div>
+            <div className="section-heading"><p>Estratégias para {presetTarget} NSBs.</p><button type="button" className="secondary-action" onClick={addWorkoutPreset}>Novo</button></div>
+            {workoutPresets.filter((preset) => preset.targetReps === presetTarget).map((preset) => <article className="preset-editor" key={preset.id}><div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 36), nameIsAutomatic: false })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div><div className="field-grid"><label><span>Ritmo</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div><div className="preset-set-list">{preset.setGroups.map((group) => <div className="set-row" key={group.id}><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item))} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item))} /><button type="button" className="remove-button" onClick={() => updatePresetGroups(preset.id, preset.setGroups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</div><button type="button" className="text-button" onClick={() => updatePresetGroups(preset.id, [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }])}>+ Set</button></article>)}
           </details>
           <details className="settings-group home-message-settings">
             <summary>Frases</summary>
