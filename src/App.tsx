@@ -209,6 +209,7 @@ export default function App() {
   const soundPreviewTimersRef = useRef<number[]>([])
   const brandPressTimerRef = useRef<number | null>(null)
   const brandLongPressRef = useRef(false)
+  const brandHeaderRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -262,6 +263,13 @@ export default function App() {
   useEffect(() => {
     pacingIsActiveRef.current = timerStartedAt !== null || pacingPhase === 'warmup' || pacingPhase === 'set' || pacingPhase === 'rest'
   }, [pacingPhase, timerStartedAt])
+
+  useEffect(() => {
+    if (!brandInfoOpen) return
+    const closeFromOutside = (event: PointerEvent) => { if (brandHeaderRef.current && !brandHeaderRef.current.contains(event.target as Node)) setBrandInfoOpen(false) }
+    document.addEventListener('pointerdown', closeFromOutside)
+    return () => document.removeEventListener('pointerdown', closeFromOutside)
+  }, [brandInfoOpen])
 
   useEffect(() => {
     if (Capacitor.getPlatform() !== 'android') return
@@ -925,7 +933,7 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <header className={`app-header ${screen === 'history' ? 'sticky-header' : ''} ${brandInfoOpen ? 'brand-story-open' : ''}`}>
+      <header ref={brandHeaderRef} className={`app-header ${screen === 'history' ? 'sticky-header' : ''} ${brandInfoOpen ? 'brand-story-open' : ''}`}>
         <button className="brand" onPointerDown={beginBrandPress} onPointerUp={endBrandPress} onPointerCancel={endBrandPress} onClick={() => { if (brandLongPressRef.current) { brandLongPressRef.current = false; return }; setScreen('home') }} aria-label="Ir para início. Pressione e segure para saber mais sobre o desafio.">
           <img className="brand-mark" src="/nsb-icon.png" alt="" />
           <span>Navy Seal Burpees</span>
@@ -936,7 +944,7 @@ export default function App() {
           <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
           <button className={screen === 'settings' ? 'nav-link nav-settings active' : 'nav-link nav-settings'} onClick={() => setScreen('settings')} aria-label="Ajustes" title="Ajustes">⚙</button>
         </nav>
-        {brandInfoOpen && <section className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><button type="button" className="brand-story-dismiss" onClick={() => setBrandInfoOpen(false)} aria-label="Fechar">×</button><h2>Navy Seal Burpee</h2><p>Três flexões e mountain climbers em cada repetição: força, cardio, coordenação e disciplina em um único movimento.</p><p>O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source. Inspirado por <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
+        {brandInfoOpen && <section className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><img className="brand-story-logo" src="/nsb-icon.png" alt="Logo NSB" /><h2>Navy Seal Burpee</h2><p><strong>Navy Seal Burpee é o número #1 dos exercícios.</strong> Três flexões e mountain climbers em cada repetição unem força, cardio, coordenação, agilidade, letalidade e disciplina em um único movimento.</p><p>Contar cada repetição torna-o um exercício de corpo e mente. O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source.</p><p>Shout out to <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
       </header>
 
       {screen === 'home' && (
