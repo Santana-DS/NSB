@@ -1,7 +1,7 @@
-import type { BackupDocument, HistoricalPerformance, LegacyDailyVolume, ParsedBackup, Workout } from '../types'
+import type { AppSettings, BackupDocument, HistoricalPerformance, LegacyDailyVolume, ParsedBackup, Workout } from '../types'
 import { validateWorkout } from './workouts'
 
-export function createBackup(workouts: Workout[], legacyDailyVolumes: LegacyDailyVolume[], historicalPerformances: HistoricalPerformance[]): string {
+export function createBackup(workouts: Workout[], legacyDailyVolumes: LegacyDailyVolume[], historicalPerformances: HistoricalPerformance[], preferences?: AppSettings): string {
   const document: BackupDocument = {
     format: 'nsb-tracker-backup',
     version: 3,
@@ -9,6 +9,7 @@ export function createBackup(workouts: Workout[], legacyDailyVolumes: LegacyDail
     workouts,
     legacyDailyVolumes,
     historicalPerformances,
+    preferences,
   }
   return JSON.stringify(document, null, 2)
 }
@@ -32,6 +33,7 @@ export function parseBackup(contents: string): ParsedBackup {
     workouts: candidate.workouts,
     legacyDailyVolumes: candidate.version === 2 || candidate.version === 3 ? candidate.legacyDailyVolumes : [],
     historicalPerformances: candidate.version === 3 ? candidate.historicalPerformances : [],
+    preferences: candidate.version === 3 ? candidate.preferences : undefined,
   }
 }
 

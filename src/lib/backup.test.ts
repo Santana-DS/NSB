@@ -16,4 +16,9 @@ describe('backups', () => {
     const newer = { ...workout, notes: 'novo', updatedAt: '2026-07-19T12:00:00.000Z' }
     expect(mergeWorkouts([workout], [newer])).toEqual([newer])
   })
+
+  it('includes preferences and presets when present', () => {
+    const preferences = { id: 'preferences' as const, soundProfile: 'precise' as const, defaultRepTargets: [75, 100], workoutPresets: [{ id: 'preset-1', name: '12:00 · 4×25', targetReps: 100, setGroups: [{ id: 'group-1', setCount: 4, repsPerSet: 25 }], targetMode: 'total' as const, totalDuration: '12:00' }] }
+    expect(parseBackup(createBackup([], [], [], preferences)).preferences).toEqual(preferences)
+  })
 })

@@ -16,6 +16,8 @@ export interface WorkoutPreset {
   targetReps: RepTarget
   setGroups: SetGroup[]
   paceDuration?: string
+  targetMode?: 'pace' | 'total'
+  totalDuration?: string
   restDuration?: string
   groupPaceDurations?: Record<string, string>
   groupRestDurations?: Record<string, string>
@@ -153,10 +155,12 @@ export interface BackupDocument {
   workouts: Workout[]
   legacyDailyVolumes: LegacyDailyVolume[]
   historicalPerformances: HistoricalPerformance[]
+  preferences?: AppSettings
 }
 
 export interface ParsedBackup {
   workouts: Workout[]
   legacyDailyVolumes: LegacyDailyVolume[]
   historicalPerformances: HistoricalPerformance[]
+  preferences?: AppSettings
 }

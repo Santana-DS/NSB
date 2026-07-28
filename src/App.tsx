@@ -41,10 +41,19 @@ function presetProjectionSeconds(preset: WorkoutPreset): number | null {
   if (!isValidPreset(preset)) return null
   const generalPace = parseDuration(preset.paceDuration ?? '') ?? 0
   const generalRest = parseDuration(preset.restDuration ?? '') ?? 0
-  const blocks = preset.setGroups.flatMap((group) => {
-    const pace = parseDuration(preset.groupPaceDurations?.[group.id] ?? '') || generalPace
-    const rest = parseDuration(preset.groupRestDurations?.[group.id] ?? '') || generalRest
-    return Array.from({ length: group.setCount }, () => ({ reps: group.repsPerSet, pace, rest }))
+  const definitions = preset.setGroups.map((group) => ({
+    group,
+    pace: parseDuration(preset.groupPaceDurations?.[group.id] ?? '') || null,
+    rest: parseDuration(preset.groupRestDurations?.[group.id] ?? '') || generalRest,
+  }))
+  const plannedRest = definitions.reduce((total, item, index) => total + item.rest * Math.max(0, item.group.setCount - (index === definitions.length - 1 ? 1 : 0)), 0)
+  const overriddenActive = definitions.reduce((total, item) => total + (item.pace ?? 0) * item.group.setCount * item.group.repsPerSet, 0)
+  const adjustableReps = definitions.reduce((total, item) => total + (item.pace === null ? item.group.setCount * item.group.repsPerSet : 0), 0)
+  const totalTarget = parseDuration(preset.totalDuration ?? '') ?? 0
+  const calculatedPace = preset.targetMode === 'total' && totalTarget > 0 && adjustableReps > 0 ? (totalTarget - plannedRest - overriddenActive) / adjustableReps : generalPace
+  const blocks = definitions.flatMap(({ group, pace, rest }) => {
+    const effectivePace = pace ?? calculatedPace
+    return Array.from({ length: group.setCount }, () => ({ reps: group.repsPerSet, pace: effectivePace, rest }))
   })
   if (blocks.some((block) => block.pace <= 0)) return null
   return blocks.reduce((total, block, index) => total + block.reps * block.pace + (index < blocks.length - 1 ? block.rest : 0), 0)
@@ -687,7 +696,7 @@ export default function App() {
 
   function addWorkoutPreset() {
     const setGroups: SetGroup[] = []
-    const preset: WorkoutPreset = { id: createId(), name: '', nameIsAutomatic: true, targetReps: presetTarget, setGroups, paceDuration: '', restDuration: '', groupPaceDurations: {}, groupRestDurations: {} }
+    const preset: WorkoutPreset = { id: createId(), name: '', nameIsAutomatic: true, targetReps: presetTarget, setGroups, targetMode: 'pace', paceDuration: '', totalDuration: '', restDuration: '', groupPaceDurations: {}, groupRestDurations: {} }
     preset.name = automaticPresetName(preset)
     saveWorkoutPresets([...workoutPresets, preset])
     setOpenPresetId(preset.id)
@@ -709,8 +718,9 @@ export default function App() {
     setTargetReps(preset.targetReps)
     const copiedGroups = preset.setGroups.map((group) => ({ ...group, id: createId() }))
     setSetGroups(copiedGroups)
-    setPacingTargetMode('pace')
+    setPacingTargetMode(preset.targetMode ?? 'pace')
     setPacingRepDuration(preset.paceDuration ?? '')
+    setPacingTotalDuration(preset.totalDuration ?? '')
     setPacingRestDuration(preset.restDuration ?? '')
     setPacingGroupDurations(Object.fromEntries(copiedGroups.map((group, index) => [group.id, preset.groupPaceDurations?.[preset.setGroups[index].id] ?? ''])))
     setPacingGroupRests(Object.fromEntries(copiedGroups.map((group, index) => [group.id, preset.groupRestDurations?.[preset.setGroups[index].id] ?? ''])))
@@ -1275,7 +1285,8 @@ export default function App() {
                 <summary>{preset.name}<span>{projection === null ? 'Incompleto' : formatDuration(projection)}</span></summary>
                 <div className="preset-editor-body">
                   <div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 48), nameIsAutomatic: false })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div>
-                  <div className="field-grid"><label><span>Ritmo</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div>
+                  <div className="pacing-target-picker" role="group" aria-label="Tipo de meta do preset"><button type="button" className={(preset.targetMode ?? 'pace') === 'pace' ? 'selected' : ''} onClick={() => updateWorkoutPreset(preset.id, { targetMode: 'pace' })}>Ritmo</button><button type="button" className={preset.targetMode === 'total' ? 'selected' : ''} onClick={() => updateWorkoutPreset(preset.id, { targetMode: 'total' })}>Meta total</button></div>
+                  <div className="field-grid"><label><span>{preset.targetMode === 'total' ? 'Meta total' : 'Ritmo por repetição'}</span><input inputMode="numeric" maxLength={7} placeholder={preset.targetMode === 'total' ? '20:00' : '00:08'} value={preset.targetMode === 'total' ? preset.totalDuration ?? '' : preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, preset.targetMode === 'total' ? { totalDuration: formatDurationInput(event.target.value) } : { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div>
                   <div className="preset-set-list">{preset.setGroups.map((group, index) => <div className="set-row" key={group.id}><span>Grupo {index + 1}</span><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item))} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item))} /><button type="button" className="remove-button" onClick={() => updatePresetGroups(preset.id, preset.setGroups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</div>
                   <button type="button" className="text-button" onClick={() => updatePresetGroups(preset.id, [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }])}>+ Set</button>
                   {preset.setGroups.length > 1 && <details className="pacing-group-settings preset-group-settings"><summary>Ajustar ritmo por grupo</summary><div className="pacing-group-headings"><span>Ritmo</span><span>Descanso</span></div>{preset.setGroups.map((group, index) => <label key={group.id}><span>Grupo {index + 1}</span><input inputMode="numeric" maxLength={7} placeholder="Geral" value={preset.groupPaceDurations?.[group.id] ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { groupPaceDurations: { ...preset.groupPaceDurations, [group.id]: formatDurationInput(event.target.value) } })} /><input inputMode="numeric" maxLength={7} placeholder="Geral" value={preset.groupRestDurations?.[group.id] ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { groupRestDurations: { ...preset.groupRestDurations, [group.id]: formatDurationInput(event.target.value) } })} /></label>)}</details>}
@@ -1434,7 +1445,8 @@ export default function App() {
   }
 
   function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[], currentPerformances: HistoricalPerformance[]) {
-    const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes, currentPerformances)], { type: 'application/json' })
+    const preferences = { id: 'preferences' as const, soundProfile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages, defaultRepTargets, workoutPresets }
+    const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes, currentPerformances, preferences)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -1454,12 +1466,23 @@ export default function App() {
       const mergedWorkouts = mergeWorkouts(workouts, imported.workouts)
       const mergedLegacyVolumes = mergeLegacyDailyVolumes(legacyDailyVolumes, imported.legacyDailyVolumes)
       const mergedPerformances = mergeHistoricalPerformances(historicalPerformances, imported.historicalPerformances)
-      await Promise.all([saveWorkouts(mergedWorkouts), saveLegacyDailyVolumes(mergedLegacyVolumes), saveHistoricalPerformances(mergedPerformances)])
+      await Promise.all([saveWorkouts(mergedWorkouts), saveLegacyDailyVolumes(mergedLegacyVolumes), saveHistoricalPerformances(mergedPerformances), ...(imported.preferences ? [saveAppSettings(imported.preferences)] : [])])
       setWorkouts(mergedWorkouts)
       setLegacyDailyVolumes(mergedLegacyVolumes)
       setHistoricalPerformances(mergedPerformances)
+      if (imported.preferences) {
+        const preferences = imported.preferences
+        if (Array.isArray(preferences.defaultRepTargets)) {
+          const targets = normalizeRepTargets(preferences.defaultRepTargets)
+          if (targets.length > 0) {
+            setDefaultRepTargets(targets)
+            setPresetTarget(targets[0])
+          }
+        }
+        if (Array.isArray(preferences.workoutPresets)) setWorkoutPresets(preferences.workoutPresets)
+      }
       setError(null)
-      setSaveStatus(`${imported.workouts.length} treino(s), ${imported.legacyDailyVolumes.length} volume(s) e ${imported.historicalPerformances.length} performance(s) foram lidos do backup.`)
+      setSaveStatus(`${imported.workouts.length} treino(s), ${imported.legacyDailyVolumes.length} volume(s) e ${imported.historicalPerformances.length} performance(s) foram lidos do backup${imported.preferences ? ', com preferências e presets' : ''}.`)
     } catch (importError) {
       setSaveStatus(null)
       setError(importError instanceof Error ? importError.message : 'Não foi possível importar este arquivo.')
