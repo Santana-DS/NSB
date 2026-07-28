@@ -144,6 +144,9 @@ body[data-theme='dark'] .achievement-dialog { border-color: #8d711e; background:
 body[data-theme='dark'] .sound-preview { background: #18363b; border-color: #31505b; } body[data-theme='dark'] .sound-preview:hover { background: #21474c; }
 body[data-theme='dark'] :is(.eyebrow, label > span, .set-row > span, .pacing-section > p, .day-list p, .performance-form > p, .pacing-clock time span, .pacing-clock > span, .pacing-status, .pacing-group-headings, .pacing-group-settings label > span, .pacing-section .pacing-mode-note, .pacing-projection, .pacing-overtime, .historical-badge, .empty-state, .data-summary, .legacy-import > p, .strategy-stat-grid article > p, .time-stat-grid h3 span, .strategy-stat-grid dt, .time-stat-grid dt) { color: #b7cbcd !important; }
 body[data-theme='dark'] :is(.sound-profile-list strong, .time-stat-grid h3, .strategy-stat-grid h3, .day-total, .performance-record > p, .pacing-group-settings summary, .pacing-target-picker button.selected, .pacing-mode-picker button.selected) { color: #e1efed !important; }
+body[data-theme='dark'] .day-detail :is(.day-list h3, .performance-form h3) { color: #e1efed; }
+body[data-theme='dark'] .day-detail :is(.video-upload, .attachment-video a) { color: #92d9d2; }
+body[data-theme='dark'] .day-detail .performance-record { border-color: #31505b; }
 body[data-theme='dark'] .workout-close { border-color: #397b7d; background: #132b32; color: #dcefeb; } body[data-theme='dark'] .workout-close:hover, body[data-theme='dark'] .workout-close:focus-visible { background: #1d4148; }
 body[data-theme='dark'] :is(input, textarea, select)::placeholder { color: #8eaaad; opacity: 1; }
 body[data-theme='dark'] .pacing-clock.preparing { background: #3b3020; } body[data-theme='dark'] .pacing-clock > .pacing-overtime.included { color: #f0b36d; }
