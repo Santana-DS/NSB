@@ -37,9 +37,10 @@ function isValidPreset(preset: WorkoutPreset): boolean {
   return preset.setGroups.length > 0 && preset.setGroups.every((group) => Number.isInteger(group.setCount) && group.setCount > 0 && Number.isInteger(group.repsPerSet) && group.repsPerSet > 0) && getSetGroupTotal(preset.setGroups) === preset.targetReps
 }
 
-function presetProjectionSeconds(preset: WorkoutPreset): number | null {
+function presetCalculatedPace(preset: WorkoutPreset): number | null {
   if (!isValidPreset(preset)) return null
   const generalPace = parseDuration(preset.paceDuration ?? '') ?? 0
+  if ((preset.targetMode ?? 'pace') === 'pace') return generalPace > 0 ? generalPace : null
   const generalRest = parseDuration(preset.restDuration ?? '') ?? 0
   const definitions = preset.setGroups.map((group) => ({
     group,
@@ -50,7 +51,21 @@ function presetProjectionSeconds(preset: WorkoutPreset): number | null {
   const overriddenActive = definitions.reduce((total, item) => total + (item.pace ?? 0) * item.group.setCount * item.group.repsPerSet, 0)
   const adjustableReps = definitions.reduce((total, item) => total + (item.pace === null ? item.group.setCount * item.group.repsPerSet : 0), 0)
   const totalTarget = parseDuration(preset.totalDuration ?? '') ?? 0
-  const calculatedPace = preset.targetMode === 'total' && totalTarget > 0 && adjustableReps > 0 ? (totalTarget - plannedRest - overriddenActive) / adjustableReps : generalPace
+  if (totalTarget <= 0 || adjustableReps <= 0) return null
+  const pace = (totalTarget - plannedRest - overriddenActive) / adjustableReps
+  return pace > 0 ? pace : null
+}
+
+function presetProjectionSeconds(preset: WorkoutPreset): number | null {
+  if (!isValidPreset(preset)) return null
+  const generalPace = parseDuration(preset.paceDuration ?? '') ?? 0
+  const generalRest = parseDuration(preset.restDuration ?? '') ?? 0
+  const definitions = preset.setGroups.map((group) => ({
+    group,
+    pace: parseDuration(preset.groupPaceDurations?.[group.id] ?? '') || null,
+    rest: parseDuration(preset.groupRestDurations?.[group.id] ?? '') || generalRest,
+  }))
+  const calculatedPace = presetCalculatedPace(preset) ?? generalPace
   const blocks = definitions.flatMap(({ group, pace, rest }) => {
     const effectivePace = pace ?? calculatedPace
     return Array.from({ length: group.setCount }, () => ({ reps: group.repsPerSet, pace: effectivePace, rest }))
@@ -714,13 +729,33 @@ export default function App() {
     updateWorkoutPreset(id, { setGroups })
   }
 
+  function changePresetTargetMode(preset: WorkoutPreset, targetMode: 'pace' | 'total') {
+    if (targetMode === (preset.targetMode ?? 'pace')) return
+    if (targetMode === 'total') {
+      const projection = presetProjectionSeconds(preset)
+      updateWorkoutPreset(preset.id, { targetMode, totalDuration: projection === null ? preset.totalDuration : formatDuration(projection) })
+      return
+    }
+    const pace = presetCalculatedPace(preset)
+    updateWorkoutPreset(preset.id, { targetMode, paceDuration: pace === null ? preset.paceDuration : formatDuration(pace) })
+  }
+
+  function changePacingTargetMode(targetMode: 'pace' | 'total') {
+    if (targetMode === pacingTargetMode) return
+    if (targetMode === 'total' && plannedPacingSeconds > 0) setPacingTotalDuration(formatDuration(plannedPacingSeconds))
+    if (targetMode === 'pace' && pacingRepSeconds > 0) setPacingRepDuration(formatDuration(pacingRepSeconds))
+    setPacingTargetMode(targetMode)
+  }
+
   function applyWorkoutPreset(preset: WorkoutPreset) {
     setTargetReps(preset.targetReps)
     const copiedGroups = preset.setGroups.map((group) => ({ ...group, id: createId() }))
     setSetGroups(copiedGroups)
     setPacingTargetMode(preset.targetMode ?? 'pace')
-    setPacingRepDuration(preset.paceDuration ?? '')
-    setPacingTotalDuration(preset.totalDuration ?? '')
+    const projection = presetProjectionSeconds(preset)
+    const calculatedPace = presetCalculatedPace(preset)
+    setPacingRepDuration(preset.paceDuration || (calculatedPace === null ? '' : formatDuration(calculatedPace)))
+    setPacingTotalDuration(preset.totalDuration || (projection === null ? '' : formatDuration(projection)))
     setPacingRestDuration(preset.restDuration ?? '')
     setPacingGroupDurations(Object.fromEntries(copiedGroups.map((group, index) => [group.id, preset.groupPaceDurations?.[preset.setGroups[index].id] ?? ''])))
     setPacingGroupRests(Object.fromEntries(copiedGroups.map((group, index) => [group.id, preset.groupRestDurations?.[preset.setGroups[index].id] ?? ''])))
@@ -1175,7 +1210,7 @@ export default function App() {
               <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Meta de pacing</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
               <button type="button" className="sound-enabled-switch pacing-sound-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>Avisos sonoros</span><i aria-hidden="true" /></button>
               <p>O cronômetro inicia o warm-up de {DEFAULT_WARMUP_SECONDS}s e aplica o ritmo a cada bloco da estrutura de sets.</p>
-              <div className="pacing-target-picker" role="group" aria-label="Tipo de meta de pacing"><button type="button" className={pacingTargetMode === 'pace' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingTargetMode('pace')}>Ritmo</button><button type="button" className={pacingTargetMode === 'total' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingTargetMode('total')}>Meta total</button></div>
+              <div className="pacing-target-picker" role="group" aria-label="Tipo de meta de pacing"><button type="button" className={pacingTargetMode === 'pace' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('pace')}>Ritmo</button><button type="button" className={pacingTargetMode === 'total' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('total')}>Meta total</button></div>
               <div className="pacing-mode-picker" role="group" aria-label="Modo do pacing">
                 <button type="button" className={pacingMode === 'automatic' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('automatic')}>Auto</button>
                 <button type="button" className={pacingMode === 'manual-rest' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('manual-rest')}>Descanso manual</button>
@@ -1285,7 +1320,7 @@ export default function App() {
                 <summary>{preset.name}<span>{projection === null ? 'Incompleto' : formatDuration(projection)}</span></summary>
                 <div className="preset-editor-body">
                   <div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 48), nameIsAutomatic: false })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div>
-                  <div className="pacing-target-picker" role="group" aria-label="Tipo de meta do preset"><button type="button" className={(preset.targetMode ?? 'pace') === 'pace' ? 'selected' : ''} onClick={() => updateWorkoutPreset(preset.id, { targetMode: 'pace' })}>Ritmo</button><button type="button" className={preset.targetMode === 'total' ? 'selected' : ''} onClick={() => updateWorkoutPreset(preset.id, { targetMode: 'total' })}>Meta total</button></div>
+                  <div className="pacing-target-picker" role="group" aria-label="Tipo de meta do preset"><button type="button" className={(preset.targetMode ?? 'pace') === 'pace' ? 'selected' : ''} onClick={() => changePresetTargetMode(preset, 'pace')}>Ritmo</button><button type="button" className={preset.targetMode === 'total' ? 'selected' : ''} onClick={() => changePresetTargetMode(preset, 'total')}>Meta total</button></div>
                   <div className="field-grid"><label><span>{preset.targetMode === 'total' ? 'Meta total' : 'Ritmo por repetição'}</span><input inputMode="numeric" maxLength={7} placeholder={preset.targetMode === 'total' ? '20:00' : '00:08'} value={preset.targetMode === 'total' ? preset.totalDuration ?? '' : preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, preset.targetMode === 'total' ? { totalDuration: formatDurationInput(event.target.value) } : { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div>
                   <div className="preset-set-list">{preset.setGroups.map((group, index) => <div className="set-row" key={group.id}><span>Grupo {index + 1}</span><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item))} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item))} /><button type="button" className="remove-button" onClick={() => updatePresetGroups(preset.id, preset.setGroups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</div>
                   <button type="button" className="text-button" onClick={() => updatePresetGroups(preset.id, [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }])}>+ Set</button>
