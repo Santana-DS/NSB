@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
+import { translate, type AppLanguage } from './lib/i18n'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
@@ -200,6 +201,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [soundVolume, setSoundVolume] = useState(100)
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
+  const [language, setLanguage] = useState<AppLanguage>('pt-BR')
   const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
   const [visualPalette, setVisualPalette] = useState(true)
   const [fontScale, setFontScale] = useState(100)
@@ -288,6 +290,7 @@ export default function App() {
         if (typeof settings?.soundEnabled === 'boolean') setSoundEnabled(settings.soundEnabled)
         if (typeof settings?.soundVolume === 'number' && settings.soundVolume >= MIN_SOUND_VOLUME && settings.soundVolume <= MAX_SOUND_VOLUME) setSoundVolume(settings.soundVolume)
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
+        if (settings?.language === 'pt-BR' || settings?.language === 'en-US' || settings?.language === 'es-ES') setLanguage(settings.language)
         if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
         if (Array.isArray(settings?.defaultRepTargets)) {
@@ -317,6 +320,8 @@ export default function App() {
     if (themePreference === 'system') media.addEventListener('change', applyTheme)
     return () => media.removeEventListener('change', applyTheme)
   }, [themePreference])
+
+  useEffect(() => { document.documentElement.lang = language }, [language])
 
   useEffect(() => { document.body.dataset.palette = colorPalette }, [colorPalette])
   useEffect(() => { document.body.dataset.visualPalette = visualPalette ? 'on' : 'off' }, [visualPalette])
@@ -800,6 +805,11 @@ export default function App() {
     void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
   }
 
+  function selectLanguage(nextLanguage: AppLanguage) {
+    setLanguage(nextLanguage)
+    void saveAppSettings({ id: 'preferences', soundProfile, language: nextLanguage })
+  }
+
   function selectColorPalette(palette: ColorPalette) {
     setColorPalette(palette)
     void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled, soundVolume, theme: themePreference, palette, visualPalette, fontScale, evolutionScale, homeMessages })
@@ -1143,6 +1153,8 @@ export default function App() {
     else if (isNewPaceRecord) setAchievementNotice({ kind: 'pace', targetReps, durationSeconds, paceSeconds: paceSeconds ?? undefined })
   }
 
+  const t = (key: string) => translate(language, key)
+
   return (
     <main className="app-shell">
       <header ref={brandHeaderRef} className={`app-header ${screen === 'history' ? 'sticky-header' : ''} ${brandInfoOpen ? 'brand-story-open' : ''}`}>
@@ -1150,11 +1162,11 @@ export default function App() {
           <span className="brand-mark-wrap"><img className="brand-mark" src="/nsb-icon.png" alt="" /><i aria-hidden="true" /></span>
           <span>Navy Seal Burpees</span>
         </button>
-        <nav aria-label="Navegação principal">
-          <button className={screen === 'home' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('home')}>Início</button>
-          <button className={screen === 'history' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('history')}>Treinos</button>
-          <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
-          <button className={screen === 'settings' ? 'nav-link nav-settings active' : 'nav-link nav-settings'} onClick={() => setScreen('settings')} aria-label="Ajustes" title="Ajustes">⚙</button>
+        <nav aria-label={t('nav.label')}>
+          <button className={screen === 'home' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('home')}>{t('nav.home')}</button>
+          <button className={screen === 'history' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('history')}>{t('nav.workouts')}</button>
+          <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>{t('nav.data')}</button>
+          <button className={screen === 'settings' ? 'nav-link nav-settings active' : 'nav-link nav-settings'} onClick={() => setScreen('settings')} aria-label={t('nav.settings')} title={t('nav.settings')}>⚙</button>
         </nav>
         {brandInfoOpen && <section ref={brandStoryRef} className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><img className="brand-story-logo" src="/nsb-icon.png" alt="Logo NSB" />{shotCallerUnlocked && <span className="shot-caller-seal story-seal">★ SHOT CALLER</span>}<h2>Navy Seal Burpee</h2><p><strong>Navy Seal Burpee é o número #1 dos exercícios.</strong> Três flexões e mountain climbers em cada repetição unem força, cardio, coordenação, agilidade, letalidade e disciplina em um único movimento.</p><p>Contar cada repetição torna-o um exercício de corpo e mente. O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source.</p><p>Salve para <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
       </header>
@@ -1163,30 +1175,30 @@ export default function App() {
         <section className="content home-content" aria-labelledby="home-title">
           <div className="home-intro">
             {homeMessages.length > 0 && <p id="home-title">{homeMessages[homeMessageIndex]}</p>}
-            <button className="primary-action hero-action" onClick={openNewWorkout} aria-label="Registrar treino" title="Registrar treino">+</button>
+            <button className="primary-action hero-action" onClick={openNewWorkout} aria-label={t('home.register')} title={t('home.register')}>+</button>
           </div>
 
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
 
-          <div className="period-picker" role="group" aria-label="Período do resumo">
+          <div className="period-picker" role="group" aria-label={t('home.period')}>
             {(['all', 'year', 'month'] as const).map((option) => (
-              <button key={option} type="button" disabled={analyticsView !== 'drilldown' && option !== 'all'} className={period === option ? 'selected' : ''} onClick={() => { setPeriod(option); setExpandedYear(null); setExpandedMonth(null) }}>{periodLabel(option)}</button>
+              <button key={option} type="button" disabled={analyticsView !== 'drilldown' && option !== 'all'} className={period === option ? 'selected' : ''} onClick={() => { setPeriod(option); setExpandedYear(null); setExpandedMonth(null) }}>{t(`period.${option}`)}</button>
             ))}
           </div>
 
-          <div className="target-filter" role="group" aria-label="Filtrar quantidade de NSBs">
-            <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => setTargetFilter('all')}>Todos</button>
-            <button className="target-filter-toggle" type="button" aria-label={quantityFilterExpanded ? 'Recolher quantidades' : 'Mostrar quantidades'} aria-expanded={quantityFilterExpanded} aria-controls="target-filter-options" onClick={() => setQuantityFilterExpanded((expanded) => !expanded)}>
+          <div className="target-filter" role="group" aria-label={t('home.filter')}>
+            <button type="button" className={targetFilter === 'all' ? 'selected' : ''} onClick={() => setTargetFilter('all')}>{t('home.all')}</button>
+            <button className="target-filter-toggle" type="button" aria-label={quantityFilterExpanded ? t('home.collapse') : t('home.expand')} aria-expanded={quantityFilterExpanded} aria-controls="target-filter-options" onClick={() => setQuantityFilterExpanded((expanded) => !expanded)}>
               <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
             </button>
-            {quantityFilterExpanded && <div id="target-filter-options" className="target-filter-options" role="group" aria-label="Filtrar quantidade de NSBs">
+            {quantityFilterExpanded && <div id="target-filter-options" className="target-filter-options" role="group" aria-label={t('home.filter')}>
               {defaultRepTargets.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => setTargetFilter(target)}>{target}</button>)}
             </div>}
           </div>
-          <div className="view-picker analytics-picker" role="group" aria-label="Modo de análise">
-            <button type="button" className={analyticsView === 'comparison' ? 'selected' : ''} onClick={() => { setAnalyticsView('comparison'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Comparar anos</button>
-            <button type="button" className={analyticsView === 'drilldown' ? 'selected' : ''} onClick={() => setAnalyticsView('drilldown')}>Evolução</button>
-            <button type="button" className={analyticsView === 'statistics' ? 'selected' : ''} onClick={() => { setAnalyticsView('statistics'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>Estatísticas</button>
+          <div className="view-picker analytics-picker" role="group" aria-label={t('home.analysis')}>
+            <button type="button" className={analyticsView === 'comparison' ? 'selected' : ''} onClick={() => { setAnalyticsView('comparison'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>{t('home.compare')}</button>
+            <button type="button" className={analyticsView === 'drilldown' ? 'selected' : ''} onClick={() => setAnalyticsView('drilldown')}>{t('home.evolution')}</button>
+            <button type="button" className={analyticsView === 'statistics' ? 'selected' : ''} onClick={() => { setAnalyticsView('statistics'); setPeriod('all'); setExpandedYear(null); setExpandedMonth(null) }}>{t('home.statistics')}</button>
           </div>
 
           {analyticsView === 'drilldown' ? <><PeriodVolumeChart records={filteredVolumeRecords} personalRecords={targetFilter === 'all' ? personalRecords : personalRecords.filter((record) => record.targetReps === targetFilter)} palette={visualPalette ? colorPalette : undefined} evolutionScale={evolutionScale} onEvolutionScaleChange={selectEvolutionScale} period={period} expandedYear={expandedYear} expandedMonth={expandedMonth} onExpandYear={setExpandedYear} onExpandMonth={setExpandedMonth} onSelectDay={setSelectedDay} onBack={() => { if (expandedMonth) setExpandedMonth(null); else setExpandedYear(null) }} />{period === 'all' && !expandedYear && !expandedMonth && <ConsistencyHeatmap records={filteredVolumeRecords} palette={visualPalette ? colorPalette : undefined} />}</> : analyticsView === 'comparison' ? <YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} onExpand={() => { setComparisonZoom(1); setComparisonExpanded(true) }} /> : <TimeStatistics records={timedRecords} strategyRecords={strategyRecords} workouts={activeWorkouts} targetFilter={targetFilter} onOpenVolumeDay={openVolumeDay} />}
@@ -1284,30 +1296,30 @@ export default function App() {
 
       {screen === 'history' && (
         <section className="content" aria-labelledby="history-title">
-          <p className="eyebrow">Registros detalhados</p>
-          <h1 id="history-title">Treinos</h1>
-          <p className="lead">Consulte, ajuste ou mova registros detalhados para a lixeira. As análises ficam concentradas na tela inicial.</p>
-          {loading ? <p>Carregando dados locais…</p> : <ActivityList workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} onArchive={archiveWorkout} />}
+          <p className="eyebrow">{t('history.eyebrow')}</p>
+          <h1 id="history-title">{t('history.title')}</h1>
+          <p className="lead">{t('history.lead')}</p>
+          {loading ? <p>{t('history.loading')}</p> : <ActivityList workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} onArchive={archiveWorkout} />}
         </section>
       )}
 
       {screen === 'data' && (
         <section className="content data-screen" aria-labelledby="data-title">
-          <p className="eyebrow">Propriedade dos dados</p>
-          <h1 id="data-title">Backup e restauração</h1>
-          <p className="lead">Exporte uma cópia completa do seu histórico. Uma importação segura combina registros pelo identificador e mantém a versão mais recente.</p>
+          <p className="eyebrow">{t('data.eyebrow')}</p>
+          <h1 id="data-title">{t('data.title')}</h1>
+          <p className="lead">{t('data.lead')}</p>
           <div className="data-actions">
-            <button className="primary-action" onClick={() => downloadBackup(workouts, legacyDailyVolumes, historicalPerformances)}>Exportar backup JSON</button>
+            <button className="primary-action" onClick={() => downloadBackup(workouts, legacyDailyVolumes, historicalPerformances)}>{t('data.export')}</button>
             <label className="secondary-action import-label">
-              Importar backup
+              {t('data.import')}
               <input className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} />
             </label>
             <label className="archive-button import-label">
-              Restaurar backup
+              {t('data.restore')}
               <input className="sr-only" type="file" accept="application/json,.json" onChange={handleRestore} />
             </label>
           </div>
-          <p className="data-summary">Importar combina registros. Restaurar substitui treinos, históricos e preferências após criar uma cópia de segurança.</p>
+          <p className="data-summary">{t('data.summary')}</p>
           <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {legacyDailyVolumes.length} dia(s) de histórico importado · {mediaAttachments.length} vídeo(s) local(is) · {archivedWorkouts.length} na lixeira</p>
           {mediaAttachments.length > 0 && <p className="data-summary">Vídeos não entram no backup JSON; baixe-os individualmente pelo detalhe da performance.</p>}
           {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} onDeletePermanently={deleteArchivedWorkouts} />}
@@ -1318,12 +1330,18 @@ export default function App() {
 
       {screen === 'settings' && (
         <section className="content settings-screen" aria-labelledby="settings-title">
-          <p className="eyebrow">Ajustes</p>
-          <h1 id="settings-title">Preferências</h1>
+          <p className="eyebrow">{t('settings.eyebrow')}</p>
+          <h1 id="settings-title">{t('settings.title')}</h1>
           <div className="settings-group">
-            <h2>Aparência</h2>
-            <div className="theme-picker" role="radiogroup" aria-label="Aparência">
-              {([['system', 'Automático'], ['light', 'Claro'], ['dark', 'Escuro']] as [ThemePreference, string][]).map(([theme, label]) => <button key={theme} type="button" role="radio" aria-checked={themePreference === theme} className={themePreference === theme ? 'selected' : ''} onClick={() => selectThemePreference(theme)}>{label}</button>)}
+            <h2>{t('language.title')}</h2>
+            <div className="theme-picker" role="radiogroup" aria-label={t('language.title')}>
+              {([['pt-BR', 'language.pt'], ['en-US', 'language.en'], ['es-ES', 'language.es']] as [AppLanguage, string][]).map(([value, label]) => <button key={value} type="button" role="radio" aria-checked={language === value} className={language === value ? 'selected' : ''} onClick={() => selectLanguage(value)}>{t(label)}</button>)}
+            </div>
+          </div>
+          <div className="settings-group">
+            <h2>{t('settings.appearance')}</h2>
+            <div className="theme-picker" role="radiogroup" aria-label={t('settings.appearance')}>
+              {([['system', 'settings.system'], ['light', 'settings.light'], ['dark', 'settings.dark']] as [ThemePreference, string][]).map(([theme, label]) => <button key={theme} type="button" role="radio" aria-checked={themePreference === theme} className={themePreference === theme ? 'selected' : ''} onClick={() => selectThemePreference(theme)}>{t(label)}</button>)}
             </div>
           </div>
           <div className="settings-group">
@@ -1527,7 +1545,7 @@ export default function App() {
   }
 
   function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[], currentPerformances: HistoricalPerformance[], safetyCopy = false) {
-    const preferences = { id: 'preferences' as const, soundProfile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages, defaultRepTargets, workoutPresets }
+    const preferences = { id: 'preferences' as const, soundProfile, soundEnabled, soundVolume, theme: themePreference, language, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages, defaultRepTargets, workoutPresets }
     const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes, currentPerformances, preferences)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -1576,6 +1594,7 @@ export default function App() {
     if (typeof preferences.soundEnabled === 'boolean') setSoundEnabled(preferences.soundEnabled)
     if (typeof preferences.soundVolume === 'number') setSoundVolume(preferences.soundVolume)
     if (preferences.theme === 'system' || preferences.theme === 'light' || preferences.theme === 'dark') setThemePreference(preferences.theme)
+    if (preferences.language === 'pt-BR' || preferences.language === 'en-US' || preferences.language === 'es-ES') setLanguage(preferences.language)
     if (preferences.palette) setColorPalette(preferences.palette)
     if (typeof preferences.visualPalette === 'boolean') setVisualPalette(preferences.visualPalette)
     if (typeof preferences.fontScale === 'number') setFontScale(preferences.fontScale)

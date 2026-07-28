@@ -33,6 +33,7 @@ export interface PacingBlock {
 export type PacingMode = 'automatic' | 'manual-rest'
 export type SoundProfileId = 'precise' | 'command' | 'horn' | 'quiet' | 'censor' | 'scanner' | 'signal' | 'ting' | 'radio' | 'impact' | 'classic' | 'select' | 'beep6' | 'phone' | 'wrong' | 'tone' | 'short'
 export type ThemePreference = 'system' | 'light' | 'dark'
+export type AppLanguage = 'pt-BR' | 'en-US' | 'es-ES'
 export type ColorPalette = 'navy' | 'ocean' | 'cobalt' | 'forest' | 'lime' | 'ember' | 'gold' | 'plum' | 'ruby'
 
 export interface AppSettings {
@@ -41,6 +42,7 @@ export interface AppSettings {
   soundEnabled?: boolean
   soundVolume?: number
   theme?: ThemePreference
+  language?: AppLanguage
   palette?: ColorPalette
   visualPalette?: boolean
   fontScale?: number
