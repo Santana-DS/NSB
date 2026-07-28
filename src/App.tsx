@@ -18,6 +18,7 @@ interface StrategyRecord extends TimedRecord { strategy: string }
 interface PacingStats { count: number; reps: number; activeSeconds: number; restSeconds: number; plannedRestSeconds: number; totalSeconds: number }
 type DownloadFormat = 'svg' | 'png' | 'jpeg'
 type PacingPhase = 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
+type AchievementNotice = { kind: 'record' | 'shot-caller'; targetReps: RepTarget; durationSeconds: number }
 
 function normalizeRepTargets(values: number[]): number[] {
   return [...new Set(values.map((value) => Math.round(value)).filter((value) => Number.isFinite(value) && value > 0 && value <= 10_000))].sort((a, b) => a - b)
@@ -208,6 +209,7 @@ export default function App() {
   const [notes, setNotes] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [achievementNotice, setAchievementNotice] = useState<AchievementNotice | null>(null)
   const [period, setPeriod] = useState<Period>('all')
   const [undoWorkout, setUndoWorkout] = useState<Workout | null>(null)
   const [expandedYear, setExpandedYear] = useState<number | null>(null)
@@ -1111,12 +1113,21 @@ export default function App() {
       pacingSession: pacingBlocks.length > 0 ? { mode: pacingMode, targetMode: pacingTargetMode, totalTargetSeconds: pacingTargetMode === 'total' ? pacingTotalTargetSeconds : undefined, warmupSeconds: DEFAULT_WARMUP_SECONDS, paceSeconds: pacingRepSeconds, restTargetSeconds: pacingRestSeconds, groupPaces: getPacingGroupPaces(), groupRests: getPacingGroupRests(), blocks: pacingBlocks, events: pacingEvents } : undefined,
       notes: notes.trim(),
     })
+    const previousPerformances = [
+      ...activeWorkouts.map((item) => ({ targetReps: item.targetReps, durationSeconds: item.durationSeconds })),
+      ...historicalPerformances.map((item) => ({ targetReps: item.targetReps, durationSeconds: item.durationSeconds })),
+    ]
+    const previousForTarget = previousPerformances.filter((item) => item.targetReps === targetReps)
+    const isNewRecord = previousForTarget.length === 0 || durationSeconds < Math.min(...previousForTarget.map((item) => item.durationSeconds))
+    const isFirstFiveHundred = targetReps === 500 && !previousPerformances.some((item) => item.targetReps === 500)
     await saveWorkout(workout)
     await clearActiveWorkoutDraft()
     setDraftActive(false)
     setWorkouts((current) => [workout, ...current].sort((a, b) => b.performedAt.localeCompare(a.performedAt)))
     setSaveStatus('Treino salvo neste aparelho.')
     setScreen('home')
+    if (isFirstFiveHundred) setAchievementNotice({ kind: 'shot-caller', targetReps, durationSeconds })
+    else if (isNewRecord) setAchievementNotice({ kind: 'record', targetReps, durationSeconds })
   }
 
   return (
@@ -1372,6 +1383,7 @@ export default function App() {
       )}
       {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} attachments={mediaAttachments} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} onSaveWorkout={updateWorkoutFromDay} onSaveAttachment={saveAttachment} />}
       {comparisonExpanded && <div className="comparison-backdrop" role="presentation" onClick={() => setComparisonExpanded(false)}><section className="comparison-dialog" role="dialog" aria-modal="true" aria-label="Comparação anual ampliada" onClick={(event) => event.stopPropagation()}><YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} expanded zoom={comparisonZoom} chartId="annual-comparison-chart" onDownload={downloadComparison} onZoom={(delta) => setComparisonZoom((zoom) => Math.min(1.5, Math.max(1, zoom + delta)))} /></section></div>}
+      {achievementNotice && <div className="achievement-backdrop" role="presentation" onClick={() => setAchievementNotice(null)}><section className={`achievement-dialog ${achievementNotice.kind}`} role="dialog" aria-modal="true" aria-labelledby="achievement-title" onClick={(event) => event.stopPropagation()}><span aria-hidden="true">{achievementNotice.kind === 'shot-caller' ? '★' : '✦'}</span><p>{achievementNotice.kind === 'shot-caller' ? 'Conquista secreta' : 'Novo recorde pessoal'}</p><h2 id="achievement-title">{achievementNotice.kind === 'shot-caller' ? 'SHOT CALLER' : `${achievementNotice.targetReps} NSBs`}</h2><strong>{formatDuration(achievementNotice.durationSeconds)}</strong><small>{achievementNotice.kind === 'shot-caller' ? '500 NSBs. Você fez o que precisava ser feito.' : 'Seu melhor tempo para esta quantidade.'}</small><button type="button" className="primary-action" onClick={() => setAchievementNotice(null)}>Continuar</button></section></div>}
     </main>
   )
 
