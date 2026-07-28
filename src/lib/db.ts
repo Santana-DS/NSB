@@ -81,6 +81,14 @@ export async function saveWorkouts(workouts: Workout[]): Promise<void> {
   await transaction.done
 }
 
+export async function replaceWorkouts(workouts: Workout[]): Promise<void> {
+  const db = await database
+  const transaction = db.transaction('workouts', 'readwrite')
+  await transaction.store.clear()
+  await Promise.all(workouts.map((workout) => transaction.store.put(workout)))
+  await transaction.done
+}
+
 export async function listLegacyDailyVolumes(): Promise<LegacyDailyVolume[]> {
   return (await database).getAllFromIndex('legacyDailyVolumes', 'by-date')
 }
@@ -88,6 +96,14 @@ export async function listLegacyDailyVolumes(): Promise<LegacyDailyVolume[]> {
 export async function saveLegacyDailyVolumes(volumes: LegacyDailyVolume[]): Promise<void> {
   const db = await database
   const transaction = db.transaction('legacyDailyVolumes', 'readwrite')
+  await Promise.all(volumes.map((volume) => transaction.store.put(volume)))
+  await transaction.done
+}
+
+export async function replaceLegacyDailyVolumes(volumes: LegacyDailyVolume[]): Promise<void> {
+  const db = await database
+  const transaction = db.transaction('legacyDailyVolumes', 'readwrite')
+  await transaction.store.clear()
   await Promise.all(volumes.map((volume) => transaction.store.put(volume)))
   await transaction.done
 }
@@ -106,6 +122,14 @@ export async function listHistoricalPerformances(): Promise<HistoricalPerformanc
 export async function saveHistoricalPerformances(performances: HistoricalPerformance[]): Promise<void> {
   const db = await database
   const transaction = db.transaction('historicalPerformances', 'readwrite')
+  await Promise.all(performances.map((performance) => transaction.store.put(performance)))
+  await transaction.done
+}
+
+export async function replaceHistoricalPerformances(performances: HistoricalPerformance[]): Promise<void> {
+  const db = await database
+  const transaction = db.transaction('historicalPerformances', 'readwrite')
+  await transaction.store.clear()
   await Promise.all(performances.map((performance) => transaction.store.put(performance)))
   await transaction.done
 }
@@ -138,4 +162,8 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
   const store = await database
   const current = await store.get('appSettings', 'preferences')
   await store.put('appSettings', { ...current, ...settings, id: 'preferences' })
+}
+
+export async function replaceAppSettings(settings: AppSettings): Promise<void> {
+  await (await database).put('appSettings', { ...settings, id: 'preferences' })
 }

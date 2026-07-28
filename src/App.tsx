@@ -4,7 +4,7 @@ import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { mergeLegacyDailyVolumes } from './lib/legacy-volumes'
 import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
-import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, deleteWorkouts, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
+import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, deleteWorkouts, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, replaceAppSettings, replaceHistoricalPerformances, replaceLegacyDailyVolumes, replaceWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
 import { REP_TARGETS, type ActiveWorkoutDraft, type ColorPalette, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type ThemePreference, type Workout, type WorkoutPreset } from './types'
 
@@ -1261,7 +1261,12 @@ export default function App() {
               Importar backup
               <input className="sr-only" type="file" accept="application/json,.json" onChange={handleImport} />
             </label>
+            <label className="archive-button import-label">
+              Restaurar backup
+              <input className="sr-only" type="file" accept="application/json,.json" onChange={handleRestore} />
+            </label>
           </div>
+          <p className="data-summary">Importar combina registros. Restaurar substitui treinos, históricos e preferências após criar uma cópia de segurança.</p>
           <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {legacyDailyVolumes.length} dia(s) de histórico importado · {mediaAttachments.length} vídeo(s) local(is) · {archivedWorkouts.length} na lixeira</p>
           {mediaAttachments.length > 0 && <p className="data-summary">Vídeos não entram no backup JSON; baixe-os individualmente pelo detalhe da performance.</p>}
           {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} onDeletePermanently={deleteArchivedWorkouts} />}
@@ -1479,13 +1484,13 @@ export default function App() {
     return true
   }
 
-  function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[], currentPerformances: HistoricalPerformance[]) {
+  function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[], currentPerformances: HistoricalPerformance[], safetyCopy = false) {
     const preferences = { id: 'preferences' as const, soundProfile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages, defaultRepTargets, workoutPresets }
     const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes, currentPerformances, preferences)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `nsb-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = `nsb-tracker-${safetyCopy ? 'before-restore' : 'backup'}-${new Date().toISOString().slice(0, 10)}.json`
     link.click()
     URL.revokeObjectURL(url)
     setError(null)
@@ -1521,6 +1526,49 @@ export default function App() {
     } catch (importError) {
       setSaveStatus(null)
       setError(importError instanceof Error ? importError.message : 'Não foi possível importar este arquivo.')
+    }
+  }
+
+  function applyImportedPreferences(preferences: import('./types').AppSettings) {
+    if (preferences.soundProfile in SOUND_PROFILES) setSoundProfile(preferences.soundProfile)
+    if (typeof preferences.soundEnabled === 'boolean') setSoundEnabled(preferences.soundEnabled)
+    if (typeof preferences.soundVolume === 'number') setSoundVolume(preferences.soundVolume)
+    if (preferences.theme === 'system' || preferences.theme === 'light' || preferences.theme === 'dark') setThemePreference(preferences.theme)
+    if (preferences.palette) setColorPalette(preferences.palette)
+    if (typeof preferences.visualPalette === 'boolean') setVisualPalette(preferences.visualPalette)
+    if (typeof preferences.fontScale === 'number') setFontScale(preferences.fontScale)
+    if (typeof preferences.evolutionScale === 'number') setEvolutionScale(preferences.evolutionScale)
+    if (Array.isArray(preferences.homeMessages)) setHomeMessages(preferences.homeMessages)
+    if (Array.isArray(preferences.defaultRepTargets)) {
+      const targets = normalizeRepTargets(preferences.defaultRepTargets)
+      if (targets.length > 0) {
+        setDefaultRepTargets(targets)
+        setPresetTarget(targets[0])
+      }
+    }
+    if (Array.isArray(preferences.workoutPresets)) setWorkoutPresets(preferences.workoutPresets)
+  }
+
+  async function handleRestore(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    try {
+      const restored = parseBackup(await file.text())
+      if (!window.confirm('Restaurar este backup substituirá treinos, históricos e preferências. Uma cópia de segurança será baixada antes. Vídeos locais não entram no backup e serão preservados. Continuar?')) return
+      downloadBackup(workouts, legacyDailyVolumes, historicalPerformances, true)
+      await Promise.all([replaceWorkouts(restored.workouts), replaceLegacyDailyVolumes(restored.legacyDailyVolumes), replaceHistoricalPerformances(restored.historicalPerformances), clearActiveWorkoutDraft(), ...(restored.preferences ? [replaceAppSettings(restored.preferences)] : [])])
+      setWorkouts(restored.workouts.sort((a, b) => b.performedAt.localeCompare(a.performedAt)))
+      setLegacyDailyVolumes(restored.legacyDailyVolumes.sort((a, b) => b.date.localeCompare(a.date)))
+      setHistoricalPerformances(restored.historicalPerformances.sort((a, b) => b.date.localeCompare(a.date)))
+      if (restored.preferences) applyImportedPreferences(restored.preferences)
+      resetForm()
+      setDraftActive(false)
+      setError(null)
+      setSaveStatus(`Backup restaurado: ${restored.workouts.length} treino(s), ${restored.legacyDailyVolumes.length} volume(s) e ${restored.historicalPerformances.length} performance(s).`)
+    } catch (restoreError) {
+      setSaveStatus(null)
+      setError(restoreError instanceof Error ? restoreError.message : 'Não foi possível restaurar este arquivo.')
     }
   }
 
