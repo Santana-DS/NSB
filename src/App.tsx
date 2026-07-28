@@ -630,12 +630,15 @@ export default function App() {
 
   function pauseTimer() {
     const elapsed = timerElapsedBase + (timerStartedAt === null ? 0 : Math.floor((Date.now() - timerStartedAt) / 1000))
+    const pacingIsRunning = pacingPhase === 'warmup' || pacingPhase === 'set' || pacingPhase === 'rest'
     setTimerElapsedBase(elapsed)
     setTimerStartedAt(null)
     setDuration(formatDuration(elapsed))
-    pausePacing()
-    void releaseWakeLock()
-    stopNativePacingAudio()
+    if (pacingIsRunning) pausePacing()
+    else {
+      void releaseWakeLock()
+      stopNativePacingAudio()
+    }
   }
 
   nativeControlRef.current = (action) => {
@@ -910,7 +913,6 @@ export default function App() {
   function stopNativePacingAudio() {
     nativeScheduleActiveRef.current = false
     if (Capacitor.getPlatform() !== 'android') return
-    void NativePacingAudio.cancelSchedule().catch(() => undefined)
     void NativePacingAudio.stop().catch(() => undefined)
   }
 
