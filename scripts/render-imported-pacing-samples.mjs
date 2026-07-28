@@ -29,7 +29,8 @@ for (const [profile, source] of Object.entries(profiles)) {
   if (!existsSync(input)) throw new Error(`Arquivo ausente: ${input}`)
   for (const [event, seconds] of Object.entries(durations)) {
     const fadeStart = Math.max(0, seconds - .03).toFixed(3)
-    const filter = `silenceremove=start_periods=1:start_threshold=-45dB:stop_periods=-1:stop_duration=0.08:stop_threshold=-45dB,atrim=duration=${seconds},afade=t=in:st=0:d=0.008,afade=t=out:st=${fadeStart}:d=0.03,loudnorm=I=-14:TP=-1.5:LRA=7`
+    const repetitionBoost = profile === 'signal' && event === 'rep' ? ',volume=9dB,alimiter=limit=0.98' : ''
+    const filter = `silenceremove=start_periods=1:start_threshold=-45dB:stop_periods=-1:stop_duration=0.08:stop_threshold=-45dB,atrim=duration=${seconds},afade=t=in:st=0:d=0.008,afade=t=out:st=${fadeStart}:d=0.03,loudnorm=I=-14:TP=-1.5:LRA=7${repetitionBoost}`
     for (const directory of outputDirectories) {
       const output = resolve(directory, `pace_${profile}_${event}.wav`)
       const result = spawnSync('ffmpeg', ['-y', '-v', 'error', '-i', input, '-af', filter, '-ar', '44100', '-ac', '1', '-c:a', 'pcm_s16le', output], { stdio: 'inherit' })
