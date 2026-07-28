@@ -32,6 +32,29 @@ function presetName(targetReps: RepTarget, setGroups: SetGroup[]): string {
   const strategy = setGroups.filter((group) => group.setCount > 0 && group.repsPerSet > 0).map((group) => `${group.setCount}×${group.repsPerSet}`).join(' + ')
   return strategy ? `${strategy} · ${targetReps} NSBs` : `${targetReps} NSBs`
 }
+
+function isValidPreset(preset: WorkoutPreset): boolean {
+  return preset.setGroups.length > 0 && preset.setGroups.every((group) => Number.isInteger(group.setCount) && group.setCount > 0 && Number.isInteger(group.repsPerSet) && group.repsPerSet > 0) && getSetGroupTotal(preset.setGroups) === preset.targetReps
+}
+
+function presetProjectionSeconds(preset: WorkoutPreset): number | null {
+  if (!isValidPreset(preset)) return null
+  const generalPace = parseDuration(preset.paceDuration ?? '') ?? 0
+  const generalRest = parseDuration(preset.restDuration ?? '') ?? 0
+  const blocks = preset.setGroups.flatMap((group) => {
+    const pace = parseDuration(preset.groupPaceDurations?.[group.id] ?? '') || generalPace
+    const rest = parseDuration(preset.groupRestDurations?.[group.id] ?? '') || generalRest
+    return Array.from({ length: group.setCount }, () => ({ reps: group.repsPerSet, pace, rest }))
+  })
+  if (blocks.some((block) => block.pace <= 0)) return null
+  return blocks.reduce((total, block, index) => total + block.reps * block.pace + (index < blocks.length - 1 ? block.rest : 0), 0)
+}
+
+function automaticPresetName(preset: WorkoutPreset): string {
+  const strategy = preset.setGroups.filter((group) => group.setCount > 0 && group.repsPerSet > 0).map((group) => `${group.setCount}×${group.repsPerSet}`).join(' + ')
+  const projection = presetProjectionSeconds(preset)
+  return `${projection === null ? '—' : formatDuration(projection)} · ${strategy || presetName(preset.targetReps, preset.setGroups)}`
+}
 type SoundTimbre = 'clean' | 'command' | 'pulse' | 'cardio' | 'bell' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet'
 const DEFAULT_WARMUP_SECONDS = 10
 const DEFAULT_HOME_MESSAGES = [
@@ -172,6 +195,7 @@ export default function App() {
   const [customTargetInput, setCustomTargetInput] = useState('')
   const [workoutPresets, setWorkoutPresets] = useState<WorkoutPreset[]>([])
   const [presetTarget, setPresetTarget] = useState<RepTarget>(100)
+  const [openPresetId, setOpenPresetId] = useState<string | null>(null)
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
   const [setGroups, setSetGroups] = useState<SetGroup[]>([])
@@ -663,25 +687,33 @@ export default function App() {
 
   function addWorkoutPreset() {
     const setGroups: SetGroup[] = []
-    saveWorkoutPresets([...workoutPresets, { id: createId(), name: presetName(presetTarget, setGroups), nameIsAutomatic: true, targetReps: presetTarget, setGroups, paceDuration: '', restDuration: '' }])
+    const preset: WorkoutPreset = { id: createId(), name: '', nameIsAutomatic: true, targetReps: presetTarget, setGroups, paceDuration: '', restDuration: '', groupPaceDurations: {}, groupRestDurations: {} }
+    preset.name = automaticPresetName(preset)
+    saveWorkoutPresets([...workoutPresets, preset])
+    setOpenPresetId(preset.id)
   }
 
   function updateWorkoutPreset(id: string, update: Partial<WorkoutPreset>) {
-    saveWorkoutPresets(workoutPresets.map((preset) => preset.id === id ? { ...preset, ...update } : preset))
+    saveWorkoutPresets(workoutPresets.map((preset) => {
+      if (preset.id !== id) return preset
+      const next = { ...preset, ...update }
+      return next.nameIsAutomatic ? { ...next, name: automaticPresetName(next) } : next
+    }))
   }
 
   function updatePresetGroups(id: string, setGroups: SetGroup[]) {
-    saveWorkoutPresets(workoutPresets.map((preset) => preset.id === id ? { ...preset, setGroups, name: preset.nameIsAutomatic ? presetName(preset.targetReps, setGroups) : preset.name } : preset))
+    updateWorkoutPreset(id, { setGroups })
   }
 
   function applyWorkoutPreset(preset: WorkoutPreset) {
     setTargetReps(preset.targetReps)
-    setSetGroups(preset.setGroups.map((group) => ({ ...group, id: createId() })))
+    const copiedGroups = preset.setGroups.map((group) => ({ ...group, id: createId() }))
+    setSetGroups(copiedGroups)
     setPacingTargetMode('pace')
     setPacingRepDuration(preset.paceDuration ?? '')
     setPacingRestDuration(preset.restDuration ?? '')
-    setPacingGroupDurations({})
-    setPacingGroupRests({})
+    setPacingGroupDurations(Object.fromEntries(copiedGroups.map((group, index) => [group.id, preset.groupPaceDurations?.[preset.setGroups[index].id] ?? ''])))
+    setPacingGroupRests(Object.fromEntries(copiedGroups.map((group, index) => [group.id, preset.groupRestDurations?.[preset.setGroups[index].id] ?? ''])))
   }
 
   function toggleSoundEnabled() {
@@ -1080,7 +1112,7 @@ export default function App() {
         <section className="content workout-form">
           <button className="workout-close" type="button" onClick={() => setScreen('home')} aria-label="Voltar ao início" title="Voltar ao início">←</button>
           <form onSubmit={handleSave}>
-            {workoutPresets.some((preset) => preset.targetReps === targetReps) && <label className="preset-picker"><span>Preset</span><select defaultValue="" onChange={(event) => { const preset = workoutPresets.find((item) => item.id === event.target.value); if (preset) applyWorkoutPreset(preset); event.currentTarget.value = '' }}><option value="" disabled>Aplicar preset de {targetReps} NSBs</option>{workoutPresets.filter((preset) => preset.targetReps === targetReps).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>}
+            {workoutPresets.some((preset) => preset.targetReps === targetReps && isValidPreset(preset)) && <label className="preset-picker"><span>Aplicar preset</span><select defaultValue="" onChange={(event) => { const preset = workoutPresets.find((item) => item.id === event.target.value); if (preset) applyWorkoutPreset(preset); event.currentTarget.value = '' }}><option value="" disabled>Selecionar</option>{workoutPresets.filter((preset) => preset.targetReps === targetReps && isValidPreset(preset)).sort((a, b) => (presetProjectionSeconds(a) ?? Infinity) - (presetProjectionSeconds(b) ?? Infinity)).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>}
             <fieldset>
               <legend>Quantidade total</legend>
               <div className="target-grid">
@@ -1088,7 +1120,6 @@ export default function App() {
                   <button key={target} type="button" className={target === targetReps ? 'target selected' : 'target'} onClick={() => setTargetReps(target)}>{target}</button>
                 ))}
               </div>
-              <label className="free-target"><span>Outra quantidade</span><input inputMode="numeric" type="number" min="1" value={customTargetInput} placeholder="Livre" onChange={(event) => setCustomTargetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomTarget() } }} /><button type="button" className="secondary-action" onClick={addCustomTarget}>Usar</button></label>
             </fieldset>
 
             <section className="timer-section" aria-labelledby="timer-title">
@@ -1237,7 +1268,22 @@ export default function App() {
               {defaultRepTargets.map((target) => <button key={target} type="button" className={target === presetTarget ? 'selected' : ''} onClick={() => setPresetTarget(target)}>{target}</button>)}
             </div>
             <div className="section-heading"><p>Estratégias para {presetTarget} NSBs.</p><button type="button" className="secondary-action" onClick={addWorkoutPreset}>Novo</button></div>
-            {workoutPresets.filter((preset) => preset.targetReps === presetTarget).map((preset) => <article className="preset-editor" key={preset.id}><div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 36), nameIsAutomatic: false })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div><div className="field-grid"><label><span>Ritmo</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div><div className="preset-set-list">{preset.setGroups.map((group) => <div className="set-row" key={group.id}><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item))} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item))} /><button type="button" className="remove-button" onClick={() => updatePresetGroups(preset.id, preset.setGroups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</div><button type="button" className="text-button" onClick={() => updatePresetGroups(preset.id, [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }])}>+ Set</button></article>)}
+            {workoutPresets.filter((preset) => preset.targetReps === presetTarget).map((preset) => {
+              const projection = presetProjectionSeconds(preset)
+              const valid = isValidPreset(preset)
+              return <details className="preset-editor" key={preset.id} open={openPresetId === preset.id} onToggle={(event) => setOpenPresetId((event.currentTarget as HTMLDetailsElement).open ? preset.id : null)}>
+                <summary>{preset.name}<span>{projection === null ? 'Incompleto' : formatDuration(projection)}</span></summary>
+                <div className="preset-editor-body">
+                  <div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 48), nameIsAutomatic: false })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div>
+                  <div className="field-grid"><label><span>Ritmo</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div>
+                  <div className="preset-set-list">{preset.setGroups.map((group, index) => <div className="set-row" key={group.id}><span>Grupo {index + 1}</span><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item))} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item))} /><button type="button" className="remove-button" onClick={() => updatePresetGroups(preset.id, preset.setGroups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</div>
+                  <button type="button" className="text-button" onClick={() => updatePresetGroups(preset.id, [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }])}>+ Set</button>
+                  {preset.setGroups.length > 1 && <details className="pacing-group-settings preset-group-settings"><summary>Ajustar ritmo por grupo</summary><div className="pacing-group-headings"><span>Ritmo</span><span>Descanso</span></div>{preset.setGroups.map((group, index) => <label key={group.id}><span>Grupo {index + 1}</span><input inputMode="numeric" maxLength={7} placeholder="Geral" value={preset.groupPaceDurations?.[group.id] ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { groupPaceDurations: { ...preset.groupPaceDurations, [group.id]: formatDurationInput(event.target.value) } })} /><input inputMode="numeric" maxLength={7} placeholder="Geral" value={preset.groupRestDurations?.[group.id] ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { groupRestDurations: { ...preset.groupRestDurations, [group.id]: formatDurationInput(event.target.value) } })} /></label>)}</details>}
+                  <p className="pacing-projection">Projeção total <strong>{projection === null ? '—' : formatDuration(projection)}</strong></p>
+                  {!valid && <p className="preset-invalid">Os sets precisam somar exatamente {preset.targetReps}.</p>}
+                </div>
+              </details>
+            })}
           </details>
           <details className="settings-group home-message-settings">
             <summary>Frases</summary>

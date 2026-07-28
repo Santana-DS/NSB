@@ -17,6 +17,8 @@ export interface WorkoutPreset {
   setGroups: SetGroup[]
   paceDuration?: string
   restDuration?: string
+  groupPaceDurations?: Record<string, string>
+  groupRestDurations?: Record<string, string>
 }
 
 export interface PacingBlock {
