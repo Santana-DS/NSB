@@ -12,7 +12,7 @@ import org.json.JSONObject;
 public class PacingAudioService extends Service {
     static final String START = "com.santanads.nsb.START", SIGNAL = "com.santanads.nsb.SIGNAL", SCHEDULE = "com.santanads.nsb.SCHEDULE", CANCEL = "com.santanads.nsb.CANCEL", UPDATE = "com.santanads.nsb.UPDATE", CONTROL = "com.santanads.nsb.CONTROL";
     private static final String CHANNEL = "nsb-pacing"; private static final int ID = 2401;
-    private static final String[] PROFILES = { "precise", "command", "pulse", "cardio", "beacon", "siren", "alarm", "horn", "bass", "quiet" };
+    private static final String[] PROFILES = { "precise", "command", "pulse", "cardio", "beacon", "siren", "alarm", "horn", "bass", "quiet", "censor", "scanner", "signal", "ting", "radio", "impact" };
     private static final String[] EVENTS = { "warmup", "set", "rest", "complete", "rep" };
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, Integer> clips = new HashMap<>();

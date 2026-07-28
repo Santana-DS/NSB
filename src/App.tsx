@@ -101,6 +101,12 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
   horn: { name: 'Buzina', description: 'Buzina grave com harmônicos suaves.', volume: .024, waveform: 'square', timbre: 'horn', noteSeconds: .16, notes: { warmup: [250, 330], set: [390, 390], rest: [180], complete: [330, 420, 510], rep: [330] } },
   bass: { name: 'Grave', description: 'Batida baixa, redonda e discreta.', volume: .035, waveform: 'triangle', timbre: 'bass', noteSeconds: .14, notes: { warmup: [210, 280], set: [330, 330], rest: [160], complete: [280, 360, 440], rep: [280] } },
   quiet: { name: 'Discreto', description: 'Sinal leve para ambientes silenciosos.', volume: .018, waveform: 'sine', timbre: 'quiet', noteSeconds: .08, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
+  censor: { name: 'Censura', description: 'Bip direto, nítido e inconfundível.', volume: .04, waveform: 'sine', timbre: 'clean', noteSeconds: .18, notes: { warmup: [760], set: [880], rest: [580], complete: [1040], rep: [880] } },
+  scanner: { name: 'Scanner', description: 'Confirmação curta de leitura.', volume: .04, waveform: 'square', timbre: 'command', noteSeconds: .16, notes: { warmup: [580], set: [720], rest: [440], complete: [860], rep: [720] } },
+  signal: { name: 'Sinal', description: 'Notificação clara e moderada.', volume: .035, waveform: 'sine', timbre: 'bell', noteSeconds: .2, notes: { warmup: [620], set: [760], rest: [480], complete: [920], rep: [760] } },
+  ting: { name: 'Ting', description: 'Toque leve com final distinto.', volume: .03, waveform: 'sine', timbre: 'bell', noteSeconds: .22, notes: { warmup: [680], set: [820], rest: [520], complete: [980], rep: [820] } },
+  radio: { name: 'Rádio', description: 'Sinal digital curto, sem agressividade.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .16, notes: { warmup: [540], set: [680], rest: [420], complete: [840], rep: [680] } },
+  impact: { name: 'Impacto', description: 'Alerta seco para marcar a virada.', volume: .04, waveform: 'square', timbre: 'command', noteSeconds: .16, notes: { warmup: [480], set: [620], rest: [360], complete: [780], rep: [620] } },
 }
 const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
   { id: 'navy', name: 'Azul' }, { id: 'ocean', name: 'Oceano' }, { id: 'cobalt', name: 'Cobalto' }, { id: 'forest', name: 'Floresta' }, { id: 'lime', name: 'Lima' }, { id: 'ember', name: 'Brasa' }, { id: 'gold', name: 'Ouro' }, { id: 'plum', name: 'Ameixa' }, { id: 'ruby', name: 'Rubi' },

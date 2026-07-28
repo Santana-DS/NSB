@@ -31,7 +31,7 @@ export interface PacingBlock {
 }
 
 export type PacingMode = 'automatic' | 'manual-rest'
-export type SoundProfileId = 'precise' | 'command' | 'pulse' | 'cardio' | 'beacon' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet'
+export type SoundProfileId = 'precise' | 'command' | 'pulse' | 'cardio' | 'beacon' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet' | 'censor' | 'scanner' | 'signal' | 'ting' | 'radio' | 'impact'
 export type ThemePreference = 'system' | 'light' | 'dark'
 export type ColorPalette = 'navy' | 'ocean' | 'cobalt' | 'forest' | 'lime' | 'ember' | 'gold' | 'plum' | 'ruby'
 
