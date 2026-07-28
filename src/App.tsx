@@ -131,6 +131,10 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
 const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
   { id: 'navy', name: 'Azul' }, { id: 'ocean', name: 'Oceano' }, { id: 'cobalt', name: 'Cobalto' }, { id: 'forest', name: 'Floresta' }, { id: 'lime', name: 'Lima' }, { id: 'ember', name: 'Brasa' }, { id: 'gold', name: 'Ouro' }, { id: 'plum', name: 'Ameixa' }, { id: 'ruby', name: 'Rubi' },
 ]
+const PALETTE_LABEL_KEYS: Record<ColorPalette, string> = { navy: 'palette.navy', ocean: 'palette.ocean', cobalt: 'palette.cobalt', forest: 'palette.forest', lime: 'palette.lime', ember: 'palette.ember', gold: 'palette.gold', plum: 'palette.plum', ruby: 'palette.ruby' }
+const SOUND_LABEL_KEYS: Record<SoundProfileId, { name: string; description: string }> = {
+  signal: { name: 'sound.signal.name', description: 'sound.signal.description' }, censor: { name: 'sound.censor.name', description: 'sound.censor.description' }, scanner: { name: 'sound.scanner.name', description: 'sound.scanner.description' }, ting: { name: 'sound.ting.name', description: 'sound.ting.description' }, radio: { name: 'sound.radio.name', description: 'sound.radio.description' }, impact: { name: 'sound.impact.name', description: 'sound.impact.description' }, classic: { name: 'sound.classic.name', description: 'sound.classic.description' }, select: { name: 'sound.select.name', description: 'sound.select.description' }, beep6: { name: 'sound.beep6.name', description: 'sound.beep6.description' }, phone: { name: 'sound.phone.name', description: 'sound.phone.description' }, wrong: { name: 'sound.wrong.name', description: 'sound.wrong.description' }, tone: { name: 'sound.tone.name', description: 'sound.tone.description' }, short: { name: 'sound.short.name', description: 'sound.short.description' }, precise: { name: 'sound.precise.name', description: 'sound.precise.description' }, command: { name: 'sound.command.name', description: 'sound.command.description' }, horn: { name: 'sound.horn.name', description: 'sound.horn.description' }, quiet: { name: 'sound.quiet.name', description: 'sound.quiet.description' },
+}
 const MIN_FONT_SCALE = 90
 const MAX_FONT_SCALE = 110
 const MIN_EVOLUTION_SCALE = 40
@@ -1323,8 +1327,8 @@ export default function App() {
             </label>
           </div>
           <p className="data-summary">{t('data.summary')}</p>
-          <p className="data-summary">{activeWorkouts.length} treino(s) ativo(s) · {legacyDailyVolumes.length} dia(s) de histórico importado · {mediaAttachments.length} vídeo(s) local(is) · {archivedWorkouts.length} na lixeira</p>
-          {mediaAttachments.length > 0 && <p className="data-summary">Vídeos não entram no backup JSON; baixe-os individualmente pelo detalhe da performance.</p>}
+          <p className="data-summary">{t('data.inventory', { workouts: activeWorkouts.length, historicalDays: legacyDailyVolumes.length, videos: mediaAttachments.length, archived: archivedWorkouts.length })}</p>
+          {mediaAttachments.length > 0 && <p className="data-summary">{t('data.videoNote')}</p>}
           {archivedWorkouts.length > 0 && <ArchivedWorkoutList workouts={archivedWorkouts} onRestore={restoreArchivedWorkout} onDeletePermanently={deleteArchivedWorkouts} />}
           {saveStatus && <p className="success-message" role="status">{saveStatus}</p>}
           {error && <p className="error-message" role="alert">{error}</p>}
@@ -1354,7 +1358,7 @@ export default function App() {
           <div className="settings-group">
             <h2>{t('settings.palette')}</h2>
             <div className="palette-picker" role="radiogroup" aria-label={t('settings.palette')}>
-              {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{palette.name}</button>)}
+              {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{t(PALETTE_LABEL_KEYS[palette.id])}</button>)}
             </div>
             <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>{t('settings.visualPalette')}</span><i aria-hidden="true" /></button>
           </div>
@@ -1363,7 +1367,7 @@ export default function App() {
           <button type="button" className="sound-enabled-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>{t('settings.soundAlerts')}</span><i aria-hidden="true" /></button>
           <div className="sound-volume-control"><label htmlFor="sound-volume">{t('settings.soundVolume')}</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
           <div className="sound-profile-list" role="radiogroup" aria-label={t('settings.soundProfile')}>
-            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={t('settings.testSound', { name: profile.name })} title={t('settings.testSound', { name: profile.name })}>▶</button></article>)}
+            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id]) => { const labels = SOUND_LABEL_KEYS[id]; const name = t(labels.name); return <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{name}</strong><span>{t(labels.description)}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={t('settings.testSound', { name })} title={t('settings.testSound', { name })}>▶</button></article>})}
           </div>
           </details>
           <details className="settings-group target-settings">
