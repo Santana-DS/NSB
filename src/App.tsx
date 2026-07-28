@@ -173,6 +173,7 @@ export default function App() {
   const [homeMessages, setHomeMessages] = useState<string[]>(DEFAULT_HOME_MESSAGES)
   const [homeMessageIndex, setHomeMessageIndex] = useState(0)
   const [brandInfoOpen, setBrandInfoOpen] = useState(false)
+  const [brandPressing, setBrandPressing] = useState(false)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
   const [timerElapsedBase, setTimerElapsedBase] = useState(0)
   const [overtimeStartedAt, setOvertimeStartedAt] = useState<number | null>(null)
@@ -488,8 +489,11 @@ export default function App() {
 
   function beginBrandPress() {
     brandLongPressRef.current = false
+    setBrandPressing(true)
     brandPressTimerRef.current = window.setTimeout(() => {
       brandLongPressRef.current = true
+      setBrandPressing(false)
+      if ('vibrate' in navigator) navigator.vibrate(14)
       setBrandInfoOpen(true)
     }, 650)
   }
@@ -497,6 +501,7 @@ export default function App() {
   function endBrandPress() {
     if (brandPressTimerRef.current !== null) window.clearTimeout(brandPressTimerRef.current)
     brandPressTimerRef.current = null
+    setBrandPressing(false)
   }
 
   function addSetGroup() {
@@ -934,8 +939,8 @@ export default function App() {
   return (
     <main className="app-shell">
       <header ref={brandHeaderRef} className={`app-header ${screen === 'history' ? 'sticky-header' : ''} ${brandInfoOpen ? 'brand-story-open' : ''}`}>
-        <button className="brand" onPointerDown={beginBrandPress} onPointerUp={endBrandPress} onPointerCancel={endBrandPress} onClick={() => { if (brandLongPressRef.current) { brandLongPressRef.current = false; return }; setScreen('home') }} aria-label="Ir para início. Pressione e segure para saber mais sobre o desafio.">
-          <img className="brand-mark" src="/nsb-icon.png" alt="" />
+        <button className={brandPressing ? 'brand is-pressing' : 'brand'} onPointerDown={beginBrandPress} onPointerUp={endBrandPress} onPointerLeave={endBrandPress} onPointerCancel={endBrandPress} onClick={() => { if (brandLongPressRef.current) { brandLongPressRef.current = false; return }; setScreen('home') }} aria-label="Ir para início. Pressione e segure para saber mais sobre o desafio.">
+          <span className="brand-mark-wrap"><img className="brand-mark" src="/nsb-icon.png" alt="" /><i aria-hidden="true" /></span>
           <span>Navy Seal Burpees</span>
         </button>
         <nav aria-label="Navegação principal">
