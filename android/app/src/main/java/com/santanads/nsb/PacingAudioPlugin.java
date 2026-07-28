@@ -38,6 +38,15 @@ public class PacingAudioPlugin extends Plugin {
     }
     @PluginMethod public void start(PluginCall call) { send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.START)); call.resolve(); }
     @PluginMethod public void stop(PluginCall call) { getContext().stopService(new Intent(getContext(), PacingAudioService.class)); call.resolve(); }
+    @PluginMethod public void vibrate(PluginCall call) {
+        int duration = Math.max(1, call.getInt("durationMs", 18));
+        android.os.Vibrator vibrator = (android.os.Vibrator) getContext().getSystemService(Context.VIBRATOR_SERVICE);
+        if (vibrator != null && vibrator.hasVibrator()) {
+            if (Build.VERSION.SDK_INT >= 26) vibrator.vibrate(android.os.VibrationEffect.createOneShot(duration, android.os.VibrationEffect.DEFAULT_AMPLITUDE));
+            else vibrator.vibrate(duration);
+        }
+        call.resolve();
+    }
     @PluginMethod public void update(PluginCall call) {
         send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.UPDATE).putExtra("elapsed", call.getString("elapsed", "00:00")).putExtra("phase", call.getString("phase", "Cronômetro")).putExtra("progress", call.getString("progress", "Em andamento"))); call.resolve();
     }

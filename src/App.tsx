@@ -54,6 +54,7 @@ const MAX_SOUND_VOLUME = 1000
 interface NativePacingAudioPlugin {
   start(): Promise<void>
   stop(): Promise<void>
+  vibrate(options: { durationMs: number }): Promise<void>
   update(options: { elapsed: string; phase: string; progress: string }): Promise<void>
   signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number; replace?: boolean }): Promise<void>
   schedule(options: { volume: number; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] }): Promise<void>
@@ -211,6 +212,7 @@ export default function App() {
   const brandPressTimerRef = useRef<number | null>(null)
   const brandLongPressRef = useRef(false)
   const brandHeaderRef = useRef<HTMLElement>(null)
+  const brandStoryRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     void navigator.storage?.persist?.()
@@ -267,7 +269,7 @@ export default function App() {
 
   useEffect(() => {
     if (!brandInfoOpen) return
-    const closeFromOutside = (event: PointerEvent) => { if (brandHeaderRef.current && !brandHeaderRef.current.contains(event.target as Node)) setBrandInfoOpen(false) }
+    const closeFromOutside = (event: PointerEvent) => { if (brandStoryRef.current && !brandStoryRef.current.contains(event.target as Node)) setBrandInfoOpen(false) }
     document.addEventListener('pointerdown', closeFromOutside)
     return () => document.removeEventListener('pointerdown', closeFromOutside)
   }, [brandInfoOpen])
@@ -493,7 +495,8 @@ export default function App() {
     brandPressTimerRef.current = window.setTimeout(() => {
       brandLongPressRef.current = true
       setBrandPressing(false)
-      if ('vibrate' in navigator) navigator.vibrate(14)
+      if (Capacitor.getPlatform() === 'android') void NativePacingAudio.vibrate({ durationMs: 18 }).catch(() => undefined)
+      else if ('vibrate' in navigator) navigator.vibrate(18)
       setBrandInfoOpen(true)
     }, 650)
   }
@@ -939,7 +942,7 @@ export default function App() {
   return (
     <main className="app-shell">
       <header ref={brandHeaderRef} className={`app-header ${screen === 'history' ? 'sticky-header' : ''} ${brandInfoOpen ? 'brand-story-open' : ''}`}>
-        <button className={brandPressing ? 'brand is-pressing' : 'brand'} onPointerDown={beginBrandPress} onPointerUp={endBrandPress} onPointerLeave={endBrandPress} onPointerCancel={endBrandPress} onClick={() => { if (brandLongPressRef.current) { brandLongPressRef.current = false; return }; setScreen('home') }} aria-label="Ir para início. Pressione e segure para saber mais sobre o desafio.">
+        <button className={brandPressing ? 'brand is-pressing' : 'brand'} onPointerDown={() => { if (brandInfoOpen) { setBrandInfoOpen(false); return }; beginBrandPress() }} onPointerUp={endBrandPress} onPointerLeave={endBrandPress} onPointerCancel={endBrandPress} onContextMenu={(event) => event.preventDefault()} onClick={() => { if (brandInfoOpen || brandLongPressRef.current) { brandLongPressRef.current = false; return }; setScreen('home') }} aria-label="Ir para início. Pressione e segure para saber mais sobre o desafio.">
           <span className="brand-mark-wrap"><img className="brand-mark" src="/nsb-icon.png" alt="" /><i aria-hidden="true" /></span>
           <span>Navy Seal Burpees</span>
         </button>
@@ -949,7 +952,7 @@ export default function App() {
           <button className={screen === 'data' ? 'nav-link active' : 'nav-link'} onClick={() => setScreen('data')}>Dados</button>
           <button className={screen === 'settings' ? 'nav-link nav-settings active' : 'nav-link nav-settings'} onClick={() => setScreen('settings')} aria-label="Ajustes" title="Ajustes">⚙</button>
         </nav>
-        {brandInfoOpen && <section className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><img className="brand-story-logo" src="/nsb-icon.png" alt="Logo NSB" /><h2>Navy Seal Burpee</h2><p><strong>Navy Seal Burpee é o número #1 dos exercícios.</strong> Três flexões e mountain climbers em cada repetição unem força, cardio, coordenação, agilidade, letalidade e disciplina em um único movimento.</p><p>Contar cada repetição torna-o um exercício de corpo e mente. O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source.</p><p>Salve para <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
+        {brandInfoOpen && <section ref={brandStoryRef} className="brand-story" aria-label="Sobre o Navy Seal Burpee e o aplicativo"><img className="brand-story-logo" src="/nsb-icon.png" alt="Logo NSB" /><h2>Navy Seal Burpee</h2><p><strong>Navy Seal Burpee é o número #1 dos exercícios.</strong> Três flexões e mountain climbers em cada repetição unem força, cardio, coordenação, agilidade, letalidade e disciplina em um único movimento.</p><p>Contar cada repetição torna-o um exercício de corpo e mente. O desafio é simples de entender e difícil de cumprir — registrar o trabalho torna a evolução visível.</p><p><strong>NSB Tracker</strong> é um projeto pessoal, offline e open source.</p><p>Salve para <em>Shot Caller</em>, Iron Wolf, Burpees King e a comunidade que escolhe fazer o que precisa ser feito.</p><a href="https://github.com/Santana-DS/NSB" target="_blank" rel="noreferrer">Ver projeto aberto</a></section>}
       </header>
 
       {screen === 'home' && (
