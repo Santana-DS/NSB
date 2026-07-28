@@ -1,4 +1,4 @@
-import { REP_TARGETS, type SetGroup, type Workout, type WorkoutDraft } from '../types'
+import { type SetGroup, type Workout, type WorkoutDraft } from '../types'
 import { createId } from './ids'
 
 export function getSetGroupTotal(groups: SetGroup[]): number {
@@ -6,7 +6,7 @@ export function getSetGroupTotal(groups: SetGroup[]): number {
 }
 
 export function validateWorkout(draft: WorkoutDraft): string | null {
-  if (!REP_TARGETS.includes(draft.targetReps)) return 'Escolha uma quantidade entre 100 e 500.'
+  if (!Number.isInteger(draft.targetReps) || draft.targetReps <= 0 || draft.targetReps > 10_000) return 'Escolha uma quantidade válida.'
   if (!Number.isInteger(draft.durationSeconds) || draft.durationSeconds <= 0) return 'Informe um tempo válido.'
 
   for (const group of draft.setGroups) {

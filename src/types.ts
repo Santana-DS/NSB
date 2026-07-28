@@ -1,6 +1,7 @@
-export const REP_TARGETS = [100, 150, 200, 250, 300, 350, 400, 450, 500] as const
+export const REP_TARGETS = [100, 150, 200, 250, 300, 350, 400, 450, 500]
 
-export type RepTarget = (typeof REP_TARGETS)[number]
+// Targets are user-configurable. The constant above is only the initial matrix.
+export type RepTarget = number
 
 export interface SetGroup {
   id: string
@@ -40,6 +41,7 @@ export interface AppSettings {
   fontScale?: number
   evolutionScale?: number
   homeMessages?: string[]
+  defaultRepTargets?: number[]
   workoutPresets?: WorkoutPreset[]
 }
 export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'

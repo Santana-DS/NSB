@@ -18,6 +18,15 @@ interface StrategyRecord extends TimedRecord { strategy: string }
 interface PacingStats { count: number; reps: number; activeSeconds: number; restSeconds: number; plannedRestSeconds: number; totalSeconds: number }
 type DownloadFormat = 'svg' | 'png' | 'jpeg'
 type PacingPhase = 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
+
+function normalizeRepTargets(values: number[]): number[] {
+  return [...new Set(values.map((value) => Math.round(value)).filter((value) => Number.isFinite(value) && value > 0 && value <= 10_000))].sort((a, b) => a - b)
+}
+
+function prunePacingGroupValues(values: Record<string, string>, groupIds: Set<string>): Record<string, string> {
+  const next = Object.fromEntries(Object.entries(values).filter(([id]) => groupIds.has(id)))
+  return Object.keys(next).length === Object.keys(values).length ? values : next
+}
 type SoundTimbre = 'clean' | 'command' | 'pulse' | 'cardio' | 'bell' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet'
 const DEFAULT_WARMUP_SECONDS = 10
 const DEFAULT_HOME_MESSAGES = [
@@ -154,6 +163,8 @@ export default function App() {
   const [fontScale, setFontScale] = useState(100)
   const [evolutionScale, setEvolutionScale] = useState(100)
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
+  const [defaultRepTargets, setDefaultRepTargets] = useState<number[]>([...REP_TARGETS])
+  const [customTargetInput, setCustomTargetInput] = useState('')
   const [workoutPresets, setWorkoutPresets] = useState<WorkoutPreset[]>([])
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
@@ -232,6 +243,10 @@ export default function App() {
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
+        if (Array.isArray(settings?.defaultRepTargets)) {
+          const targets = normalizeRepTargets(settings.defaultRepTargets)
+          if (targets.length > 0) setDefaultRepTargets(targets)
+        }
         if (Array.isArray(settings?.workoutPresets)) setWorkoutPresets(settings.workoutPresets)
         if (typeof settings?.fontScale === 'number' && settings.fontScale >= MIN_FONT_SCALE && settings.fontScale <= MAX_FONT_SCALE) setFontScale(settings.fontScale)
         if (typeof settings?.evolutionScale === 'number' && settings.evolutionScale >= MIN_EVOLUTION_SCALE && settings.evolutionScale <= MAX_EVOLUTION_SCALE) setEvolutionScale(settings.evolutionScale)
@@ -258,6 +273,11 @@ export default function App() {
   useEffect(() => { document.body.dataset.palette = colorPalette }, [colorPalette])
   useEffect(() => { document.body.dataset.visualPalette = visualPalette ? 'on' : 'off' }, [visualPalette])
   useEffect(() => { document.documentElement.style.fontSize = `${fontScale}%` }, [fontScale])
+  useEffect(() => {
+    // Older controls still consume this shared list; keep their options in sync with Settings.
+    const sharedTargets = REP_TARGETS
+    sharedTargets.splice(0, sharedTargets.length, ...defaultRepTargets)
+  }, [defaultRepTargets])
 
   useEffect(() => {
     if (timerStartedAt === null && pacingPhaseStartedAt === null && overtimeStartedAt === null) return
@@ -310,7 +330,19 @@ export default function App() {
 
   useEffect(() => {
     const total = getSetGroupTotal(setGroups)
-    if (setGroups.length > 0 && REP_TARGETS.includes(total as RepTarget)) setTargetReps(total as RepTarget)
+    if (setGroups.length > 0 && defaultRepTargets.includes(total)) setTargetReps(total)
+  }, [defaultRepTargets, setGroups])
+
+  useEffect(() => {
+    // Group overrides only make sense when more than one group exists.
+    if (setGroups.length <= 1) {
+      setPacingGroupDurations((current) => Object.keys(current).length > 0 ? {} : current)
+      setPacingGroupRests((current) => Object.keys(current).length > 0 ? {} : current)
+      return
+    }
+    const groupIds = new Set(setGroups.map((group) => group.id))
+    setPacingGroupDurations((current) => prunePacingGroupValues(current, groupIds))
+    setPacingGroupRests((current) => prunePacingGroupValues(current, groupIds))
   }, [setGroups])
 
   useEffect(() => {
@@ -341,7 +373,7 @@ export default function App() {
     ...historicalPerformances.map((performance) => ({ targetReps: performance.targetReps, durationSeconds: performance.durationSeconds, date: performance.date })),
   ], [activeWorkouts, historicalPerformances])
   const strategyRecords = useMemo<StrategyRecord[]>(() => activeWorkouts.filter((workout) => workout.setGroups.length > 0).map((workout) => ({ targetReps: workout.targetReps, durationSeconds: workout.durationSeconds, date: toDateKeyFromIso(workout.performedAt), strategy: formatSetGroups(workout.setGroups) })), [activeWorkouts])
-  const personalRecords = useMemo<TimedRecord[]>(() => REP_TARGETS.flatMap((target) => {
+  const personalRecords = useMemo<TimedRecord[]>(() => [...new Set(timedRecords.map((record) => record.targetReps))].flatMap((target) => {
     const recordsForTarget = timedRecords.filter((record) => record.targetReps === target)
     if (recordsForTarget.length === 0) return []
     const bestDuration = Math.min(...recordsForTarget.map((record) => record.durationSeconds))
@@ -364,8 +396,8 @@ export default function App() {
   const pacingTotalTargetSeconds = parseDuration(pacingTotalDuration) ?? 0
   const pacingRestSeconds = parseDuration(pacingRestDuration) ?? 0
   const pacingGroupDefinitions = useMemo(() => setGroups.map((group) => {
-    const groupPace = parseDuration(pacingGroupDurations[group.id] ?? '')
-    const groupRest = parseDuration(pacingGroupRests[group.id] ?? '')
+    const groupPace = setGroups.length > 1 ? parseDuration(pacingGroupDurations[group.id] ?? '') : null
+    const groupRest = setGroups.length > 1 ? parseDuration(pacingGroupRests[group.id] ?? '') : null
     return { group, paceSeconds: groupPace && groupPace > 0 ? groupPace : null, restSeconds: groupRest && groupRest > 0 ? groupRest : pacingRestSeconds }
   }), [pacingGroupDurations, pacingGroupRests, pacingRestSeconds, setGroups])
   const plannedRestSeconds = pacingGroupDefinitions.reduce((total, item, index) => total + item.restSeconds * Math.max(0, item.group.setCount - (index === pacingGroupDefinitions.length - 1 ? 1 : 0)), 0)
@@ -374,9 +406,9 @@ export default function App() {
   const calculatedPacingRepSeconds = pacingTargetMode === 'total' && pacingTotalTargetSeconds > 0 && adjustableReps > 0 ? (pacingTotalTargetSeconds - plannedRestSeconds - overriddenActiveSeconds) / adjustableReps : 0
   const pacingRepSeconds = pacingTargetMode === 'total' ? calculatedPacingRepSeconds : manualPacingRepSeconds
   const pacingPlan = useMemo(() => setGroups.flatMap((group) => {
-    const groupPace = parseDuration(pacingGroupDurations[group.id] ?? '')
+    const groupPace = setGroups.length > 1 ? parseDuration(pacingGroupDurations[group.id] ?? '') : null
     const paceSeconds = groupPace && groupPace > 0 ? groupPace : pacingRepSeconds
-    const groupRest = parseDuration(pacingGroupRests[group.id] ?? '')
+    const groupRest = setGroups.length > 1 ? parseDuration(pacingGroupRests[group.id] ?? '') : null
     const restSeconds = groupRest && groupRest > 0 ? groupRest : pacingRestSeconds
     return Array.from({ length: Math.max(0, group.setCount) }, () => ({ groupId: group.id, reps: group.repsPerSet, paceSeconds, restSeconds }))
   }), [pacingGroupDurations, pacingGroupRests, pacingRepSeconds, pacingRestSeconds, setGroups])
@@ -605,8 +637,24 @@ export default function App() {
     void saveAppSettings({ id: 'preferences', soundProfile, workoutPresets: next })
   }
 
+  function saveDefaultRepTargets(next: number[]) {
+    const targets = normalizeRepTargets(next)
+    if (targets.length === 0) return
+    setDefaultRepTargets(targets)
+    if (!targets.includes(targetReps)) setTargetReps(targets[0])
+    void saveAppSettings({ id: 'preferences', soundProfile, defaultRepTargets: targets })
+  }
+
+  function addCustomTarget() {
+    const target = Number(customTargetInput)
+    if (!Number.isInteger(target) || target <= 0) return
+    saveDefaultRepTargets([...defaultRepTargets, target])
+    setTargetReps(target)
+    setCustomTargetInput('')
+  }
+
   function addWorkoutPreset() {
-    saveWorkoutPresets([...workoutPresets, { id: createId(), name: 'Novo preset', targetReps: 100, setGroups: [], paceDuration: '', restDuration: '' }])
+    saveWorkoutPresets([...workoutPresets, { id: createId(), name: 'Novo preset', targetReps: defaultRepTargets[0] ?? 100, setGroups: [], paceDuration: '', restDuration: '' }])
   }
 
   function updateWorkoutPreset(id: string, update: Partial<WorkoutPreset>) {
@@ -1001,7 +1049,7 @@ export default function App() {
               <span aria-hidden="true">{quantityFilterExpanded ? '⌃' : '⌄'}</span>
             </button>
             {quantityFilterExpanded && <div id="target-filter-options" className="target-filter-options" role="group" aria-label="Filtrar quantidade de NSBs">
-              {REP_TARGETS.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => setTargetFilter(target)}>{target}</button>)}
+              {defaultRepTargets.map((target) => <button key={target} type="button" className={targetFilter === target ? 'selected' : ''} onClick={() => setTargetFilter(target)}>{target}</button>)}
             </div>}
           </div>
           <div className="view-picker analytics-picker" role="group" aria-label="Modo de análise">
@@ -1023,10 +1071,11 @@ export default function App() {
             <fieldset>
               <legend>Quantidade total</legend>
               <div className="target-grid">
-                {REP_TARGETS.map((target) => (
+                {defaultRepTargets.map((target) => (
                   <button key={target} type="button" className={target === targetReps ? 'target selected' : 'target'} onClick={() => setTargetReps(target)}>{target}</button>
                 ))}
               </div>
+              <label className="free-target"><span>Outra quantidade</span><input inputMode="numeric" type="number" min="1" value={customTargetInput} placeholder="Livre" onChange={(event) => setCustomTargetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomTarget() } }} /><button type="button" className="secondary-action" onClick={addCustomTarget}>Usar</button></label>
             </fieldset>
 
             <section className="timer-section" aria-labelledby="timer-title">
@@ -1153,21 +1202,29 @@ export default function App() {
             </div>
             <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Aplicar nos gráficos e calendário</span><i aria-hidden="true" /></button>
           </div>
-          <div className="settings-group">
-            <h2>Sons do pacing</h2>
+          <details className="settings-group sound-settings">
+            <summary>Som</summary>
           <button type="button" className="sound-enabled-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>Avisos sonoros</span><i aria-hidden="true" /></button>
           <div className="sound-volume-control"><label htmlFor="sound-volume">Volume dos avisos</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
           <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
           </div>
-          </div>
+          </details>
+          <details className="settings-group target-settings">
+            <summary>Metas</summary>
+            <p>Toque em uma quantidade para removê-la. Adicione qualquer valor quando precisar.</p>
+            <div className="default-target-editor" aria-label="Metas padrão">
+              {defaultRepTargets.map((target) => <button key={target} type="button" onClick={() => defaultRepTargets.length > 1 && saveDefaultRepTargets(defaultRepTargets.filter((item) => item !== target))} aria-label={`Remover meta ${target}`}>{target}<span aria-hidden="true">×</span></button>)}
+            </div>
+            <label className="free-target settings-target"><span>Adicionar meta</span><input inputMode="numeric" type="number" min="1" value={customTargetInput} placeholder="Ex.: 75" onChange={(event) => setCustomTargetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomTarget() } }} /><button type="button" className="secondary-action" onClick={addCustomTarget}>Adicionar</button></label>
+          </details>
           <details className="settings-group preset-settings">
             <summary>Presets de treino</summary>
             <div className="section-heading"><p>Meta, sets, ritmo e descanso para iniciar rapidamente.</p><button type="button" className="secondary-action" onClick={addWorkoutPreset}>Novo preset</button></div>
             {workoutPresets.map((preset) => <article className="preset-editor" key={preset.id}><div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 36) })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div><div className="field-grid"><label><span>Quantidade</span><select value={preset.targetReps} onChange={(event) => updateWorkoutPreset(preset.id, { targetReps: Number(event.target.value) as RepTarget })}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Ritmo</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div><div className="preset-set-list">{preset.setGroups.map((group) => <div className="set-row" key={group.id}><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item) })} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item) })} /><button type="button" className="remove-button" onClick={() => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.filter((item) => item.id !== group.id) })}>Remover</button></div>)}</div><button type="button" className="text-button" onClick={() => updateWorkoutPreset(preset.id, { setGroups: [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }] })}>+ Set</button></article>)}
           </details>
           <details className="settings-group home-message-settings">
-            <summary>Frases iniciais</summary>
+            <summary>Frases</summary>
             <div className="section-heading"><p>Exibidas alternadamente na tela inicial.</p><button type="button" className="secondary-action" onClick={() => setHomeMessages((messages) => [...messages, ''])}>Adicionar</button></div>
             <div className="home-message-list">
               {homeMessages.map((message, index) => <div key={index}><input value={message} maxLength={120} aria-label={`Frase ${index + 1}`} onChange={(event) => updateHomeMessage(index, event.target.value)} onBlur={commitHomeMessages} /><button type="button" className="remove-button" onClick={() => saveHomeMessages(homeMessages.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Excluir frase ${index + 1}`}>Excluir</button></div>)}
@@ -1539,7 +1596,7 @@ function DayDetail({ date, workouts, legacyVolumes, performances, attachments, o
   const initialPerformance = performances.find((performance) => performance.date === date) ?? null
   const initialWorkout = initialPerformance ? null : dateWorkouts[0] ?? null
   const initialEntry = initialPerformance ?? initialWorkout
-  const defaultTarget = REP_TARGETS.includes(registeredVolume as RepTarget) ? registeredVolume as RepTarget : 100
+  const defaultTarget = Number.isInteger(registeredVolume) && registeredVolume > 0 ? registeredVolume : 100
   const [targetReps, setTargetReps] = useState<RepTarget>(initialEntry?.targetReps ?? defaultTarget)
   const [duration, setDuration] = useState(initialEntry ? formatDuration(initialEntry.durationSeconds) : '')
   const [setGroups, setSetGroups] = useState<SetGroup[]>(initialEntry?.setGroups ?? [])
