@@ -206,6 +206,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [soundProfile, setSoundProfile] = useState<SoundProfileId>('signal')
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [hapticsEnabled, setHapticsEnabled] = useState(true)
   const [soundVolume, setSoundVolume] = useState(100)
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
   const [language, setLanguage] = useState<AppLanguage>('en-US')
@@ -295,6 +296,7 @@ export default function App() {
         setMediaAttachments(storedAttachments)
         if (settings?.soundProfile && settings.soundProfile in SOUND_PROFILES) setSoundProfile(settings.soundProfile)
         if (typeof settings?.soundEnabled === 'boolean') setSoundEnabled(settings.soundEnabled)
+        if (typeof settings?.hapticsEnabled === 'boolean') setHapticsEnabled(settings.hapticsEnabled)
         if (typeof settings?.soundVolume === 'number' && settings.soundVolume >= MIN_SOUND_VOLUME && settings.soundVolume <= MAX_SOUND_VOLUME) setSoundVolume(settings.soundVolume)
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (settings?.language === 'pt-BR' || settings?.language === 'en-US' || settings?.language === 'es-ES') setLanguage(settings.language)
@@ -605,8 +607,7 @@ export default function App() {
     brandPressTimerRef.current = window.setTimeout(() => {
       brandLongPressRef.current = true
       setBrandPressing(false)
-      if (Capacitor.getPlatform() === 'android') void NativePacingAudio.vibrate({ durationMs: 18 }).catch(() => undefined)
-      else if ('vibrate' in navigator) navigator.vibrate(18)
+      emitHaptic('warmup')
       setBrandInfoOpen(true)
     }, 650)
   }
@@ -615,6 +616,16 @@ export default function App() {
     if (brandPressTimerRef.current !== null) window.clearTimeout(brandPressTimerRef.current)
     brandPressTimerRef.current = null
     setBrandPressing(false)
+  }
+
+  function emitHaptic(kind: 'warmup' | 'set' | 'rest' | 'complete') {
+    if (!hapticsEnabled) return
+    const durationMs = kind === 'complete' ? 70 : kind === 'set' ? 42 : kind === 'rest' ? 28 : 32
+    if (Capacitor.getPlatform() === 'android') {
+      void NativePacingAudio.vibrate({ durationMs }).catch(() => undefined)
+      return
+    }
+    if ('vibrate' in navigator) navigator.vibrate(durationMs)
   }
 
   function addSetGroup() {
@@ -795,6 +806,13 @@ export default function App() {
       if (Capacitor.getPlatform() === 'android') void NativePacingAudio.cancelSchedule().catch(() => undefined)
     }
     void saveAppSettings({ id: 'preferences', soundProfile, soundEnabled: next, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+  }
+
+  function toggleHapticsEnabled() {
+    const next = !hapticsEnabled
+    setHapticsEnabled(next)
+    if (next) emitHaptic('warmup')
+    void saveAppSettings({ id: 'preferences', soundProfile, hapticsEnabled: next })
   }
 
   function previewSoundProfile(profile: SoundProfileId) {
@@ -985,6 +1003,7 @@ export default function App() {
     setPacingWarmupCueSent(true)
     setPacingEvents([{ type: 'session-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }, { type: 'warmup-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }])
     setLastRepCue(0)
+    emitHaptic('warmup')
     if (soundProfile !== 'signal') emitPacingSignal('warmup')
   }
 
@@ -1005,6 +1024,7 @@ export default function App() {
       setPacingPhaseStartedAt(now)
       setLastRepCue(0)
       appendPacingEvent('set-started', transition, pacingBlockIndex)
+      emitHaptic('set')
       emitPacingSignal('set')
       return
     }
@@ -1026,6 +1046,7 @@ export default function App() {
         void releaseWakeLock()
         stopNativePacingAudio()
         appendPacingEvent('session-completed', transition, pacingBlockIndex)
+        emitHaptic('complete')
         emitPacingSignal('complete')
         return
       }
@@ -1035,6 +1056,7 @@ export default function App() {
         setPacingPhaseStartedAt(now)
         setLastRepCue(0)
         appendPacingEvent('set-started', transition, pacingBlockIndex + 1)
+        emitHaptic('set')
         emitPacingSignal('set')
       } else {
         setPacingPhase('rest')
@@ -1042,6 +1064,7 @@ export default function App() {
         setPacingPhaseStartedAt(now)
         setPacingWarmupCueSent(false)
         appendPacingEvent('rest-started', transition, pacingBlockIndex)
+        emitHaptic('rest')
         emitPacingSignal('rest')
       }
       return
@@ -1060,15 +1083,18 @@ export default function App() {
           setPacingWarmupInitial(false)
           setPacingWarmupTargetSeconds(Math.min(DEFAULT_WARMUP_SECONDS, remainingRest))
           appendPacingEvent('warmup-started', transition, nextBlockIndex)
+          emitHaptic('warmup')
           if (!pacingWarmupCueSent && soundProfile !== 'signal') emitPacingSignal('warmup')
         } else {
           setPacingPhase('set')
           appendPacingEvent('set-started', transition, nextBlockIndex)
+          emitHaptic('set')
           emitPacingSignal('set')
         }
       } else {
         setPacingPhase('set')
         appendPacingEvent('set-started', transition, nextBlockIndex)
+        emitHaptic('set')
         emitPacingSignal('set')
       }
     }
@@ -1267,7 +1293,7 @@ export default function App() {
             </section>
 
             <section className="pacing-section" ref={pacingSectionRef} aria-labelledby="pacing-title">
-              <div className="section-heading"><div><p className="eyebrow">{t('workout.guidedPacing')}</p><h2 id="pacing-title">{t('workout.pacingGoal')}</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? t('workout.ready') : pacingPhase === 'warmup' ? t('workout.prepare') : pacingPhase === 'set' ? t('workout.inSet') : pacingPhase === 'rest' ? t('workout.rest') : pacingPhase === 'paused' ? t('workout.paused') : t('workout.complete')}</span></div>
+              <div className="section-heading"><div><p className="eyebrow">{t('workout.guidedPacing')}</p><h2 id="pacing-title">{t('workout.pacingGoal')}</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'} role="status" aria-live="polite" aria-atomic="true">{pacingPhase === 'idle' ? t('workout.ready') : pacingPhase === 'warmup' ? t('workout.prepare') : pacingPhase === 'set' ? t('workout.inSet') : pacingPhase === 'rest' ? t('workout.rest') : pacingPhase === 'paused' ? t('workout.paused') : t('workout.complete')}</span></div>
               <button type="button" className="sound-enabled-switch pacing-sound-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>{t('workout.soundAlerts')}</span><i aria-hidden="true" /></button>
               <p>{t('workout.warmupNote', { seconds: DEFAULT_WARMUP_SECONDS })}</p>
               <div className="pacing-target-picker" role="group" aria-label={t('workout.pacingGoal')}><button type="button" className={pacingTargetMode === 'pace' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('pace')}>{t('workout.pace')}</button><button type="button" className={pacingTargetMode === 'total' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('total')}>{t('workout.totalGoal')}</button></div>
@@ -1365,6 +1391,7 @@ export default function App() {
           <details className="settings-group sound-settings">
             <summary>{t('settings.sound')}</summary>
           <button type="button" className="sound-enabled-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>{t('settings.soundAlerts')}</span><i aria-hidden="true" /></button>
+          <button type="button" className="sound-enabled-switch" role="switch" aria-checked={hapticsEnabled} onClick={toggleHapticsEnabled}><span>{t('settings.haptics')}</span><i aria-hidden="true" /></button>
           <div className="sound-volume-control"><label htmlFor="sound-volume">{t('settings.soundVolume')}</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
           <div className="sound-profile-list" role="radiogroup" aria-label={t('settings.soundProfile')}>
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id]) => { const labels = SOUND_LABEL_KEYS[id]; const name = t(labels.name); return <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{name}</strong><span>{t(labels.description)}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={t('settings.testSound', { name })} title={t('settings.testSound', { name })}>▶</button></article>})}
@@ -1552,7 +1579,7 @@ export default function App() {
   }
 
   function downloadBackup(currentWorkouts: Workout[], currentLegacyVolumes: LegacyDailyVolume[], currentPerformances: HistoricalPerformance[], safetyCopy = false) {
-    const preferences = { id: 'preferences' as const, soundProfile, soundEnabled, soundVolume, theme: themePreference, language, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages, defaultRepTargets, workoutPresets }
+    const preferences = { id: 'preferences' as const, soundProfile, soundEnabled, hapticsEnabled, soundVolume, theme: themePreference, language, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages, defaultRepTargets, workoutPresets }
     const blob = new Blob([createBackup(currentWorkouts, currentLegacyVolumes, currentPerformances, preferences)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -1599,6 +1626,7 @@ export default function App() {
   function applyImportedPreferences(preferences: import('./types').AppSettings) {
     if (preferences.soundProfile in SOUND_PROFILES) setSoundProfile(preferences.soundProfile)
     if (typeof preferences.soundEnabled === 'boolean') setSoundEnabled(preferences.soundEnabled)
+    if (typeof preferences.hapticsEnabled === 'boolean') setHapticsEnabled(preferences.hapticsEnabled)
     if (typeof preferences.soundVolume === 'number') setSoundVolume(preferences.soundVolume)
     if (preferences.theme === 'system' || preferences.theme === 'light' || preferences.theme === 'dark') setThemePreference(preferences.theme)
     if (preferences.language === 'pt-BR' || preferences.language === 'en-US' || preferences.language === 'es-ES') setLanguage(preferences.language)

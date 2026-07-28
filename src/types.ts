@@ -40,6 +40,7 @@ export interface AppSettings {
   id: 'preferences'
   soundProfile: SoundProfileId
   soundEnabled?: boolean
+  hapticsEnabled?: boolean
   soundVolume?: number
   theme?: ThemePreference
   language?: AppLanguage

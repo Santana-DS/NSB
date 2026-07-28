@@ -1,5 +1,5 @@
 :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #17212b; background: #f4f6f5; font-synthesis: none; }
-html { transition: font-size .16s ease; } @media (prefers-reduced-motion: reduce) { html { transition: none; } }
+html { transition: font-size .16s ease; } :focus-visible { outline: 3px solid var(--palette-bright, #16808b); outline-offset: 3px; } @media (prefers-reduced-motion: reduce) { html { transition: none; } *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
 .download-wrapper { position: relative; }.download-menu { position: absolute; z-index: 2; top: 2rem; right: 0; display: grid; gap: .15rem; border-radius: .45rem; padding: .3rem; background: #fff; box-shadow: 0 8px 20px #0d2c3d25; }.download-menu button { border: 0; border-radius: .3rem; padding: .35rem .55rem; background: transparent; color: #0d5261; font-size: .75rem; font-weight: 700; text-align: left; }.download-menu button:hover, .download-menu button:focus-visible { background: #dceeea; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
