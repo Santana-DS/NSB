@@ -12,6 +12,13 @@ const profiles = {
   ting: 'freesound_community-news-ting-6832.mp3',
   radio: 'freesound_community-radio-wave-101552.mp3',
   impact: 'freesound_community-htranchant_01-91654.mp3',
+  classic: 'freesound_community-beep-104060.mp3',
+  select: 'freesound_community-playernocanselect-37979.mp3',
+  beep6: 'freesound_community-beep-6-96243.mp3',
+  phone: 'freesound_community-phone-call-14472.mp3',
+  wrong: 'universfield-wrong-answer-beep-149895.mp3',
+  tone: 'emircanalp-beep-125033.mp3',
+  short: 'freesound_community-short-beep-tone-47916.mp3',
 }
 const durations = { rep: .18, warmup: .32, set: .38, rest: .25, complete: .72 }
 const outputDirectories = [resolve('public/audio/pacing'), resolve('android/app/src/main/res/raw')]

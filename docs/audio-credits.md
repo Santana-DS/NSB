@@ -10,5 +10,12 @@ Os efeitos abaixo foram baixados pelo proprietário do projeto no Pixabay e tran
 | Ting | `freesound_community-news-ting-6832.mp3` | freesound_community |
 | Rádio | `freesound_community-radio-wave-101552.mp3` | freesound_community |
 | Impacto | `freesound_community-htranchant_01-91654.mp3` | freesound_community |
+| Clássico | `freesound_community-beep-104060.mp3` | freesound_community |
+| Seleção | `freesound_community-playernocanselect-37979.mp3` | freesound_community |
+| Bip 6 | `freesound_community-beep-6-96243.mp3` | freesound_community |
+| Chamada | `freesound_community-phone-call-14472.mp3` | freesound_community |
+| Contraste | `universfield-wrong-answer-beep-149895.mp3` | universfield |
+| Tom | `emircanalp-beep-125033.mp3` | emircanalp |
+| Curto | `freesound_community-short-beep-tone-47916.mp3` | freesound_community |
 
-Os demais MP3s entregues permanecem como material de curadoria e podem virar temas adicionais depois da validação no aparelho.
+Todos os MP3s entregues foram incorporados à biblioteca.

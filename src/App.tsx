@@ -91,6 +91,19 @@ const DEFAULT_HOME_MESSAGES = [
   'Força e Honra.',]
 
 const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string; volume: number; waveform: OscillatorType; timbre: SoundTimbre; noteSeconds: number; notes: Record<'warmup' | 'set' | 'rest' | 'complete' | 'rep', number[]> }> = {
+  signal: { name: 'Sinal', description: 'Notificação clara e moderada.', volume: .035, waveform: 'sine', timbre: 'bell', noteSeconds: .2, notes: { warmup: [620], set: [760], rest: [480], complete: [920], rep: [760] } },
+  censor: { name: 'Censura', description: 'Bip direto, nítido e inconfundível.', volume: .04, waveform: 'sine', timbre: 'clean', noteSeconds: .18, notes: { warmup: [760], set: [880], rest: [580], complete: [1040], rep: [880] } },
+  scanner: { name: 'Scanner', description: 'Confirmação curta de leitura.', volume: .04, waveform: 'square', timbre: 'command', noteSeconds: .16, notes: { warmup: [580], set: [720], rest: [440], complete: [860], rep: [720] } },
+  ting: { name: 'Ting', description: 'Toque leve com final distinto.', volume: .03, waveform: 'sine', timbre: 'bell', noteSeconds: .22, notes: { warmup: [680], set: [820], rest: [520], complete: [980], rep: [820] } },
+  radio: { name: 'Rádio', description: 'Sinal digital curto, sem agressividade.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .16, notes: { warmup: [540], set: [680], rest: [420], complete: [840], rep: [680] } },
+  impact: { name: 'Impacto', description: 'Alerta seco para marcar a virada.', volume: .04, waveform: 'square', timbre: 'command', noteSeconds: .16, notes: { warmup: [480], set: [620], rest: [360], complete: [780], rep: [620] } },
+  classic: { name: 'Clássico', description: 'Bip tradicional, simples e limpo.', volume: .035, waveform: 'sine', timbre: 'clean', noteSeconds: .16, notes: { warmup: [600], set: [740], rest: [460], complete: [900], rep: [740] } },
+  select: { name: 'Seleção', description: 'Confirmação eletrônica arredondada.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .18, notes: { warmup: [580], set: [700], rest: [430], complete: [860], rep: [700] } },
+  beep6: { name: 'Bip 6', description: 'Sinal digital curto e objetivo.', volume: .035, waveform: 'square', timbre: 'command', noteSeconds: .15, notes: { warmup: [640], set: [780], rest: [500], complete: [940], rep: [780] } },
+  phone: { name: 'Chamada', description: 'Toque reconhecível, sem urgência.', volume: .03, waveform: 'sine', timbre: 'bell', noteSeconds: .2, notes: { warmup: [540], set: [680], rest: [400], complete: [820], rep: [680] } },
+  wrong: { name: 'Contraste', description: 'Marcador incisivo para transições.', volume: .03, waveform: 'square', timbre: 'alarm', noteSeconds: .14, notes: { warmup: [520], set: [660], rest: [380], complete: [820], rep: [660] } },
+  tone: { name: 'Tom', description: 'Bip sustentado e bem definido.', volume: .035, waveform: 'sine', timbre: 'clean', noteSeconds: .18, notes: { warmup: [620], set: [780], rest: [480], complete: [940], rep: [780] } },
+  short: { name: 'Curto', description: 'Pulso enxuto para ritmos rápidos.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .12, notes: { warmup: [700], set: [860], rest: [520], complete: [1020], rep: [860] } },
   precise: { name: 'Preciso', description: 'Bips limpos e equilibrados.', volume: .04, waveform: 'sine', timbre: 'clean', noteSeconds: .12, notes: { warmup: [560, 660], set: [880, 880], rest: [440], complete: [880, 1040, 1320], rep: [660] } },
   command: { name: 'Comando', description: 'Marcador seco, firme e controlado.', volume: .035, waveform: 'square', timbre: 'command', noteSeconds: .12, notes: { warmup: [460, 620], set: [760, 760], rest: [280], complete: [620, 780, 980], rep: [620] } },
   pulse: { name: 'Pulso', description: 'Metrônomo com ataque curto.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .065, notes: { warmup: [620, 740], set: [920, 920], rest: [360], complete: [740, 920, 1100], rep: [760] } },
@@ -101,12 +114,6 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
   horn: { name: 'Buzina', description: 'Buzina grave com harmônicos suaves.', volume: .024, waveform: 'square', timbre: 'horn', noteSeconds: .16, notes: { warmup: [250, 330], set: [390, 390], rest: [180], complete: [330, 420, 510], rep: [330] } },
   bass: { name: 'Grave', description: 'Batida baixa, redonda e discreta.', volume: .035, waveform: 'triangle', timbre: 'bass', noteSeconds: .14, notes: { warmup: [210, 280], set: [330, 330], rest: [160], complete: [280, 360, 440], rep: [280] } },
   quiet: { name: 'Discreto', description: 'Sinal leve para ambientes silenciosos.', volume: .018, waveform: 'sine', timbre: 'quiet', noteSeconds: .08, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
-  censor: { name: 'Censura', description: 'Bip direto, nítido e inconfundível.', volume: .04, waveform: 'sine', timbre: 'clean', noteSeconds: .18, notes: { warmup: [760], set: [880], rest: [580], complete: [1040], rep: [880] } },
-  scanner: { name: 'Scanner', description: 'Confirmação curta de leitura.', volume: .04, waveform: 'square', timbre: 'command', noteSeconds: .16, notes: { warmup: [580], set: [720], rest: [440], complete: [860], rep: [720] } },
-  signal: { name: 'Sinal', description: 'Notificação clara e moderada.', volume: .035, waveform: 'sine', timbre: 'bell', noteSeconds: .2, notes: { warmup: [620], set: [760], rest: [480], complete: [920], rep: [760] } },
-  ting: { name: 'Ting', description: 'Toque leve com final distinto.', volume: .03, waveform: 'sine', timbre: 'bell', noteSeconds: .22, notes: { warmup: [680], set: [820], rest: [520], complete: [980], rep: [820] } },
-  radio: { name: 'Rádio', description: 'Sinal digital curto, sem agressividade.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .16, notes: { warmup: [540], set: [680], rest: [420], complete: [840], rep: [680] } },
-  impact: { name: 'Impacto', description: 'Alerta seco para marcar a virada.', volume: .04, waveform: 'square', timbre: 'command', noteSeconds: .16, notes: { warmup: [480], set: [620], rest: [360], complete: [780], rep: [620] } },
 }
 const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
   { id: 'navy', name: 'Azul' }, { id: 'ocean', name: 'Oceano' }, { id: 'cobalt', name: 'Cobalto' }, { id: 'forest', name: 'Floresta' }, { id: 'lime', name: 'Lima' }, { id: 'ember', name: 'Brasa' }, { id: 'gold', name: 'Ouro' }, { id: 'plum', name: 'Ameixa' }, { id: 'ruby', name: 'Rubi' },
@@ -184,7 +191,7 @@ export default function App() {
   const [historicalPerformances, setHistoricalPerformances] = useState<HistoricalPerformance[]>([])
   const [mediaAttachments, setMediaAttachments] = useState<MediaAttachment[]>([])
   const [loading, setLoading] = useState(true)
-  const [soundProfile, setSoundProfile] = useState<SoundProfileId>('precise')
+  const [soundProfile, setSoundProfile] = useState<SoundProfileId>('signal')
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [soundVolume, setSoundVolume] = useState(100)
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')

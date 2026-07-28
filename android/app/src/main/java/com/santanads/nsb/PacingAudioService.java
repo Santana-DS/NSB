@@ -12,7 +12,7 @@ import org.json.JSONObject;
 public class PacingAudioService extends Service {
     static final String START = "com.santanads.nsb.START", SIGNAL = "com.santanads.nsb.SIGNAL", SCHEDULE = "com.santanads.nsb.SCHEDULE", CANCEL = "com.santanads.nsb.CANCEL", UPDATE = "com.santanads.nsb.UPDATE", CONTROL = "com.santanads.nsb.CONTROL";
     private static final String CHANNEL = "nsb-pacing"; private static final int ID = 2401;
-    private static final String[] PROFILES = { "precise", "command", "pulse", "cardio", "beacon", "siren", "alarm", "horn", "bass", "quiet", "censor", "scanner", "signal", "ting", "radio", "impact" };
+    private static final String[] PROFILES = { "signal", "censor", "scanner", "ting", "radio", "impact", "classic", "select", "beep6", "phone", "wrong", "tone", "short", "precise", "command", "pulse", "cardio", "beacon", "siren", "alarm", "horn", "bass", "quiet" };
     private static final String[] EVENTS = { "warmup", "set", "rest", "complete", "rep" };
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Map<String, Integer> clips = new HashMap<>();
@@ -48,11 +48,11 @@ public class PacingAudioService extends Service {
         for (int i = 0; i < Math.min(delays.length, events.length); i++) { final String event = events[i]; final long delay = Math.max(0, delays[i]); finalDelay = Math.max(finalDelay, delay); handler.postDelayed(() -> playEvent(event, volume), delay); }
         handler.postDelayed(this::stopSelf, finalDelay + 1_000);
     }
-    private void playEvent(String serialized, int volume) { try { JSONObject event = new JSONObject(serialized); play(event.optString("profile", "precise"), event.optString("kind", "rep"), volume, false); } catch (Exception ignored) { } }
+    private void playEvent(String serialized, int volume) { try { JSONObject event = new JSONObject(serialized); play(event.optString("profile", "signal"), event.optString("kind", "rep"), volume, false); } catch (Exception ignored) { } }
     private void play(String profile, String kind, int volume, boolean replace) {
         if (soundPool == null) return;
         if (replace) stopActive();
-        Integer clip = clips.get((profile == null ? "precise" : profile) + "_" + (kind == null ? "rep" : kind));
+        Integer clip = clips.get((profile == null ? "signal" : profile) + "_" + (kind == null ? "rep" : kind));
         if (clip == null) return;
         float gain = Math.min(1f, Math.max(.12f, volume / 1000f));
         activeStream = soundPool.play(clip, gain, gain, 1, 0, 1f);
