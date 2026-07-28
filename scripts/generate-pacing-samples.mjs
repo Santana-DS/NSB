@@ -5,13 +5,7 @@ const rate = 44_100
 const profiles = {
   precise: { base: 920, decay: 15, noise: .03, harmonics: [1, 2] },
   command: { base: 420, decay: 20, noise: .28, harmonics: [1, 1.5, 2] },
-  pulse: { base: 760, decay: 12, noise: .11, harmonics: [1, 2.2] },
-  cardio: { base: 150, decay: 25, noise: .16, harmonics: [1, 1.9] },
-  beacon: { base: 660, decay: 8, noise: .02, harmonics: [1, 2.4, 3.1] },
-  siren: { base: 500, decay: 16, noise: .04, harmonics: [1, 1.2] },
-  alarm: { base: 730, decay: 22, noise: .18, harmonics: [1, 1.8] },
   horn: { base: 220, decay: 13, noise: .06, harmonics: [1, 2, 3] },
-  bass: { base: 115, decay: 18, noise: .1, harmonics: [1, 2] },
   quiet: { base: 560, decay: 10, noise: .015, harmonics: [1] },
 }
 const events = { warmup: { ratio: 1.15, ms: 155 }, set: { ratio: 1.35, ms: 130 }, rest: { ratio: .78, ms: 145 }, complete: { ratio: 1.72, ms: 190 }, rep: { ratio: 1, ms: 85 } }

@@ -80,6 +80,9 @@ function automaticPresetName(preset: WorkoutPreset): string {
   return `${projection === null ? '—' : formatDuration(projection)} · ${strategy || presetName(preset.targetReps, preset.setGroups)}`
 }
 type SoundTimbre = 'clean' | 'command' | 'pulse' | 'cardio' | 'bell' | 'siren' | 'alarm' | 'horn' | 'bass' | 'quiet'
+const SOUND_EVENTS = ['warmup', 'set', 'rest', 'complete', 'rep'] as const
+type SoundEvent = typeof SOUND_EVENTS[number]
+const DEFAULT_SOUND_MIX: Record<SoundEvent, SoundProfileId> = { warmup: 'signal', set: 'impact', rest: 'wrong', complete: 'wrong', rep: 'signal' }
 const DEFAULT_WARMUP_SECONDS = 10
 const DEFAULT_HOME_MESSAGES = [
   'Do what you know you have to do.',
@@ -91,7 +94,7 @@ const DEFAULT_HOME_MESSAGES = [
   'Força e Honra.',]
 
 const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string; volume: number; waveform: OscillatorType; timbre: SoundTimbre; noteSeconds: number; notes: Record<'warmup' | 'set' | 'rest' | 'complete' | 'rep', number[]> }> = {
-  signal: { name: 'Sinal', description: 'Notificação clara e moderada.', volume: .035, waveform: 'sine', timbre: 'bell', noteSeconds: .2, notes: { warmup: [620], set: [760], rest: [480], complete: [920], rep: [760] } },
+  signal: { name: 'Sinal', description: 'Contagem, impacto no início e contraste no fim.', volume: .035, waveform: 'sine', timbre: 'bell', noteSeconds: .2, notes: { warmup: [620], set: [760], rest: [480], complete: [920], rep: [760] } },
   censor: { name: 'Censura', description: 'Bip direto, nítido e inconfundível.', volume: .04, waveform: 'sine', timbre: 'clean', noteSeconds: .18, notes: { warmup: [760], set: [880], rest: [580], complete: [1040], rep: [880] } },
   scanner: { name: 'Scanner', description: 'Confirmação curta de leitura.', volume: .04, waveform: 'square', timbre: 'command', noteSeconds: .16, notes: { warmup: [580], set: [720], rest: [440], complete: [860], rep: [720] } },
   ting: { name: 'Ting', description: 'Toque leve com final distinto.', volume: .03, waveform: 'sine', timbre: 'bell', noteSeconds: .22, notes: { warmup: [680], set: [820], rest: [520], complete: [980], rep: [820] } },
@@ -106,13 +109,7 @@ const SOUND_PROFILES: Record<SoundProfileId, { name: string; description: string
   short: { name: 'Curto', description: 'Pulso enxuto para ritmos rápidos.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .12, notes: { warmup: [700], set: [860], rest: [520], complete: [1020], rep: [860] } },
   precise: { name: 'Preciso', description: 'Bips limpos e equilibrados.', volume: .04, waveform: 'sine', timbre: 'clean', noteSeconds: .12, notes: { warmup: [560, 660], set: [880, 880], rest: [440], complete: [880, 1040, 1320], rep: [660] } },
   command: { name: 'Comando', description: 'Marcador seco, firme e controlado.', volume: .035, waveform: 'square', timbre: 'command', noteSeconds: .12, notes: { warmup: [460, 620], set: [760, 760], rest: [280], complete: [620, 780, 980], rep: [620] } },
-  pulse: { name: 'Pulso', description: 'Metrônomo com ataque curto.', volume: .035, waveform: 'triangle', timbre: 'pulse', noteSeconds: .065, notes: { warmup: [620, 740], set: [920, 920], rest: [360], complete: [740, 920, 1100], rep: [760] } },
-  cardio: { name: 'Cardio', description: 'Pulso grave inspirado em ECG.', volume: .03, waveform: 'triangle', timbre: 'cardio', noteSeconds: .1, notes: { warmup: [240, 320], set: [380, 440], rest: [180], complete: [280, 380, 480], rep: [320] } },
-  beacon: { name: 'Farol', description: 'Sino claro, espaçado e direcional.', volume: .035, waveform: 'sine', timbre: 'bell', noteSeconds: .11, notes: { warmup: [440, 620, 800], set: [840, 840], rest: [420, 420], complete: [660, 880, 1100], rep: [620] } },
-  siren: { name: 'Sirene', description: 'Alerta oscilante, sem estridência.', volume: .022, waveform: 'sawtooth', timbre: 'siren', noteSeconds: .13, notes: { warmup: [440, 600, 760], set: [680, 880], rest: [280, 340], complete: [620, 820, 1020], rep: [600] } },
-  alarm: { name: 'Alarme', description: 'Urgente, porém com volume controlado.', volume: .018, waveform: 'square', timbre: 'alarm', noteSeconds: .08, notes: { warmup: [620, 780], set: [960, 960, 960], rest: [320, 320], complete: [760, 980, 1180], rep: [720] } },
   horn: { name: 'Buzina', description: 'Buzina grave com harmônicos suaves.', volume: .024, waveform: 'square', timbre: 'horn', noteSeconds: .16, notes: { warmup: [250, 330], set: [390, 390], rest: [180], complete: [330, 420, 510], rep: [330] } },
-  bass: { name: 'Grave', description: 'Batida baixa, redonda e discreta.', volume: .035, waveform: 'triangle', timbre: 'bass', noteSeconds: .14, notes: { warmup: [210, 280], set: [330, 330], rest: [160], complete: [280, 360, 440], rep: [280] } },
   quiet: { name: 'Discreto', description: 'Sinal leve para ambientes silenciosos.', volume: .018, waveform: 'sine', timbre: 'quiet', noteSeconds: .08, notes: { warmup: [500, 580], set: [720, 720], rest: [360], complete: [720, 840, 960], rep: [540] } },
 }
 const COLOR_PALETTES: { id: ColorPalette; name: string }[] = [
@@ -259,6 +256,7 @@ export default function App() {
   const activeWebSoundSourcesRef = useRef<AudioBufferSourceNode[]>([])
   const webSampleBuffersRef = useRef(new Map<string, AudioBuffer>())
   const nativeScheduleActiveRef = useRef(false)
+  const warmupCountdownCueRef = useRef('')
   const nativeControlRef = useRef<(action: 'advance' | 'pause') => void>(() => undefined)
   const soundPreviewTimersRef = useRef<number[]>([])
   const brandPressTimerRef = useRef<number | null>(null)
@@ -487,8 +485,23 @@ export default function App() {
     const restTarget = pacingPlan[pacingBlockIndex]?.restSeconds ?? 0
     if (restTarget <= 0 || pacingPhaseElapsed < Math.max(0, restTarget - DEFAULT_WARMUP_SECONDS)) return
     setPacingWarmupCueSent(true)
-    emitPacingSignal('warmup')
+    if (soundProfile !== 'signal') emitPacingSignal('warmup')
   }, [pacingBlockIndex, pacingPhase, pacingPhaseElapsed, pacingPlan, pacingWarmupCueSent])
+
+  useEffect(() => {
+    if (soundProfile !== 'signal') return
+    const isWarmup = pacingPhase === 'warmup'
+    const isRestCountdown = pacingPhase === 'rest' && pacingWarmupCueSent
+    if (!isWarmup && !isRestCountdown) return
+    const target = isWarmup ? pacingWarmupTargetSeconds : pacingPlan[pacingBlockIndex]?.restSeconds ?? 0
+    const countdownStart = Math.max(0, Math.ceil(target) - 5)
+    const second = Math.floor(pacingPhaseElapsed)
+    if (second < countdownStart || second >= Math.ceil(target)) return
+    const cueKey = `${pacingPhase}:${pacingPhaseStartedAt}:${second}`
+    if (warmupCountdownCueRef.current === cueKey) return
+    warmupCountdownCueRef.current = cueKey
+    emitPacingSignal('warmup')
+  }, [pacingBlockIndex, pacingPhase, pacingPhaseElapsed, pacingPlan, pacingPhaseStartedAt, pacingWarmupTargetSeconds, pacingWarmupCueSent, soundProfile])
 
   function resetForm() {
     setTargetReps(100)
@@ -858,15 +871,20 @@ export default function App() {
     if (lock && !lock.released) await lock.release()
   }
 
-  function emitPacingSignal(kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep', profileId: SoundProfileId = soundProfile, replace = false) {
+  function resolvePacingSound(profileId: SoundProfileId, kind: SoundEvent): SoundProfileId {
+    return profileId === 'signal' ? DEFAULT_SOUND_MIX[kind] : profileId
+  }
+
+  function emitPacingSignal(kind: SoundEvent, profileId: SoundProfileId = soundProfile, replace = false) {
     if (!soundEnabled) return
+    const resolvedProfileId = resolvePacingSound(profileId, kind)
     if (Capacitor.getPlatform() === 'android') {
       if (nativeScheduleActiveRef.current) return
-      const profile = SOUND_PROFILES[profileId]
-      void NativePacingAudio.signal({ profile: profileId, kind, volume: Math.round(soundVolume), tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume, replace }).catch(() => undefined)
+      const profile = SOUND_PROFILES[resolvedProfileId]
+      void NativePacingAudio.signal({ profile: resolvedProfileId, kind, volume: Math.round(soundVolume), tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume, replace }).catch(() => undefined)
       return
     }
-    void loadWebPacingSample(profileId, kind).then((sample) => {
+    void loadWebPacingSample(resolvedProfileId, kind).then((sample) => {
       const context = audioContextRef.current
       if (!sample || !context) return
       if (replace) {
@@ -898,9 +916,17 @@ export default function App() {
 
   function scheduleNativeAutomaticPacing() {
     if (!soundEnabled || Capacitor.getPlatform() !== 'android' || pacingMode !== 'automatic' || pacingPlan.length === 0) return
-    const events: { delayMs: number; profile: SoundProfileId; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] = []
-    const profile = SOUND_PROFILES[soundProfile]
-    const addEvent = (delayMs: number, kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep') => events.push({ delayMs, profile: soundProfile, kind, tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume })
+    const events: { delayMs: number; profile: SoundProfileId; kind: SoundEvent; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] = []
+    const addEvent = (delayMs: number, kind: SoundEvent) => {
+      const profileId = resolvePacingSound(soundProfile, kind)
+      const profile = SOUND_PROFILES[profileId]
+      events.push({ delayMs, profile: profileId, kind, tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume })
+    }
+    const addWarmupCountdown = (startsAt: number, seconds: number) => {
+      if (soundProfile !== 'signal') { addEvent(startsAt * 1000, 'warmup'); return }
+      for (let second = Math.max(0, Math.ceil(seconds) - 5); second < Math.ceil(seconds); second += 1) addEvent((startsAt + second) * 1000, 'warmup')
+    }
+    addWarmupCountdown(0, DEFAULT_WARMUP_SECONDS)
     let elapsedSeconds = DEFAULT_WARMUP_SECONDS
     pacingPlan.forEach((block, blockIndex) => {
       addEvent(elapsedSeconds * 1000, 'set')
@@ -908,7 +934,7 @@ export default function App() {
       elapsedSeconds += block.reps * block.paceSeconds
       if (blockIndex === pacingPlan.length - 1) { addEvent(elapsedSeconds * 1000, 'complete'); return }
       addEvent(elapsedSeconds * 1000, 'rest')
-      if (block.restSeconds > DEFAULT_WARMUP_SECONDS) addEvent((elapsedSeconds + block.restSeconds - DEFAULT_WARMUP_SECONDS) * 1000, 'warmup')
+      if (block.restSeconds >= 5) addWarmupCountdown(elapsedSeconds, block.restSeconds)
       elapsedSeconds += block.restSeconds
     })
     nativeScheduleActiveRef.current = true
@@ -930,7 +956,7 @@ export default function App() {
     setPacingWarmupCueSent(true)
     setPacingEvents([{ type: 'session-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }, { type: 'warmup-started', transition: 'automatic', elapsedSeconds: timerElapsedSeconds }])
     setLastRepCue(0)
-    emitPacingSignal('warmup')
+    if (soundProfile !== 'signal') emitPacingSignal('warmup')
   }
 
   function advancePacingPhase(transition: 'automatic' | 'manual' = 'manual') {
@@ -1005,7 +1031,7 @@ export default function App() {
           setPacingWarmupInitial(false)
           setPacingWarmupTargetSeconds(Math.min(DEFAULT_WARMUP_SECONDS, remainingRest))
           appendPacingEvent('warmup-started', transition, nextBlockIndex)
-          if (!pacingWarmupCueSent) emitPacingSignal('warmup')
+          if (!pacingWarmupCueSent && soundProfile !== 'signal') emitPacingSignal('warmup')
         } else {
           setPacingPhase('set')
           appendPacingEvent('set-started', transition, nextBlockIndex)
