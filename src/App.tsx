@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { createBackup, mergeWorkouts, parseBackup } from './lib/backup'
 import { translate, type AppLanguage } from './lib/i18n'
@@ -20,6 +20,13 @@ interface PacingStats { count: number; reps: number; activeSeconds: number; rest
 type DownloadFormat = 'svg' | 'png' | 'jpeg'
 type PacingPhase = 'idle' | 'warmup' | 'set' | 'rest' | 'paused' | 'complete'
 type AchievementNotice = { kind: 'record' | 'pace' | 'record-and-pace' | 'shot-caller'; targetReps: RepTarget; durationSeconds: number; paceSeconds?: number }
+
+const LanguageContext = createContext<AppLanguage>('en-US')
+
+function useTranslation() {
+  const language = useContext(LanguageContext)
+  return { language, t: (key: string, values?: Record<string, string | number>) => translate(language, key, values) }
+}
 
 function normalizeRepTargets(values: number[]): number[] {
   return [...new Set(values.map((value) => Math.round(value)).filter((value) => Number.isFinite(value) && value > 0 && value <= 10_000))].sort((a, b) => a - b)
@@ -163,10 +170,6 @@ function formatStopwatch(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60)
   const remainingSeconds = seconds % 60
   return [hours, minutes, remainingSeconds].map((part) => String(part).padStart(2, '0')).join(':')
-}
-
-function dateLabel(iso: string): string {
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(iso))
 }
 
 function getPacingProjection({ phase, pausedPhase, phaseElapsed, warmupInitial, warmupTargetSeconds, blockIndex, plan, timerElapsedSeconds, plannedSeconds }: { phase: PacingPhase; pausedPhase: 'warmup' | 'set' | 'rest'; phaseElapsed: number; warmupInitial: boolean; warmupTargetSeconds: number; blockIndex: number; plan: { reps: number; paceSeconds: number; restSeconds: number }[]; timerElapsedSeconds: number; plannedSeconds: number }): number {
@@ -1156,7 +1159,7 @@ export default function App() {
   const t = (key: string, values?: Record<string, string | number>) => translate(language, key, values)
 
   return (
-    <main className="app-shell">
+    <LanguageContext.Provider value={language}><main className="app-shell">
       <header ref={brandHeaderRef} className={`app-header ${screen === 'history' ? 'sticky-header' : ''} ${brandInfoOpen ? 'brand-story-open' : ''}`}>
         <button className={brandPressing ? 'brand is-pressing' : 'brand'} onPointerDown={() => { if (brandInfoOpen) { setBrandInfoOpen(false); return }; beginBrandPress() }} onPointerUp={endBrandPress} onPointerLeave={endBrandPress} onPointerCancel={endBrandPress} onContextMenu={(event) => event.preventDefault()} onClick={() => { if (brandInfoOpen || brandLongPressRef.current) { brandLongPressRef.current = false; return }; setScreen('home') }} aria-label="Ir para início. Pressione e segure para saber mais sobre o desafio.">
           <span className="brand-mark-wrap"><img className="brand-mark" src="/nsb-icon.png" alt="" /><i aria-hidden="true" /></span>
@@ -1415,7 +1418,7 @@ export default function App() {
       {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} attachments={mediaAttachments} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} onSaveWorkout={updateWorkoutFromDay} onSaveAttachment={saveAttachment} />}
       {comparisonExpanded && <div className="comparison-backdrop" role="presentation" onClick={() => setComparisonExpanded(false)}><section className="comparison-dialog" role="dialog" aria-modal="true" aria-label="Comparação anual ampliada" onClick={(event) => event.stopPropagation()}><YearComparisonChart records={filteredVolumeRecords} hiddenYears={hiddenComparisonYears} onToggleYear={toggleComparisonYear} onRestoreYears={() => setHiddenComparisonYears([])} expanded zoom={comparisonZoom} chartId="annual-comparison-chart" onDownload={downloadComparison} onZoom={(delta) => setComparisonZoom((zoom) => Math.min(1.5, Math.max(1, zoom + delta)))} /></section></div>}
       {achievementNotice && <div className="achievement-backdrop" role="presentation" onClick={() => setAchievementNotice(null)}><section className={`achievement-dialog ${achievementNotice.kind}`} role="dialog" aria-modal="true" aria-labelledby="achievement-title" onClick={(event) => event.stopPropagation()}><span aria-hidden="true">{achievementNotice.kind === 'shot-caller' ? '★' : '✦'}</span><p>{achievementNotice.kind === 'shot-caller' ? 'CONQUISTA' : achievementNotice.kind === 'pace' ? 'Novo recorde de ritmo' : achievementNotice.kind === 'record-and-pace' ? 'Tempo e ritmo superados' : 'Novo recorde pessoal'}</p><h2 id="achievement-title">{achievementNotice.kind === 'shot-caller' ? 'SHOT CALLER' : `${achievementNotice.targetReps} NSBs`}</h2><strong>{achievementNotice.kind === 'pace' ? `${formatDuration(Math.round(achievementNotice.paceSeconds ?? 0))} / rep.` : formatDuration(achievementNotice.durationSeconds)}</strong><small>{achievementNotice.kind === 'shot-caller' ? '500 NSBs registrados.' : achievementNotice.kind === 'record-and-pace' ? `Melhor tempo e ${formatDuration(Math.round(achievementNotice.paceSeconds ?? 0))} por repetição.` : achievementNotice.kind === 'pace' ? 'Seu melhor ritmo ativo para esta quantidade.' : 'Seu melhor tempo para esta quantidade.'}</small><button type="button" className="primary-action" onClick={() => setAchievementNotice(null)}>Continuar</button></section></div>}
-    </main>
+    </main></LanguageContext.Provider>
   )
 
   async function archiveWorkout(workout: Workout) {
@@ -1651,24 +1654,20 @@ export default function App() {
   }
 }
 
-function periodLabel(period: Period): string {
-  if (period === 'month') return 'Este mês'
-  if (period === 'year') return 'Este ano'
-  return 'Todo o período'
-}
-
 function ActivityList({ workouts, legacyVolumes, onArchive }: { workouts: Workout[]; legacyVolumes: LegacyDailyVolume[]; onArchive: (workout: Workout) => void }) {
+  const { language, t } = useTranslation()
   const activities = [
     ...workouts.map((workout) => ({ id: workout.id, date: workout.performedAt, reps: workout.targetReps, kind: 'workout' as const, workout })),
     ...legacyVolumes.map((volume) => ({ id: volume.id, date: `${volume.date}T12:00:00.000Z`, reps: volume.reps, kind: 'legacy' as const })),
   ].sort((a, b) => b.date.localeCompare(a.date))
-  if (activities.length === 0) return <p className="empty-state">Nenhum treino ou volume histórico registrado ainda.</p>
+  if (activities.length === 0) return <p className="empty-state">{t('history.empty')}</p>
   return <ol className="workout-list">
-    {activities.map((activity) => <li key={activity.id}><div><strong>{activity.reps} NSBs</strong><span>{dateLabel(activity.date)} · {activity.kind === 'workout' ? formatSetGroups(activity.workout.setGroups) : 'Volume histórico importado'}</span></div>{activity.kind === 'workout' ? <div className="workout-actions"><time dateTime={`PT${activity.workout.durationSeconds}S`}>{formatDuration(activity.workout.durationSeconds)}</time><button type="button" className="archive-button" onClick={() => onArchive(activity.workout)}>Excluir</button></div> : <span className="historical-badge">Sem tempo/sets</span>}</li>)}
+    {activities.map((activity) => <li key={activity.id}><div><strong>{activity.reps} NSBs</strong><span>{new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(new Date(activity.date))} · {activity.kind === 'workout' ? formatSetGroups(activity.workout.setGroups) : t('history.importedVolume')}</span></div>{activity.kind === 'workout' ? <div className="workout-actions"><time dateTime={`PT${activity.workout.durationSeconds}S`}>{formatDuration(activity.workout.durationSeconds)}</time><button type="button" className="archive-button" onClick={() => onArchive(activity.workout)}>{t('history.delete')}</button></div> : <span className="historical-badge">{t('history.noTimeSets')}</span>}</li>)}
   </ol>
 }
 
 function ArchivedWorkoutList({ workouts, onRestore, onDeletePermanently }: { workouts: Workout[]; onRestore: (workout: Workout) => Promise<void>; onDeletePermanently: (ids: string[]) => Promise<boolean> }) {
+  const { language, t } = useTranslation()
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const allSelected = workouts.length > 0 && selectedIds.length === workouts.length
   const toggleWorkout = (id: string) => setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
@@ -1676,15 +1675,16 @@ function ArchivedWorkoutList({ workouts, onRestore, onDeletePermanently }: { wor
   const deleteSelected = () => { void onDeletePermanently(selectedIds).then((deleted) => { if (deleted) setSelectedIds([]) }) }
   const restoreSelected = () => { void Promise.all(workouts.filter((workout) => selectedIds.includes(workout.id)).map(onRestore)).then(() => setSelectedIds([])) }
   return <section className="trash-section" aria-labelledby="trash-title">
-    <div className="section-heading"><div><p className="eyebrow">Lixeira</p><h2 id="trash-title">Treinos arquivados</h2></div></div>
-    <div className="trash-actions"><label className="trash-select-all"><input type="checkbox" checked={allSelected} onChange={selectAll} /> Selecionar todos</label>{selectedIds.length > 0 && <div><button type="button" className="secondary-action" onClick={restoreSelected}>Restaurar selecionados</button><button type="button" className="archive-button" onClick={deleteSelected}>Excluir selecionados</button></div>}</div>
+    <div className="section-heading"><div><p className="eyebrow">{t('history.trash')}</p><h2 id="trash-title">{t('history.archived')}</h2></div></div>
+    <div className="trash-actions"><label className="trash-select-all"><input type="checkbox" checked={allSelected} onChange={selectAll} /> {t('history.selectAll')}</label>{selectedIds.length > 0 && <div><button type="button" className="secondary-action" onClick={restoreSelected}>{t('history.restoreSelected')}</button><button type="button" className="archive-button" onClick={deleteSelected}>{t('history.deleteSelected')}</button></div>}</div>
     <ol className="workout-list">
-      {workouts.map((workout) => <li key={workout.id}><label className="trash-item-select"><input type="checkbox" checked={selectedIds.includes(workout.id)} onChange={() => toggleWorkout(workout.id)} aria-label={`Selecionar treino de ${workout.targetReps} NSBs`} /></label><div><strong>{workout.targetReps} NSBs</strong><span>{dateLabel(workout.performedAt)}</span></div><div className="workout-actions"><button type="button" className="secondary-action" onClick={() => { void onRestore(workout) }}>Restaurar</button><button type="button" className="archive-button" onClick={() => { void onDeletePermanently([workout.id]) }}>Excluir</button></div></li>)}
+      {workouts.map((workout) => <li key={workout.id}><label className="trash-item-select"><input type="checkbox" checked={selectedIds.includes(workout.id)} onChange={() => toggleWorkout(workout.id)} aria-label={t('history.selectWorkout', { target: workout.targetReps })} /></label><div><strong>{workout.targetReps} NSBs</strong><span>{new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(new Date(workout.performedAt))}</span></div><div className="workout-actions"><button type="button" className="secondary-action" onClick={() => { void onRestore(workout) }}>{t('history.restore')}</button><button type="button" className="archive-button" onClick={() => { void onDeletePermanently([workout.id]) }}>{t('history.delete')}</button></div></li>)}
     </ol>
   </section>
 }
 
 function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, onEvolutionScaleChange, period, expandedYear, expandedMonth, onExpandYear, onExpandMonth, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; palette?: ColorPalette; evolutionScale: number; onEvolutionScaleChange: (scale: number) => void; period: Period; expandedYear: number | null; expandedMonth: { year: number; month: number } | null; onExpandYear: (year: number) => void; onExpandMonth: (selection: { year: number; month: number }) => void; onSelectDay: (date: string) => void; onBack: () => void }) {
+  const { t } = useTranslation()
   const now = new Date()
   const shownMonth = expandedMonth ?? (period === 'month' ? { year: now.getFullYear(), month: now.getMonth() } : null)
   const shownYear = expandedYear ?? (period === 'year' ? now.getFullYear() : null)
@@ -1707,9 +1707,9 @@ function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, 
   const showEvolutionScale = false
 
   if (shownMonth) return <DailyVolumeGrid records={records} personalRecords={personalRecords} palette={palette} selection={shownMonth} onSelectDay={onSelectDay} onBack={period === 'month' ? undefined : onBack} />
-  if (records.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados neste período para visualizar o gráfico.</p>
+  if (records.length === 0) return <p className="empty-state chart-empty">{t('charts.emptyPeriod')}</p>
   return <section className="volume-chart home-chart" aria-labelledby="home-chart-title">
-    <div className="section-heading"><div><p className="eyebrow">{shownYear ?? periodLabel(period)}</p><h2 id="home-chart-title">{isYearOverview ? 'Volume por ano' : 'Volume por mês'}</h2></div><div className="evolution-actions">{showEvolutionScale && <label className="evolution-scale" title="Escala do gráfico"><span aria-hidden="true">↔</span><input type="range" min={MIN_EVOLUTION_SCALE} max={MAX_EVOLUTION_SCALE} value={evolutionScale} aria-label="Escala do gráfico de evolução" onChange={(event) => onEvolutionScaleChange(Number(event.target.value))} /></label>}{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div></div>
+    <div className="section-heading"><div><p className="eyebrow">{shownYear ?? t(`period.${period}`)}</p><h2 id="home-chart-title">{isYearOverview ? t('charts.volumeYear') : t('charts.volumeMonth')}</h2></div><div className="evolution-actions">{showEvolutionScale && <label className="evolution-scale" title={t('charts.scale')}><span aria-hidden="true">↔</span><input type="range" min={MIN_EVOLUTION_SCALE} max={MAX_EVOLUTION_SCALE} value={evolutionScale} aria-label={t('charts.evolutionScale')} onChange={(event) => onEvolutionScaleChange(Number(event.target.value))} /></label>}{period === 'all' && expandedYear !== null && <button className="text-button" type="button" onClick={onBack}>← {t('charts.back')}</button>}</div></div>
     <ol className={hideBarText ? 'drilldown-bars compact' : 'drilldown-bars'} onTouchStart={beginPinch} onTouchMove={updatePinch} onTouchEnd={endPinch} onTouchCancel={endPinch} style={{ gridTemplateColumns: `repeat(${bins.length}, minmax(${barWidth}px, 1fr))`, columnGap: `${barGap}px` }}>
       {bins.map((bin) => <li key={bin.key} aria-label={`${bin.label}: ${bin.total} NSBs`}><button className="chart-bar-button" type="button" onClick={() => isYearOverview ? onExpandYear(bin.year!) : onExpandMonth({ year: shownYear!, month: bin.month! })}>{!hideBarText && <span className="bar-value">{bin.total || '—'}</span>}<span className="bar-track"><span className="bar" style={{ height: `${Math.max((bin.total / highest) * 100, bin.total ? 5 : 0)}%`, backgroundColor: volumeColor(bin.total, highest, palette) }} /></span>{!hideBarText && <span className="bar-label">{bin.label}</span>}</button></li>)}
     </ol>
@@ -1717,20 +1717,22 @@ function PeriodVolumeChart({ records, personalRecords, palette, evolutionScale, 
 }
 
 function DailyVolumeGrid({ records, personalRecords, palette, selection, onSelectDay, onBack }: { records: VolumeRecord[]; personalRecords: TimedRecord[]; palette?: ColorPalette; selection: { year: number; month: number }; onSelectDay: (date: string) => void; onBack?: () => void }) {
+  const { language, t } = useTranslation()
   const days = new Date(selection.year, selection.month + 1, 0).getDate()
   const amounts = new Map<number, number>()
   records.forEach((record) => {
     const date = new Date(record.date)
     if (date.getFullYear() === selection.year && date.getMonth() === selection.month) amounts.set(date.getDate(), (amounts.get(date.getDate()) ?? 0) + record.reps)
   })
-  const monthName = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(new Date(selection.year, selection.month, 1))
+  const monthName = new Intl.DateTimeFormat(language, { month: 'long' }).format(new Date(selection.year, selection.month, 1))
   const highest = Math.max(...amounts.values(), 1)
   const recordsByDate = new Map<string, RepTarget[]>()
   personalRecords.forEach((record) => recordsByDate.set(record.date, [...(recordsByDate.get(record.date) ?? []), record.targetReps]))
-  return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · volume diário</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← Voltar</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); const recordTargets = recordsByDate.get(date) ?? []; return <li key={day} className={`${total > 0 ? 'has-volume' : ''} ${recordTargets.length > 0 ? 'has-record' : ''}`} style={total > 0 ? { backgroundColor: volumeColor(total, highest, palette) } : undefined}><button type="button" onClick={() => onSelectDay(date)} aria-label={`${day} de ${monthName}: ${total} NSBs${recordTargets.length > 0 ? `, recorde de ${recordTargets.join(' e ')} NSBs` : ''}`}><span>{day}</span>{recordTargets.length > 0 && <em title={`Recorde: ${recordTargets.join(', ')} NSBs`}>★</em>}<strong>{total || '—'}</strong></button></li> })}</ol></section>
+  return <section className="daily-grid" aria-labelledby="daily-title"><div className="section-heading"><div><p className="eyebrow">{selection.year}</p><h2 id="daily-title">{monthName} · {t('charts.dailyVolume')}</h2></div>{onBack && <button className="text-button" type="button" onClick={onBack}>← {t('charts.back')}</button>}</div><ol>{Array.from({ length: days }, (_, index) => { const day = index + 1; const total = amounts.get(day) ?? 0; const date = toDateKey(selection.year, selection.month, day); const recordTargets = recordsByDate.get(date) ?? []; return <li key={day} className={`${total > 0 ? 'has-volume' : ''} ${recordTargets.length > 0 ? 'has-record' : ''}`} style={total > 0 ? { backgroundColor: volumeColor(total, highest, palette) } : undefined}><button type="button" onClick={() => onSelectDay(date)} aria-label={t('charts.dailyAria', { day, month: monthName, total })}><span>{day}</span>{recordTargets.length > 0 && <em title={t('charts.record', { targets: recordTargets.join(', ') })}>★</em>}<strong>{total || '—'}</strong></button></li> })}</ol></section>
 }
 
 function ConsistencyHeatmap({ records, palette }: { records: VolumeRecord[]; palette?: ColorPalette }) {
+  const { language, t } = useTranslation()
   const today = new Date()
   const start = new Date(today)
   start.setDate(start.getDate() - 307)
@@ -1739,17 +1741,18 @@ function ConsistencyHeatmap({ records, palette }: { records: VolumeRecord[]; pal
   records.forEach((record) => { const key = toDateKeyFromIso(record.date); volumes.set(key, (volumes.get(key) ?? 0) + record.reps) })
   const days = Array.from({ length: 44 * 7 }, (_, index) => { const date = new Date(start); date.setDate(start.getDate() + index); const key = toDateKey(date.getFullYear(), date.getMonth(), date.getDate()); return { key, date, total: volumes.get(key) ?? 0 } })
   const highest = Math.max(...days.map((day) => day.total), 1)
-  return <section className="consistency-heatmap" aria-labelledby="heatmap-title"><div className="section-heading"><div><p className="eyebrow">Constância</p><h2 id="heatmap-title">Últimas 44 semanas</h2></div><span className="heatmap-scale">Menos <i /> <i /> <i /> Mais</span></div><ol>{days.map((day) => <li key={day.key} title={`${new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(day.date)}: ${day.total} NSBs`} aria-label={`${day.key}: ${day.total} NSBs`} style={day.total > 0 ? { backgroundColor: volumeColor(day.total, highest, palette) } : undefined} />)}</ol></section>
+  return <section className="consistency-heatmap" aria-labelledby="heatmap-title"><div className="section-heading"><div><p className="eyebrow">{t('charts.consistency')}</p><h2 id="heatmap-title">{t('charts.lastWeeks')}</h2></div><span className="heatmap-scale">{t('charts.less')} <i /> <i /> <i /> {t('charts.more')}</span></div><ol>{days.map((day) => <li key={day.key} title={`${new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(day.date)}: ${day.total} NSBs`} aria-label={`${day.key}: ${day.total} NSBs`} style={day.total > 0 ? { backgroundColor: volumeColor(day.total, highest, palette) } : undefined} />)}</ol></section>
 }
 
 function TimeStatistics({ records, strategyRecords, workouts, targetFilter, onOpenVolumeDay }: { records: TimedRecord[]; strategyRecords: StrategyRecord[]; workouts: Workout[]; targetFilter: RepTarget | 'all'; onOpenVolumeDay: (date: string) => void }) {
+  const { language, t } = useTranslation()
   const targets: RepTarget[] = targetFilter === 'all' ? [...REP_TARGETS] : [targetFilter]
   const summaries = targets.reduce<Array<{ target: RepTarget; stats: NonNullable<ReturnType<typeof getTimeStats>> }>>((items, target) => {
     const stats = getTimeStats(records.filter((record) => record.targetReps === target))
     if (stats) items.push({ target, stats })
     return items
   }, [])
-  return <>{summaries.length > 0 ? <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">Desempenho</p><h2 id="time-statistics-title">Tempo por quantidade</h2></div><span className="chart-unit">Treinos e performances</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => { const pacing = targetFilter === 'all' ? null : getPacingStats(workouts.filter((workout) => workout.targetReps === target)); return <article key={target}><h3>{target} NSBs <span>{stats.count} registro(s)</span></h3>{target === 500 && <span className="shot-caller-seal statistics-seal">★ SHOT CALLER</span>}<dl><div><dt>Melhor</dt><dd><button className="stat-best" type="button" onClick={() => onOpenVolumeDay(stats.best.date)} aria-label={`Abrir o volume diário do melhor tempo de ${target} NSBs`}>{formatDuration(stats.min)}</button></dd><small>{new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' }).format(new Date(`${stats.best.date}T12:00:00`))}</small></div><div><dt>Pior</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Mediana</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div>{pacing && <div><dt>Ritmo em set</dt><dd>{formatDuration(Math.round(pacing.activeSeconds / pacing.reps))} <small>/ rep.</small></dd><small>{pacing.count} treino(s) guiado(s)</small></div>}</dl></article>})}</div></section> : <p className="empty-state chart-empty">Registre um treino com tempo para gerar estatísticas de desempenho.</p>}<StrategyStatistics records={strategyRecords} targetFilter={targetFilter} /></>
+  return <>{summaries.length > 0 ? <section className="time-statistics" aria-labelledby="time-statistics-title"><div className="section-heading"><div><p className="eyebrow">{t('stats.performance')}</p><h2 id="time-statistics-title">{t('stats.timeByTarget')}</h2></div><span className="chart-unit">{t('stats.workoutsPerformances')}</span></div><div className="time-stat-grid">{summaries.map(({ target, stats }) => { const pacing = targetFilter === 'all' ? null : getPacingStats(workouts.filter((workout) => workout.targetReps === target)); return <article key={target}><h3>{target} NSBs <span>{t('stats.records', { count: stats.count })}</span></h3>{target === 500 && <span className="shot-caller-seal statistics-seal">★ SHOT CALLER</span>}<dl><div><dt>{t('stats.best')}</dt><dd><button className="stat-best" type="button" onClick={() => onOpenVolumeDay(stats.best.date)} aria-label={t('stats.openBest', { target })}>{formatDuration(stats.min)}</button></dd><small>{new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(new Date(`${stats.best.date}T12:00:00`))}</small></div><div><dt>{t('stats.worst')}</dt><dd>{formatDuration(stats.max)}</dd></div><div><dt>{t('stats.average')}</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>{t('stats.median')}</dt><dd>{formatDuration(stats.median)}</dd></div><div><dt>{t('stats.averagePace')}</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div>{pacing && <div><dt>{t('stats.setPace')}</dt><dd>{formatDuration(Math.round(pacing.activeSeconds / pacing.reps))} <small>/ rep.</small></dd><small>{t('stats.guidedWorkouts', { count: pacing.count })}</small></div>}</dl></article>})}</div></section> : <p className="empty-state chart-empty">{t('stats.empty')}</p>}<StrategyStatistics records={strategyRecords} targetFilter={targetFilter} /></>
 }
 
 function getPacingStats(workouts: Workout[]): PacingStats | null {
@@ -1764,11 +1767,12 @@ function getPacingStats(workouts: Workout[]): PacingStats | null {
 }
 
 function StrategyStatistics({ records, targetFilter }: { records: StrategyRecord[]; targetFilter: RepTarget | 'all' }) {
+  const { t } = useTranslation()
   const groups = new Map<string, StrategyRecord[]>()
   records.filter((record) => targetFilter === 'all' || record.targetReps === targetFilter).forEach((record) => { const key = `${record.targetReps}|${record.strategy}`; groups.set(key, [...(groups.get(key) ?? []), record]) })
   const summaries = [...groups.entries()].map(([key, groupedRecords]) => ({ key, target: groupedRecords[0].targetReps, strategy: groupedRecords[0].strategy, stats: getTimeStats(groupedRecords) })).filter((item): item is { key: string; target: RepTarget; strategy: string; stats: NonNullable<ReturnType<typeof getTimeStats>> } => item.stats !== null)
-  if (summaries.length === 0) return <p className="empty-state strategy-empty">Adicione a estrutura de sets aos treinos para comparar estratégias.</p>
-  return <section className="strategy-statistics" aria-labelledby="strategy-statistics-title"><div className="section-heading"><div><p className="eyebrow">Estratégias</p><h2 id="strategy-statistics-title">Tempo por estrutura de sets</h2></div></div><div className="strategy-stat-grid">{summaries.map(({ key, target, strategy, stats }) => <article key={key}><p>{target} NSBs · {stats.count} registro(s)</p><h3>{strategy}</h3><dl><div><dt>Melhor</dt><dd>{formatDuration(stats.min)}</dd></div><div><dt>Média</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>Ritmo médio</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div></dl></article>)}</div></section>
+  if (summaries.length === 0) return <p className="empty-state strategy-empty">{t('stats.strategyEmpty')}</p>
+  return <section className="strategy-statistics" aria-labelledby="strategy-statistics-title"><div className="section-heading"><div><p className="eyebrow">{t('stats.strategies')}</p><h2 id="strategy-statistics-title">{t('stats.timeBySets')}</h2></div></div><div className="strategy-stat-grid">{summaries.map(({ key, target, strategy, stats }) => <article key={key}><p>{target} NSBs · {t('stats.records', { count: stats.count })}</p><h3>{strategy}</h3><dl><div><dt>{t('stats.best')}</dt><dd>{formatDuration(stats.min)}</dd></div><div><dt>{t('stats.average')}</dt><dd>{formatDuration(stats.average)}</dd></div><div><dt>{t('stats.averagePace')}</dt><dd>{formatDuration(stats.secondsPerRep)} <small>/ rep.</small></dd></div></dl></article>)}</div></section>
 }
 
 function getTimeStats(records: TimedRecord[]): { count: number; min: number; max: number; average: number; median: number; secondsPerRep: number; best: TimedRecord } | null {
@@ -1783,6 +1787,7 @@ function getTimeStats(records: TimedRecord[]): { count: number; min: number; max
 }
 
 function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYears, onExpand, expanded = false, zoom = 1, chartId, onDownload, onZoom }: { records: VolumeRecord[]; hiddenYears: number[]; onToggleYear: (year: number) => void; onRestoreYears: () => void; onExpand?: () => void; expanded?: boolean; zoom?: number; chartId?: string; onDownload?: (format: DownloadFormat) => void; onZoom?: (delta: number) => void }) {
+  const { language, t } = useTranslation()
   const pinchDistance = useRef<number | null>(null)
   const lastTapAt = useRef(0)
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
@@ -1799,7 +1804,7 @@ function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYear
   const highestValue = Math.max(...visibleData.flatMap((series) => series.values), 1)
   const maximum = Math.ceil(highestValue / 100) * 100
   const yTicks = Array.from({ length: 5 }, (_, index) => Math.round((maximum * index) / 4))
-  const months = Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(new Date(2026, month, 1)).replace('.', ''))
+  const months = Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat(language, { month: 'short' }).format(new Date(2026, month, 1)).replace('.', ''))
   const colors = ['#0d5261', '#c5723b', '#7658a6', '#3e8a70', '#b54864', '#5877a8']
   const width = 720
   const height = 300
@@ -1809,12 +1814,12 @@ function YearComparisonChart({ records, hiddenYears, onToggleYear, onRestoreYear
   const plotHeight = height - bottom - top
   const point = (month: number, value: number) => ({ x: left + (month * (width - left - 20)) / 11, y: top + plotHeight - (value / maximum) * plotHeight })
 
-  if (data.length === 0) return <p className="empty-state chart-empty">Registre ou importe dados para comparar anos.</p>
+  if (data.length === 0) return <p className="empty-state chart-empty">{t('comparison.empty')}</p>
   const distanceBetweenTouches = (touches: React.TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
   const adjustZoom = () => onZoom?.(zoom >= 1.5 ? -.5 : .25)
   return <section className={expanded ? 'year-comparison expanded' : 'year-comparison clickable'} aria-labelledby="comparison-title" onClick={onExpand}>
-    <div className="section-heading"><div><p className="eyebrow">Todo o período</p><h2 id="comparison-title">Comparação mês a mês</h2></div><div className="chart-meta"><span className="chart-unit">NSBs</span>{hiddenYears.length > 0 && <button className="chart-download" type="button" aria-label="Mostrar todos os anos" title="Mostrar todos os anos" onClick={(event) => { event.stopPropagation(); onRestoreYears() }}>↺</button>}{onDownload && <div className="download-wrapper"><button className="chart-download" type="button" aria-label="Baixar gráfico" title="Baixar gráfico" aria-expanded={downloadMenuOpen} onClick={(event) => { event.stopPropagation(); setDownloadMenuOpen((open) => !open) }}>⇩</button>{downloadMenuOpen && <div className="download-menu" role="menu"><button type="button" onClick={() => { onDownload('svg'); setDownloadMenuOpen(false) }}>SVG</button><button type="button" onClick={() => { onDownload('png'); setDownloadMenuOpen(false) }}>PNG</button><button type="button" onClick={() => { onDownload('jpeg'); setDownloadMenuOpen(false) }}>JPG</button></div>}</div>}</div></div>
-    <div className="comparison-scroll" onDoubleClick={adjustZoom} onWheel={(event) => { if (!onZoom || !event.ctrlKey) return; event.preventDefault(); onZoom(event.deltaY < 0 ? .05 : -.05) }} onTouchStart={(event) => { if (event.touches.length === 2) pinchDistance.current = distanceBetweenTouches(event.touches) }} onTouchMove={(event) => { if (!onZoom || event.touches.length !== 2 || pinchDistance.current === null) return; const distance = distanceBetweenTouches(event.touches); if (Math.abs(distance - pinchDistance.current) < 8) return; onZoom(distance > pinchDistance.current ? .05 : -.05); pinchDistance.current = distance }} onTouchEnd={() => { if (onZoom && pinchDistance.current === null) { const now = Date.now(); if (now - lastTapAt.current < 300) { adjustZoom(); lastTapAt.current = 0 } else lastTapAt.current = now }; pinchDistance.current = null }}><div className="comparison-canvas" style={expanded ? { width: `${zoom * 100}%` } : undefined}><svg id={chartId} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Volume mensal comparado entre anos"><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{visibleData.map((series) => { const color = colors[data.findIndex((item) => item.year === series.year) % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <button key={series.year} type="button" className={hiddenYears.includes(series.year) ? 'is-hidden' : ''} aria-pressed={!hiddenYears.includes(series.year)} disabled={!hiddenYears.includes(series.year) && visibleData.length === 1} onClick={(event) => { event.stopPropagation(); onToggleYear(series.year) }}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString('pt-BR')} NSBs</button>)}</div></div></div>
+    <div className="section-heading"><div><p className="eyebrow">{t('period.all')}</p><h2 id="comparison-title">{t('comparison.title')}</h2></div><div className="chart-meta"><span className="chart-unit">NSBs</span>{hiddenYears.length > 0 && <button className="chart-download" type="button" aria-label={t('comparison.showAll')} title={t('comparison.showAll')} onClick={(event) => { event.stopPropagation(); onRestoreYears() }}>↺</button>}{onDownload && <div className="download-wrapper"><button className="chart-download" type="button" aria-label={t('comparison.download')} title={t('comparison.download')} aria-expanded={downloadMenuOpen} onClick={(event) => { event.stopPropagation(); setDownloadMenuOpen((open) => !open) }}>⇩</button>{downloadMenuOpen && <div className="download-menu" role="menu"><button type="button" onClick={() => { onDownload('svg'); setDownloadMenuOpen(false) }}>SVG</button><button type="button" onClick={() => { onDownload('png'); setDownloadMenuOpen(false) }}>PNG</button><button type="button" onClick={() => { onDownload('jpeg'); setDownloadMenuOpen(false) }}>JPG</button></div>}</div>}</div></div>
+    <div className="comparison-scroll" onDoubleClick={adjustZoom} onWheel={(event) => { if (!onZoom || !event.ctrlKey) return; event.preventDefault(); onZoom(event.deltaY < 0 ? .05 : -.05) }} onTouchStart={(event) => { if (event.touches.length === 2) pinchDistance.current = distanceBetweenTouches(event.touches) }} onTouchMove={(event) => { if (!onZoom || event.touches.length !== 2 || pinchDistance.current === null) return; const distance = distanceBetweenTouches(event.touches); if (Math.abs(distance - pinchDistance.current) < 8) return; onZoom(distance > pinchDistance.current ? .05 : -.05); pinchDistance.current = distance }} onTouchEnd={() => { if (onZoom && pinchDistance.current === null) { const now = Date.now(); if (now - lastTapAt.current < 300) { adjustZoom(); lastTapAt.current = 0 } else lastTapAt.current = now }; pinchDistance.current = null }}><div className="comparison-canvas" style={expanded ? { width: `${zoom * 100}%` } : undefined}><svg id={chartId} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t('comparison.aria')}><line className="comparison-axis" x1={left} y1={height - bottom} x2={width - 20} y2={height - bottom} />{yTicks.map((value) => { const y = point(0, value).y; return <g key={value}><line className="comparison-grid" x1={left} y1={y} x2={width - 20} y2={y} /><text className="comparison-label" x={left - 8} y={y + 4} textAnchor="end">{value}</text></g> })}{months.map((month, index) => <text key={month} className="comparison-label" x={point(index, 0).x} y={height - 10} textAnchor="middle">{month}</text>)}{visibleData.map((series) => { const color = colors[data.findIndex((item) => item.year === series.year) % colors.length]; const points = series.values.map((value, month) => point(month, value)); const areaPoints = [`${left},${height - bottom}`, ...points.map((item) => `${item.x},${item.y}`), `${width - 20},${height - bottom}`].join(' '); return <g key={series.year}><polygon points={areaPoints} fill={color} fillOpacity="0.12" /><polyline fill="none" stroke={color} strokeOpacity="0.7" strokeWidth="2" points={points.map((item) => `${item.x},${item.y}`).join(' ')} />{points.map((item, month) => <circle key={month} cx={item.x} cy={item.y} r={expanded ? '6' : '5'} fill={color} stroke={color} strokeWidth="1"><title>{`${series.year} · ${months[month]}: ${series.values[month]} NSBs`}</title></circle>)}</g>})}</svg><div className="comparison-legend">{data.map((series, index) => <button key={series.year} type="button" className={hiddenYears.includes(series.year) ? 'is-hidden' : ''} aria-pressed={!hiddenYears.includes(series.year)} disabled={!hiddenYears.includes(series.year) && visibleData.length === 1} onClick={(event) => { event.stopPropagation(); onToggleYear(series.year) }}><i style={{ backgroundColor: colors[index % colors.length] }} />{series.year} · {series.values.reduce((sum, value) => sum + value, 0).toLocaleString(language)} NSBs</button>)}</div></div></div>
   </section>
 }
 
