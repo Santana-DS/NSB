@@ -201,7 +201,7 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [soundVolume, setSoundVolume] = useState(100)
   const [themePreference, setThemePreference] = useState<ThemePreference>('system')
-  const [language, setLanguage] = useState<AppLanguage>('pt-BR')
+  const [language, setLanguage] = useState<AppLanguage>('en-US')
   const [colorPalette, setColorPalette] = useState<ColorPalette>('navy')
   const [visualPalette, setVisualPalette] = useState(true)
   const [fontScale, setFontScale] = useState(100)
@@ -1345,71 +1345,71 @@ export default function App() {
             </div>
           </div>
           <div className="settings-group">
-            <h2>Texto</h2>
-            <div className="font-scale-control"><span className="font-scale-small" aria-hidden="true">A</span><input type="range" min={MIN_FONT_SCALE} max={MAX_FONT_SCALE} value={fontScale} aria-label="Tamanho do texto" onChange={(event) => selectFontScale(Number(event.target.value))} /><span className="font-scale-large" aria-hidden="true">A</span><output aria-label={`${fontScale}% do tamanho padrão`}>{fontScale}%</output></div>
+            <h2>{t('settings.text')}</h2>
+            <div className="font-scale-control"><span className="font-scale-small" aria-hidden="true">A</span><input type="range" min={MIN_FONT_SCALE} max={MAX_FONT_SCALE} value={fontScale} aria-label={t('settings.fontSize')} onChange={(event) => selectFontScale(Number(event.target.value))} /><span className="font-scale-large" aria-hidden="true">A</span><output aria-label={t('settings.fontScale', { value: fontScale })}>{fontScale}%</output></div>
           </div>
           <div className="settings-group">
-            <h2>Paleta</h2>
-            <div className="palette-picker" role="radiogroup" aria-label="Paleta de cores">
+            <h2>{t('settings.palette')}</h2>
+            <div className="palette-picker" role="radiogroup" aria-label={t('settings.palette')}>
               {COLOR_PALETTES.map((palette) => <button key={palette.id} type="button" role="radio" aria-checked={colorPalette === palette.id} className={colorPalette === palette.id ? 'selected' : ''} onClick={() => selectColorPalette(palette.id)}><i className={`palette-swatch ${palette.id}`} aria-hidden="true" />{palette.name}</button>)}
             </div>
-            <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>Aplicar nos gráficos e calendário</span><i aria-hidden="true" /></button>
+            <button type="button" className="visual-palette-switch" role="switch" aria-checked={visualPalette} onClick={toggleVisualPalette}><span>{t('settings.visualPalette')}</span><i aria-hidden="true" /></button>
           </div>
           <details className="settings-group sound-settings">
-            <summary>Som</summary>
-          <button type="button" className="sound-enabled-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>Avisos sonoros</span><i aria-hidden="true" /></button>
-          <div className="sound-volume-control"><label htmlFor="sound-volume">Volume dos avisos</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
-          <div className="sound-profile-list" role="radiogroup" aria-label="Perfil sonoro">
-            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
+            <summary>{t('settings.sound')}</summary>
+          <button type="button" className="sound-enabled-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>{t('settings.soundAlerts')}</span><i aria-hidden="true" /></button>
+          <div className="sound-volume-control"><label htmlFor="sound-volume">{t('settings.soundVolume')}</label><div><input id="sound-volume" type="range" min={MIN_SOUND_VOLUME} max={MAX_SOUND_VOLUME} value={soundVolume} onChange={(event) => selectSoundVolume(Number(event.target.value))} /><output>{soundVolume}%</output></div></div>
+          <div className="sound-profile-list" role="radiogroup" aria-label={t('settings.soundProfile')}>
+            {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={t('settings.testSound', { name: profile.name })} title={t('settings.testSound', { name: profile.name })}>▶</button></article>)}
           </div>
           </details>
           <details className="settings-group target-settings">
-            <summary>Metas</summary>
-            <p>Toque em uma quantidade para removê-la. Adicione qualquer valor quando precisar.</p>
-            <div className="default-target-editor" aria-label="Metas padrão">
-              {defaultRepTargets.map((target) => <button key={target} type="button" onClick={() => defaultRepTargets.length > 1 && saveDefaultRepTargets(defaultRepTargets.filter((item) => item !== target))} aria-label={`Remover meta ${target}`}>{target}<span aria-hidden="true">×</span></button>)}
+            <summary>{t('settings.targets')}</summary>
+            <p>{t('settings.targetsHint')}</p>
+            <div className="default-target-editor" aria-label={t('settings.defaultTargets')}>
+              {defaultRepTargets.map((target) => <button key={target} type="button" onClick={() => defaultRepTargets.length > 1 && saveDefaultRepTargets(defaultRepTargets.filter((item) => item !== target))} aria-label={t('settings.removeTarget', { target })}>{target}<span aria-hidden="true">×</span></button>)}
             </div>
-            <label className="free-target settings-target"><span>Adicionar meta</span><input inputMode="numeric" type="number" min="1" value={customTargetInput} placeholder="Ex.: 75" onChange={(event) => setCustomTargetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomTarget() } }} /><button type="button" className="secondary-action" onClick={addCustomTarget}>Adicionar</button></label>
+            <label className="free-target settings-target"><span>{t('settings.addTarget')}</span><input inputMode="numeric" type="number" min="1" value={customTargetInput} placeholder={t('settings.targetExample')} onChange={(event) => setCustomTargetInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomTarget() } }} /><button type="button" className="secondary-action" onClick={addCustomTarget}>{t('settings.add')}</button></label>
           </details>
           <details className="settings-group preset-settings">
-            <summary>Presets</summary>
-            <div className="preset-target-grid" role="group" aria-label="Quantidade do preset">
+            <summary>{t('settings.presets')}</summary>
+            <div className="preset-target-grid" role="group" aria-label={t('settings.presetTarget')}>
               {defaultRepTargets.map((target) => <button key={target} type="button" className={target === presetTarget ? 'selected' : ''} onClick={() => setPresetTarget(target)}>{target}</button>)}
             </div>
-            <div className="section-heading"><p>Estratégias para {presetTarget} NSBs.</p><button type="button" className="secondary-action" onClick={addWorkoutPreset}>Novo</button></div>
+            <div className="section-heading"><p>{t('settings.strategiesFor', { target: presetTarget })}</p><button type="button" className="secondary-action" onClick={addWorkoutPreset}>{t('settings.new')}</button></div>
             {workoutPresets.filter((preset) => preset.targetReps === presetTarget).map((preset) => {
               const projection = presetProjectionSeconds(preset)
               const valid = isValidPreset(preset)
               return <details className="preset-editor" key={preset.id} open={openPresetId === preset.id} onToggle={(event) => setOpenPresetId((event.currentTarget as HTMLDetailsElement).open ? preset.id : null)}>
                 <summary>{preset.name}<span>{projection === null ? 'Incompleto' : formatDuration(projection)}</span></summary>
                 <div className="preset-editor-body">
-                  <div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 48), nameIsAutomatic: false })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div>
-                  <div className="pacing-target-picker" role="group" aria-label="Tipo de meta do preset"><button type="button" className={(preset.targetMode ?? 'pace') === 'pace' ? 'selected' : ''} onClick={() => changePresetTargetMode(preset, 'pace')}>Ritmo</button><button type="button" className={preset.targetMode === 'total' ? 'selected' : ''} onClick={() => changePresetTargetMode(preset, 'total')}>Meta total</button></div>
-                  <div className="field-grid"><label><span>{preset.targetMode === 'total' ? 'Meta total' : 'Ritmo por repetição'}</span><input inputMode="numeric" maxLength={7} placeholder={preset.targetMode === 'total' ? '20:00' : '00:08'} value={preset.targetMode === 'total' ? preset.totalDuration ?? '' : preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, preset.targetMode === 'total' ? { totalDuration: formatDurationInput(event.target.value) } : { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div>
+                  <div className="preset-editor-heading"><input value={preset.name} aria-label={t('settings.presetName')} onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 48), nameIsAutomatic: false })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>{t('settings.delete')}</button></div>
+                  <div className="pacing-target-picker" role="group" aria-label={t('settings.presetGoalType')}><button type="button" className={(preset.targetMode ?? 'pace') === 'pace' ? 'selected' : ''} onClick={() => changePresetTargetMode(preset, 'pace')}>{t('workout.pace')}</button><button type="button" className={preset.targetMode === 'total' ? 'selected' : ''} onClick={() => changePresetTargetMode(preset, 'total')}>{t('workout.totalGoal')}</button></div>
+                  <div className="field-grid"><label><span>{preset.targetMode === 'total' ? t('workout.totalGoal') : t('workout.pacePerRep')}</span><input inputMode="numeric" maxLength={7} placeholder={preset.targetMode === 'total' ? '20:00' : '00:08'} value={preset.targetMode === 'total' ? preset.totalDuration ?? '' : preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, preset.targetMode === 'total' ? { totalDuration: formatDurationInput(event.target.value) } : { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>{t('workout.rest')}</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div>
                   <div className="preset-set-list">{preset.setGroups.map((group, index) => <div className="set-row" key={group.id}><span>Grupo {index + 1}</span><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item))} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updatePresetGroups(preset.id, preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item))} /><button type="button" className="remove-button" onClick={() => updatePresetGroups(preset.id, preset.setGroups.filter((item) => item.id !== group.id))}>Remover</button></div>)}</div>
                   <button type="button" className="text-button" onClick={() => updatePresetGroups(preset.id, [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }])}>+ Set</button>
                   {preset.setGroups.length > 1 && <details className="pacing-group-settings preset-group-settings"><summary>Ajustar ritmo por grupo</summary><div className="pacing-group-headings"><span>Ritmo</span><span>Descanso</span></div>{preset.setGroups.map((group, index) => <label key={group.id}><span>Grupo {index + 1}</span><input inputMode="numeric" maxLength={7} placeholder="Geral" value={preset.groupPaceDurations?.[group.id] ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { groupPaceDurations: { ...preset.groupPaceDurations, [group.id]: formatDurationInput(event.target.value) } })} /><input inputMode="numeric" maxLength={7} placeholder="Geral" value={preset.groupRestDurations?.[group.id] ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { groupRestDurations: { ...preset.groupRestDurations, [group.id]: formatDurationInput(event.target.value) } })} /></label>)}</details>}
-                  <p className="pacing-projection">Projeção total <strong>{projection === null ? '—' : formatDuration(projection)}</strong></p>
-                  {!valid && <p className="preset-invalid">Os sets precisam somar exatamente {preset.targetReps}.</p>}
+                  <p className="pacing-projection">{t('workout.projection')} <strong>{projection === null ? '—' : formatDuration(projection)}</strong></p>
+                  {!valid && <p className="preset-invalid">{t('settings.invalidPreset', { target: preset.targetReps })}</p>}
                 </div>
               </details>
             })}
           </details>
           <details className="settings-group home-message-settings">
-            <summary>Frases</summary>
-            <div className="section-heading"><p>Exibidas alternadamente na tela inicial.</p><button type="button" className="secondary-action" onClick={() => setHomeMessages((messages) => [...messages, ''])}>Adicionar</button></div>
+            <summary>{t('settings.phrases')}</summary>
+            <div className="section-heading"><p>{t('settings.phrasesHint')}</p><button type="button" className="secondary-action" onClick={() => setHomeMessages((messages) => [...messages, ''])}>{t('settings.add')}</button></div>
             <div className="home-message-list">
-              {homeMessages.map((message, index) => <div key={index}><input value={message} maxLength={120} aria-label={`Frase ${index + 1}`} onChange={(event) => updateHomeMessage(index, event.target.value)} onBlur={commitHomeMessages} /><button type="button" className="remove-button" onClick={() => saveHomeMessages(homeMessages.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Excluir frase ${index + 1}`}>Excluir</button></div>)}
+              {homeMessages.map((message, index) => <div key={index}><input value={message} maxLength={120} aria-label={t('settings.phrase', { index: index + 1 })} onChange={(event) => updateHomeMessage(index, event.target.value)} onBlur={commitHomeMessages} /><button type="button" className="remove-button" onClick={() => saveHomeMessages(homeMessages.filter((_, itemIndex) => itemIndex !== index))} aria-label={t('settings.deletePhrase', { index: index + 1 })}>{t('settings.delete')}</button></div>)}
             </div>
-            <button type="button" className="text-button restore-messages" onClick={() => saveHomeMessages(DEFAULT_HOME_MESSAGES)}>Restaurar frases padrão</button>
+            <button type="button" className="text-button restore-messages" onClick={() => saveHomeMessages(DEFAULT_HOME_MESSAGES)}>{t('settings.restorePhrases')}</button>
           </details>
         </section>
       )}
 
       {undoWorkout && (
         <div className="undo-toast" role="status">
-          <span>Treino movido para a lixeira.</span>
-          <button type="button" onClick={restoreWorkout}>Desfazer</button>
+          <span>{t('history.movedToTrash')}</span>
+          <button type="button" onClick={restoreWorkout}>{t('history.undo')}</button>
         </div>
       )}
       {selectedDay && <DayDetail date={selectedDay} workouts={activeWorkouts} legacyVolumes={legacyDailyVolumes} performances={historicalPerformances} attachments={mediaAttachments} onClose={() => setSelectedDay(null)} onSavePerformance={saveHistoricalPerformance} onSaveWorkout={updateWorkoutFromDay} onSaveAttachment={saveAttachment} />}
