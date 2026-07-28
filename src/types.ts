@@ -8,6 +8,15 @@ export interface SetGroup {
   repsPerSet: number
 }
 
+export interface WorkoutPreset {
+  id: string
+  name: string
+  targetReps: RepTarget
+  setGroups: SetGroup[]
+  paceDuration?: string
+  restDuration?: string
+}
+
 export interface PacingBlock {
   groupId?: string
   reps: number
@@ -31,6 +40,7 @@ export interface AppSettings {
   fontScale?: number
   evolutionScale?: number
   homeMessages?: string[]
+  workoutPresets?: WorkoutPreset[]
 }
 export type PacingEventType = 'session-started' | 'warmup-started' | 'set-started' | 'set-completed' | 'rest-started' | 'rest-completed' | 'session-completed' | 'paused' | 'resumed' | 'advanced'
 

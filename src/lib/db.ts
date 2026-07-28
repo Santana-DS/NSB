@@ -135,5 +135,7 @@ export async function getAppSettings(): Promise<AppSettings | undefined> {
 }
 
 export async function saveAppSettings(settings: AppSettings): Promise<void> {
-  await (await database).put('appSettings', settings)
+  const store = await database
+  const current = await store.get('appSettings', 'preferences')
+  await store.put('appSettings', { ...current, ...settings, id: 'preferences' })
 }

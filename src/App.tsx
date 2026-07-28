@@ -6,7 +6,7 @@ import { mergeHistoricalPerformances } from './lib/performances'
 import { createId } from './lib/ids'
 import { clearActiveWorkoutDraft, deleteLegacyDailyVolumes, deleteWorkouts, getActiveWorkoutDraft, getAppSettings, listHistoricalPerformances, listLegacyDailyVolumes, listMediaAttachments, listWorkouts, saveActiveWorkoutDraft, saveAppSettings, saveHistoricalPerformances, saveLegacyDailyVolumes, saveMediaAttachment, saveWorkout, saveWorkouts } from './lib/db'
 import { createWorkout, formatDuration, formatDurationInput, formatSetGroups, getSetGroupTotal, validateWorkout } from './lib/workouts'
-import { REP_TARGETS, type ActiveWorkoutDraft, type ColorPalette, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type ThemePreference, type Workout } from './types'
+import { REP_TARGETS, type ActiveWorkoutDraft, type ColorPalette, type HistoricalPerformance, type LegacyDailyVolume, type MediaAttachment, type PacingMode, type RepTarget, type SetGroup, type SoundProfileId, type ThemePreference, type Workout, type WorkoutPreset } from './types'
 
 type Screen = 'home' | 'new' | 'history' | 'data' | 'settings'
 type Period = 'month' | 'year' | 'all'
@@ -154,6 +154,7 @@ export default function App() {
   const [fontScale, setFontScale] = useState(100)
   const [evolutionScale, setEvolutionScale] = useState(100)
   const [targetReps, setTargetReps] = useState<RepTarget>(100)
+  const [workoutPresets, setWorkoutPresets] = useState<WorkoutPreset[]>([])
   const [performedAt, setPerformedAt] = useState(todayLocalIso)
   const [duration, setDuration] = useState('')
   const [setGroups, setSetGroups] = useState<SetGroup[]>([])
@@ -231,6 +232,7 @@ export default function App() {
         if (settings?.theme === 'system' || settings?.theme === 'light' || settings?.theme === 'dark') setThemePreference(settings.theme)
         if (settings?.palette === 'navy' || settings?.palette === 'ocean' || settings?.palette === 'cobalt' || settings?.palette === 'forest' || settings?.palette === 'lime' || settings?.palette === 'ember' || settings?.palette === 'gold' || settings?.palette === 'plum' || settings?.palette === 'ruby') setColorPalette(settings.palette)
         if (typeof settings?.visualPalette === 'boolean') setVisualPalette(settings.visualPalette)
+        if (Array.isArray(settings?.workoutPresets)) setWorkoutPresets(settings.workoutPresets)
         if (typeof settings?.fontScale === 'number' && settings.fontScale >= MIN_FONT_SCALE && settings.fontScale <= MAX_FONT_SCALE) setFontScale(settings.fontScale)
         if (typeof settings?.evolutionScale === 'number' && settings.evolutionScale >= MIN_EVOLUTION_SCALE && settings.evolutionScale <= MAX_EVOLUTION_SCALE) setEvolutionScale(settings.evolutionScale)
         if (Array.isArray(settings?.homeMessages) && settings.homeMessages.every((message) => typeof message === 'string')) setHomeMessages(settings.homeMessages.map((message) => message.trim()).filter(Boolean))
@@ -596,6 +598,29 @@ export default function App() {
   function selectSoundProfile(profile: SoundProfileId) {
     setSoundProfile(profile)
     void saveAppSettings({ id: 'preferences', soundProfile: profile, soundEnabled, soundVolume, theme: themePreference, palette: colorPalette, visualPalette, fontScale, evolutionScale, homeMessages })
+  }
+
+  function saveWorkoutPresets(next: WorkoutPreset[]) {
+    setWorkoutPresets(next)
+    void saveAppSettings({ id: 'preferences', soundProfile, workoutPresets: next })
+  }
+
+  function addWorkoutPreset() {
+    saveWorkoutPresets([...workoutPresets, { id: createId(), name: 'Novo preset', targetReps: 100, setGroups: [], paceDuration: '', restDuration: '' }])
+  }
+
+  function updateWorkoutPreset(id: string, update: Partial<WorkoutPreset>) {
+    saveWorkoutPresets(workoutPresets.map((preset) => preset.id === id ? { ...preset, ...update } : preset))
+  }
+
+  function applyWorkoutPreset(preset: WorkoutPreset) {
+    setTargetReps(preset.targetReps)
+    setSetGroups(preset.setGroups.map((group) => ({ ...group, id: createId() })))
+    setPacingTargetMode('pace')
+    setPacingRepDuration(preset.paceDuration ?? '')
+    setPacingRestDuration(preset.restDuration ?? '')
+    setPacingGroupDurations({})
+    setPacingGroupRests({})
   }
 
   function toggleSoundEnabled() {
@@ -994,6 +1019,7 @@ export default function App() {
         <section className="content workout-form">
           <button className="workout-close" type="button" onClick={() => setScreen('home')} aria-label="Voltar ao início" title="Voltar ao início">←</button>
           <form onSubmit={handleSave}>
+            {workoutPresets.length > 0 && <label className="preset-picker"><span>Preset</span><select defaultValue="" onChange={(event) => { const preset = workoutPresets.find((item) => item.id === event.target.value); if (preset) applyWorkoutPreset(preset); event.currentTarget.value = '' }}><option value="" disabled>Aplicar um preset</option>{workoutPresets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name} · {preset.targetReps} NSBs</option>)}</select></label>}
             <fieldset>
               <legend>Quantidade total</legend>
               <div className="target-grid">
@@ -1135,6 +1161,11 @@ export default function App() {
             {(Object.entries(SOUND_PROFILES) as [SoundProfileId, typeof SOUND_PROFILES[SoundProfileId]][]).map(([id, profile]) => <article key={id} className={soundProfile === id ? 'selected' : ''}><button type="button" role="radio" aria-checked={soundProfile === id} onClick={() => selectSoundProfile(id)}><strong>{profile.name}</strong><span>{profile.description}</span></button><button type="button" className="sound-preview" onClick={() => previewSoundProfile(id)} aria-label={`Testar perfil ${profile.name}`} title="Testar perfil">▶</button></article>)}
           </div>
           </div>
+          <details className="settings-group preset-settings">
+            <summary>Presets de treino</summary>
+            <div className="section-heading"><p>Meta, sets, ritmo e descanso para iniciar rapidamente.</p><button type="button" className="secondary-action" onClick={addWorkoutPreset}>Novo preset</button></div>
+            {workoutPresets.map((preset) => <article className="preset-editor" key={preset.id}><div className="preset-editor-heading"><input value={preset.name} aria-label="Nome do preset" onChange={(event) => updateWorkoutPreset(preset.id, { name: event.target.value.slice(0, 36) })} /><button type="button" className="remove-button" onClick={() => saveWorkoutPresets(workoutPresets.filter((item) => item.id !== preset.id))}>Excluir</button></div><div className="field-grid"><label><span>Quantidade</span><select value={preset.targetReps} onChange={(event) => updateWorkoutPreset(preset.id, { targetReps: Number(event.target.value) as RepTarget })}>{REP_TARGETS.map((target) => <option key={target} value={target}>{target} NSBs</option>)}</select></label><label><span>Ritmo</span><input inputMode="numeric" maxLength={7} placeholder="00:08" value={preset.paceDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { paceDuration: formatDurationInput(event.target.value) })} /></label><label><span>Descanso</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={preset.restDuration ?? ''} onChange={(event) => updateWorkoutPreset(preset.id, { restDuration: formatDurationInput(event.target.value) })} /></label></div><div className="preset-set-list">{preset.setGroups.map((group) => <div className="set-row" key={group.id}><input type="number" min="1" value={group.setCount || ''} aria-label="Número de sets" onChange={(event) => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.map((item) => item.id === group.id ? { ...item, setCount: Number(event.target.value) || 0 } : item) })} /><span>×</span><input type="number" min="1" value={group.repsPerSet || ''} aria-label="NSBs por set" onChange={(event) => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.map((item) => item.id === group.id ? { ...item, repsPerSet: Number(event.target.value) || 0 } : item) })} /><button type="button" className="remove-button" onClick={() => updateWorkoutPreset(preset.id, { setGroups: preset.setGroups.filter((item) => item.id !== group.id) })}>Remover</button></div>)}</div><button type="button" className="text-button" onClick={() => updateWorkoutPreset(preset.id, { setGroups: [...preset.setGroups, { id: createId(), setCount: 0, repsPerSet: 0 }] })}>+ Set</button></article>)}
+          </details>
           <details className="settings-group home-message-settings">
             <summary>Frases iniciais</summary>
             <div className="section-heading"><p>Exibidas alternadamente na tela inicial.</p><button type="button" className="secondary-action" onClick={() => setHomeMessages((messages) => [...messages, ''])}>Adicionar</button></div>
