@@ -1153,7 +1153,7 @@ export default function App() {
     else if (isNewPaceRecord) setAchievementNotice({ kind: 'pace', targetReps, durationSeconds, paceSeconds: paceSeconds ?? undefined })
   }
 
-  const t = (key: string) => translate(language, key)
+  const t = (key: string, values?: Record<string, string | number>) => translate(language, key, values)
 
   return (
     <main className="app-shell">
@@ -1208,11 +1208,11 @@ export default function App() {
 
       {screen === 'new' && (
         <section className="content workout-form">
-          <button className="workout-close" type="button" onClick={() => setScreen('home')} aria-label="Voltar ao início" title="Voltar ao início">←</button>
+          <button className="workout-close" type="button" onClick={() => setScreen('home')} aria-label={t('workout.back')} title={t('workout.back')}>←</button>
           <form onSubmit={handleSave}>
-            {workoutPresets.some((preset) => preset.targetReps === targetReps && isValidPreset(preset)) && <label className="preset-picker"><span>Aplicar preset</span><select defaultValue="" onChange={(event) => { const preset = workoutPresets.find((item) => item.id === event.target.value); if (preset) applyWorkoutPreset(preset); event.currentTarget.value = '' }}><option value="" disabled>Selecionar</option>{workoutPresets.filter((preset) => preset.targetReps === targetReps && isValidPreset(preset)).sort((a, b) => (presetProjectionSeconds(a) ?? Infinity) - (presetProjectionSeconds(b) ?? Infinity)).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>}
+            {workoutPresets.some((preset) => preset.targetReps === targetReps && isValidPreset(preset)) && <label className="preset-picker"><span>{t('workout.applyPreset')}</span><select defaultValue="" onChange={(event) => { const preset = workoutPresets.find((item) => item.id === event.target.value); if (preset) applyWorkoutPreset(preset); event.currentTarget.value = '' }}><option value="" disabled>{t('workout.select')}</option>{workoutPresets.filter((preset) => preset.targetReps === targetReps && isValidPreset(preset)).sort((a, b) => (presetProjectionSeconds(a) ?? Infinity) - (presetProjectionSeconds(b) ?? Infinity)).map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>}
             <fieldset>
-              <legend>Quantidade total</legend>
+              <legend>{t('workout.total')}</legend>
               <div className="target-grid">
                 {defaultRepTargets.map((target) => (
                   <button key={target} type="button" className={target === targetReps ? 'target selected' : 'target'} onClick={() => setTargetReps(target)}>{target}</button>
@@ -1221,20 +1221,20 @@ export default function App() {
             </fieldset>
 
             <section className="timer-section" aria-labelledby="timer-title">
-              <div><p className="eyebrow">Cronômetro</p><div className="timer-readout"><h2 id="timer-title">{formatStopwatch(timerElapsedSeconds)}</h2>{(pacingPhase === 'warmup' || timerStartedAt !== null) && <i className={pacingPhase === 'warmup' ? 'timer-indicator preparing' : 'timer-indicator running'} aria-label={pacingPhase === 'warmup' ? 'Warm-up em andamento' : 'Treino em andamento'} />}</div></div>
+              <div><p className="eyebrow">{t('workout.timer')}</p><div className="timer-readout"><h2 id="timer-title">{formatStopwatch(timerElapsedSeconds)}</h2>{(pacingPhase === 'warmup' || timerStartedAt !== null) && <i className={pacingPhase === 'warmup' ? 'timer-indicator preparing' : 'timer-indicator running'} aria-label={pacingPhase === 'warmup' ? t('workout.warmup') : t('workout.timer')} />}</div></div>
               <div className="timer-actions">
-                {pacingPhase === 'warmup' ? <button type="button" className="secondary-action" disabled>Warm-up</button> : timerStartedAt === null ? <button type="button" className="primary-action" onClick={startTimer}>{timerElapsedSeconds > 0 ? 'Retomar' : 'Iniciar'}</button> : <button type="button" className="secondary-action" onClick={pauseTimer}>Pausar</button>}
-                {timerElapsedSeconds > 0 && <button type="button" className="text-button" onClick={resetTimer}>Zerar</button>}
+                {pacingPhase === 'warmup' ? <button type="button" className="secondary-action" disabled>{t('workout.warmup')}</button> : timerStartedAt === null ? <button type="button" className="primary-action" onClick={startTimer}>{timerElapsedSeconds > 0 ? t('workout.resume') : t('workout.start')}</button> : <button type="button" className="secondary-action" onClick={pauseTimer}>{t('workout.pause')}</button>}
+                {timerElapsedSeconds > 0 && <button type="button" className="text-button" onClick={resetTimer}>{t('workout.reset')}</button>}
               </div>
             </section>
 
             <div className="field-grid">
               <label>
-                <span>Data e hora</span>
+                <span>{t('workout.dateTime')}</span>
                 <input type="datetime-local" value={performedAt} onChange={(event) => setPerformedAt(event.target.value)} required />
               </label>
               <label>
-                <span>Tempo total</span>
+                <span>{t('workout.totalTime')}</span>
                 <input inputMode="numeric" maxLength={7} placeholder="18:42 ou 1:18:42" value={timerStartedAt === null ? duration : formatDuration(timerElapsedSeconds)} onChange={(event) => setDuration(formatDurationInput(event.target.value))} required readOnly={timerStartedAt !== null} />
               </label>
             </div>
@@ -1242,54 +1242,54 @@ export default function App() {
             <section className="sets-section" aria-labelledby="sets-title">
               <div className="section-heading">
                 <div>
-                  <h2 id="sets-title">Estrutura de sets</h2>
-                  <p>Registre a estratégia para compará-la no futuro.</p>
+                  <h2 id="sets-title">{t('workout.sets')}</h2>
+                  <p>{t('workout.strategy')}</p>
                 </div>
-                <button type="button" className="secondary-action" onClick={addSetGroup}>Adicionar grupo</button>
+                <button type="button" className="secondary-action" onClick={addSetGroup}>{t('workout.addGroup')}</button>
               </div>
               {setGroups.map((group, index) => (
                 <div className="set-row" key={group.id}>
-                  <span>Grupo {index + 1}</span>
+                  <span>{t('workout.group')} {index + 1}</span>
                   <label><span className="sr-only">Número de sets</span><input type="number" min="1" value={group.setCount || ''} onChange={(event) => changeSetGroup(group.id, 'setCount', event.target.value === '' ? 0 : Number(event.target.value))} /></label>
                   <span>×</span>
                   <label><span className="sr-only">NSBs por set</span><input type="number" min="1" value={group.repsPerSet || ''} onChange={(event) => changeSetGroup(group.id, 'repsPerSet', event.target.value === '' ? 0 : Number(event.target.value))} /></label>
-                  <button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>Remover</button>
+                  <button type="button" className="remove-button" onClick={() => setSetGroups((groups) => groups.filter((item) => item.id !== group.id))}>{t('workout.remove')}</button>
                 </div>
               ))}
-              {setGroups.length > 0 && <p className={currentSetTotal === targetReps ? 'set-total valid' : 'set-total'}>Total dos sets: <strong>{currentSetTotal}</strong> / {targetReps} NSBs</p>}
+              {setGroups.length > 0 && <p className={currentSetTotal === targetReps ? 'set-total valid' : 'set-total'}>{t('workout.setTotal')}: <strong>{currentSetTotal}</strong> / {targetReps} NSBs</p>}
             </section>
 
             <section className="pacing-section" ref={pacingSectionRef} aria-labelledby="pacing-title">
-              <div className="section-heading"><div><p className="eyebrow">Pacing guiado</p><h2 id="pacing-title">Meta de pacing</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? 'Pronto' : pacingPhase === 'warmup' ? 'Preparar' : pacingPhase === 'set' ? 'Em set' : pacingPhase === 'rest' ? 'Descanso' : pacingPhase === 'paused' ? 'Pausado' : 'Concluído'}</span></div>
-              <button type="button" className="sound-enabled-switch pacing-sound-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>Avisos sonoros</span><i aria-hidden="true" /></button>
-              <p>O cronômetro inicia o warm-up de {DEFAULT_WARMUP_SECONDS}s e aplica o ritmo a cada bloco da estrutura de sets.</p>
-              <div className="pacing-target-picker" role="group" aria-label="Tipo de meta de pacing"><button type="button" className={pacingTargetMode === 'pace' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('pace')}>Ritmo</button><button type="button" className={pacingTargetMode === 'total' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('total')}>Meta total</button></div>
+              <div className="section-heading"><div><p className="eyebrow">{t('workout.guidedPacing')}</p><h2 id="pacing-title">{t('workout.pacingGoal')}</h2></div><span className={pacingPhase === 'set' ? 'pacing-status active' : 'pacing-status'}>{pacingPhase === 'idle' ? t('workout.ready') : pacingPhase === 'warmup' ? t('workout.prepare') : pacingPhase === 'set' ? t('workout.inSet') : pacingPhase === 'rest' ? t('workout.rest') : pacingPhase === 'paused' ? t('workout.paused') : t('workout.complete')}</span></div>
+              <button type="button" className="sound-enabled-switch pacing-sound-switch" role="switch" aria-checked={soundEnabled} onClick={toggleSoundEnabled}><span>{t('workout.soundAlerts')}</span><i aria-hidden="true" /></button>
+              <p>{t('workout.warmupNote', { seconds: DEFAULT_WARMUP_SECONDS })}</p>
+              <div className="pacing-target-picker" role="group" aria-label={t('workout.pacingGoal')}><button type="button" className={pacingTargetMode === 'pace' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('pace')}>{t('workout.pace')}</button><button type="button" className={pacingTargetMode === 'total' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => changePacingTargetMode('total')}>{t('workout.totalGoal')}</button></div>
               <div className="pacing-mode-picker" role="group" aria-label="Modo do pacing">
-                <button type="button" className={pacingMode === 'automatic' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('automatic')}>Auto</button>
-                <button type="button" className={pacingMode === 'manual-rest' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('manual-rest')}>Descanso manual</button>
+                <button type="button" className={pacingMode === 'automatic' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('automatic')}>{t('workout.auto')}</button>
+                <button type="button" className={pacingMode === 'manual-rest' ? 'selected' : ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onClick={() => setPacingMode('manual-rest')}>{t('workout.manualRest')}</button>
               </div>
-              <p className="pacing-mode-note">{pacingMode === 'automatic' ? 'O plano troca set e descanso sozinho.' : 'O set encerra na meta; você aciona o próximo set e seu warm-up.'}</p>
+              <p className="pacing-mode-note">{pacingMode === 'automatic' ? t('workout.autoNote') : t('workout.manualNote')}</p>
               <div className="field-grid pacing-fields">
-                <label><span>{pacingTargetMode === 'total' ? 'Meta total' : 'Ritmo por repetição'}</span><input inputMode="numeric" maxLength={7} placeholder={pacingTargetMode === 'total' ? '20:00' : '00:08'} value={pacingTargetMode === 'total' ? pacingTotalDuration : pacingRepDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => pacingTargetMode === 'total' ? setPacingTotalDuration(formatDurationInput(event.target.value)) : setPacingRepDuration(formatDurationInput(event.target.value))} /></label>
-                <label><span>Descanso entre sets</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
+                <label><span>{pacingTargetMode === 'total' ? t('workout.totalGoal') : t('workout.pacePerRep')}</span><input inputMode="numeric" maxLength={7} placeholder={pacingTargetMode === 'total' ? '20:00' : '00:08'} value={pacingTargetMode === 'total' ? pacingTotalDuration : pacingRepDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => pacingTargetMode === 'total' ? setPacingTotalDuration(formatDurationInput(event.target.value)) : setPacingRepDuration(formatDurationInput(event.target.value))} /></label>
+                <label><span>{t('workout.restBetween')}</span><input inputMode="numeric" maxLength={7} placeholder="00:30" value={pacingRestDuration} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => setPacingRestDuration(formatDurationInput(event.target.value))} /></label>
               </div>
-              {pacingTargetMode === 'total' && pacingRepSeconds > 0 && <p className="pacing-mode-note">Ritmo calculado: <strong>{formatDuration(pacingRepSeconds)} / rep.</strong></p>}
-              {setGroups.length > 1 && <details className="pacing-group-settings"><summary>Ajustar ritmo por grupo</summary><div className="pacing-group-headings"><span>Ritmo</span><span>Descanso</span></div>{setGroups.map((group, index) => <label key={group.id}><span>Grupo {index + 1} · {group.setCount} × {group.repsPerSet}</span><input inputMode="numeric" maxLength={7} placeholder="Geral" value={pacingGroupDurations[group.id] ?? ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => { const digits = event.target.value.replace(/\D/g, ''); setPacingGroupDurations((current) => ({ ...current, [group.id]: digits.replace(/0/g, '') === '' ? '' : formatDurationInput(event.target.value) })) }} /><input inputMode="numeric" maxLength={7} placeholder="Geral" value={pacingGroupRests[group.id] ?? ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => { const digits = event.target.value.replace(/\D/g, ''); setPacingGroupRests((current) => ({ ...current, [group.id]: digits.replace(/0/g, '') === '' ? '' : formatDurationInput(event.target.value) })) }} /></label>)}</details>}
-              {pacingPlan.some((block) => block.paceSeconds > 0) && pacingPhase === 'idle' && <p className="pacing-plan">Plano: {pacingPlan.map((block, index) => <span key={`${block.groupId}-${index}`}>{block.reps} NSBs · {formatDuration(block.reps * block.paceSeconds)}</span>)}</p>}
-              {pacingPlan.some((block) => block.paceSeconds > 0) && <p className="pacing-projection">Projeção total <strong>{formatDuration(displayedPacingProjectionSeconds)}</strong></p>}
-              {pacingPhase !== 'idle' && <div className={(pacingPhase === 'warmup' || (pacingPhase === 'rest' && pacingWarmupCueSent)) ? 'pacing-clock preparing' : 'pacing-clock'}><strong>{pacingPhase === 'complete' ? 'Plano concluído' : pacingPhase === 'warmup' ? 'Warm-up' : `${pacingPhase === 'paused' ? 'Pausado' : pacingPhase === 'rest' ? 'Descanso' : `Set ${pacingBlockIndex + 1} de ${pacingPlan.length}`}`}{(pacingPhase === 'warmup' || (pacingPhase === 'rest' && pacingWarmupCueSent)) && <i className="pacing-prep-indicator" aria-label="Preparação em andamento" />}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingRepCount} / {pacingPlan[pacingBlockIndex]?.reps} repetições · {formatDuration(pacingPlan[pacingBlockIndex]?.paceSeconds ?? 0)} por repetição</span>}{pacingPhase === 'complete' && <span className={overtimeIncluded ? 'pacing-overtime included' : 'pacing-overtime'}>+ {formatStopwatch(overtimeElapsedSeconds)}</span>}</div>}
+              {pacingTargetMode === 'total' && pacingRepSeconds > 0 && <p className="pacing-mode-note">{t('workout.calculatedPace')}: <strong>{formatDuration(pacingRepSeconds)} / rep.</strong></p>}
+              {setGroups.length > 1 && <details className="pacing-group-settings"><summary>{t('workout.adjustGroup')}</summary><div className="pacing-group-headings"><span>{t('workout.pace')}</span><span>{t('workout.rest')}</span></div>{setGroups.map((group, index) => <label key={group.id}><span>{t('workout.group')} {index + 1} · {group.setCount} × {group.repsPerSet}</span><input inputMode="numeric" maxLength={7} placeholder={t('workout.general')} value={pacingGroupDurations[group.id] ?? ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => { const digits = event.target.value.replace(/\D/g, ''); setPacingGroupDurations((current) => ({ ...current, [group.id]: digits.replace(/0/g, '') === '' ? '' : formatDurationInput(event.target.value) })) }} /><input inputMode="numeric" maxLength={7} placeholder={t('workout.general')} value={pacingGroupRests[group.id] ?? ''} disabled={pacingPhase !== 'idle' && pacingPhase !== 'complete'} onChange={(event) => { const digits = event.target.value.replace(/\D/g, ''); setPacingGroupRests((current) => ({ ...current, [group.id]: digits.replace(/0/g, '') === '' ? '' : formatDurationInput(event.target.value) })) }} /></label>)}</details>}
+              {pacingPlan.some((block) => block.paceSeconds > 0) && pacingPhase === 'idle' && <p className="pacing-plan">{t('workout.plan')}: {pacingPlan.map((block, index) => <span key={`${block.groupId}-${index}`}>{block.reps} NSBs · {formatDuration(block.reps * block.paceSeconds)}</span>)}</p>}
+              {pacingPlan.some((block) => block.paceSeconds > 0) && <p className="pacing-projection">{t('workout.projection')} <strong>{formatDuration(displayedPacingProjectionSeconds)}</strong></p>}
+              {pacingPhase !== 'idle' && <div className={(pacingPhase === 'warmup' || (pacingPhase === 'rest' && pacingWarmupCueSent)) ? 'pacing-clock preparing' : 'pacing-clock'}><strong>{pacingPhase === 'complete' ? t('workout.planComplete') : pacingPhase === 'warmup' ? t('workout.warmup') : pacingPhase === 'paused' ? t('workout.paused') : pacingPhase === 'rest' ? t('workout.rest') : `Set ${pacingBlockIndex + 1} / ${pacingPlan.length}`}{(pacingPhase === 'warmup' || (pacingPhase === 'rest' && pacingWarmupCueSent)) && <i className="pacing-prep-indicator" aria-label={t('workout.prepare')} />}</strong>{pacingPhase !== 'complete' && <time>{formatStopwatch(pacingPhaseElapsed)} <span>/ {formatStopwatch(pacingPhaseTarget)}</span></time>}{pacingPhase === 'set' && <span>{pacingRepCount} / {pacingPlan[pacingBlockIndex]?.reps} {t('workout.repetitions')} · {formatDuration(pacingPlan[pacingBlockIndex]?.paceSeconds ?? 0)} {t('workout.pacePerRep').toLowerCase()}</span>}{pacingPhase === 'complete' && <span className={overtimeIncluded ? 'pacing-overtime included' : 'pacing-overtime'}>+ {formatStopwatch(overtimeElapsedSeconds)}</span>}</div>}
               <div className="pacing-actions">
-                {pacingPhase === 'complete' ? overtimeIncluded ? <button type="button" className="overtime-revert" onClick={revertOvertime} aria-label="Reverter adicional" title="Reverter adicional">↶</button> : <button type="button" className="secondary-action" onClick={includeOvertime}>Incluir adicional</button> : pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>Retomar pacing</button> : pacingPhase !== 'idle' && <><button type="button" className="secondary-action" onClick={pausePacing}>Pausar pacing</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && pacingMode === 'manual-rest' ? 'Iniciar próximo set' : 'Avançar'}</button></>}
+                {pacingPhase === 'complete' ? overtimeIncluded ? <button type="button" className="overtime-revert" onClick={revertOvertime} aria-label={t('workout.revertExtra')} title={t('workout.revertExtra')}>↶</button> : <button type="button" className="secondary-action" onClick={includeOvertime}>{t('workout.includeExtra')}</button> : pacingPhase === 'paused' ? <button type="button" className="secondary-action" onClick={resumePacing}>{t('workout.resumePacing')}</button> : pacingPhase !== 'idle' && <><button type="button" className="secondary-action" onClick={pausePacing}>{t('workout.pausePacing')}</button><button type="button" className="text-button" onClick={() => advancePacingPhase('manual')}>{pacingPhase === 'rest' && pacingMode === 'manual-rest' ? t('workout.nextSet') : t('workout.advance')}</button></>}
               </div>
-              {pacingBlocks.length > 0 && <p className="pacing-summary">{pacingBlocks.length} de {pacingPlan.length} sets concluídos · tempos reais registrados no treino.</p>}
+              {pacingBlocks.length > 0 && <p className="pacing-summary">{pacingBlocks.length} / {pacingPlan.length} {t('workout.completedSets')}.</p>}
             </section>
 
             <label className="notes-field">
-              <span>Observações</span>
-              <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Como você se sentiu? O que funcionou?" />
+              <span>{t('workout.notes')}</span>
+              <textarea rows={3} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t('workout.notesPlaceholder')} />
             </label>
             {error && <p className="error-message" role="alert">{error}</p>}
-            <button className="primary-action" type="submit">Salvar treino</button>
+            <button className="primary-action" type="submit">{t('workout.save')}</button>
           </form>
         </section>
       )}
