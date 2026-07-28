@@ -117,8 +117,8 @@ interface NativePacingAudioPlugin {
   stop(): Promise<void>
   vibrate(options: { durationMs: number }): Promise<void>
   update(options: { elapsed: string; phase: string; progress: string }): Promise<void>
-  signal(options: { kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number; replace?: boolean }): Promise<void>
-  schedule(options: { volume: number; events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] }): Promise<void>
+  signal(options: { profile: SoundProfileId; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; volume: number; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number; replace?: boolean }): Promise<void>
+  schedule(options: { volume: number; events: { delayMs: number; profile: SoundProfileId; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] }): Promise<void>
   cancelSchedule(): Promise<void>
   addListener(eventName: 'control', listenerFunc: (event: { action: 'advance' | 'pause' }) => void): Promise<{ remove: () => Promise<void> }>
 }
@@ -144,34 +144,6 @@ function formatStopwatch(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60)
   const remainingSeconds = seconds % 60
   return [hours, minutes, remainingSeconds].map((part) => String(part).padStart(2, '0')).join(':')
-}
-
-function canonicalWave(phase: number, waveform: OscillatorType): number {
-  if (waveform === 'square') return Math.sin(phase) >= 0 ? 1 : -1
-  if (waveform === 'triangle') return (2 / Math.PI) * Math.asin(Math.sin(phase))
-  if (waveform === 'sawtooth') return 2 * ((phase / (2 * Math.PI)) - Math.floor(.5 + phase / (2 * Math.PI)))
-  return Math.sin(phase)
-}
-
-function canonicalThemeSample(phase: number, waveform: OscillatorType, timbre: SoundTimbre): number {
-  const base = canonicalWave(phase, waveform)
-  if (timbre === 'bell') return .7 * Math.sin(phase) + .22 * Math.sin(phase * 2.4) + .08 * Math.sin(phase * 3.1)
-  if (timbre === 'horn') return .52 * Math.sin(phase) + .3 * Math.sin(phase * 2) + .16 * Math.sin(phase * 3)
-  if (timbre === 'bass') return .5 * Math.sin(phase) + .3 * Math.sin(phase * 2) + .16 * Math.sin(phase * 3)
-  if (timbre === 'cardio') return .5 * Math.sin(phase) + .28 * Math.sin(phase * 2) + .17 * Math.sin(phase * 3)
-  if (timbre === 'siren') return .65 * base + .12 * Math.sin(phase * 2)
-  if (timbre === 'command') return .75 * base + .1 * Math.sin(phase * 2)
-  if (timbre === 'alarm') return .72 * base + .06 * Math.sin(phase * 3)
-  if (timbre === 'pulse') return .82 * base + .08 * Math.sin(phase * 2)
-  return base
-}
-
-function canonicalAmplitude(timbre: SoundTimbre, profileGain: number, volume: number): number {
-  const lowFrequency = timbre === 'horn' || timbre === 'bass' || timbre === 'cardio'
-  const sensitive = timbre === 'command' || timbre === 'alarm' || timbre === 'siren'
-  const compensation = lowFrequency ? 1.7 : 1
-  const ceiling = lowFrequency ? .58 : sensitive ? .18 : .48
-  return Math.min(ceiling, Math.max(.006, profileGain * Math.max(1, volume) / 100 * compensation))
 }
 
 function dateLabel(iso: string): string {
@@ -272,6 +244,7 @@ export default function App() {
   const pacingIsActiveRef = useRef(false)
   const audioContextRef = useRef<AudioContext | null>(null)
   const activeWebSoundSourcesRef = useRef<AudioBufferSourceNode[]>([])
+  const webSampleBuffersRef = useRef(new Map<string, AudioBuffer>())
   const nativeScheduleActiveRef = useRef(false)
   const nativeControlRef = useRef<(action: 'advance' | 'pause') => void>(() => undefined)
   const soundPreviewTimersRef = useRef<number[]>([])
@@ -832,10 +805,27 @@ export default function App() {
 
   function commitHomeMessages() { saveHomeMessages(homeMessages) }
 
-  function preparePacingAudio(): Promise<void> {
+  async function loadWebPacingSample(profile: SoundProfileId, kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'): Promise<AudioBuffer | null> {
+    if (!('AudioContext' in window)) return null
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') audioContextRef.current = new AudioContext()
+    const context = audioContextRef.current
+    const key = `${profile}-${kind}`
+    const cached = webSampleBuffersRef.current.get(key)
+    if (cached) return cached
+    try {
+      const response = await fetch(`/audio/pacing/pace_${profile}_${kind}.wav`)
+      if (!response.ok) return null
+      const sample = await context.decodeAudioData(await response.arrayBuffer())
+      webSampleBuffersRef.current.set(key, sample)
+      return sample
+    } catch { return null }
+  }
+
+  async function preparePacingAudio(): Promise<void> {
     if (!('AudioContext' in window)) return Promise.resolve()
     if (!audioContextRef.current || audioContextRef.current.state === 'closed') audioContextRef.current = new AudioContext()
-    return audioContextRef.current.state === 'suspended' ? audioContextRef.current.resume().catch(() => undefined) : Promise.resolve()
+    if (audioContextRef.current.state === 'suspended') await audioContextRef.current.resume().catch(() => undefined)
+    await Promise.all((['warmup', 'set', 'rest', 'complete', 'rep'] as const).map((kind) => loadWebPacingSample(soundProfile, kind)))
   }
 
   async function requestWakeLock() {
@@ -860,39 +850,25 @@ export default function App() {
     if (Capacitor.getPlatform() === 'android') {
       if (nativeScheduleActiveRef.current) return
       const profile = SOUND_PROFILES[profileId]
-      void NativePacingAudio.signal({ kind, volume: Math.round(soundVolume), tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume, replace }).catch(() => undefined)
+      void NativePacingAudio.signal({ profile: profileId, kind, volume: Math.round(soundVolume), tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume, replace }).catch(() => undefined)
       return
     }
-    if (!('AudioContext' in window)) return
-    if (!audioContextRef.current || audioContextRef.current.state === 'closed') audioContextRef.current = new AudioContext()
-    const context = audioContextRef.current
-    if (context.state === 'suspended') void context.resume()
-    if (replace) {
-      activeWebSoundSourcesRef.current.forEach((source) => { try { source.stop() } catch { /* source already finished */ } })
-      activeWebSoundSourcesRef.current = []
-    }
-    const profile = SOUND_PROFILES[profileId]
-    const sampleRate = 44_100
-    const slotSeconds = .15
-    const totalSamples = Math.max(1, Math.floor(sampleRate * ((profile.notes[kind].length - 1) * slotSeconds + profile.noteSeconds + .015)))
-    const buffer = context.createBuffer(1, totalSamples, sampleRate)
-    const samples = buffer.getChannelData(0)
-    const amplitude = canonicalAmplitude(profile.timbre, profile.volume, soundVolume)
-    samples.forEach((_, index) => {
-      const time = index / sampleRate
-      const toneIndex = Math.min(profile.notes[kind].length - 1, Math.floor(time / slotSeconds))
-      const localTime = time - toneIndex * slotSeconds
-      if (localTime > profile.noteSeconds) return
-      const phase = 2 * Math.PI * profile.notes[kind][toneIndex] * localTime
-      const fade = Math.min(1, Math.min(localTime / .008, (profile.noteSeconds - localTime) / .012))
-      samples[index] = canonicalThemeSample(phase, profile.waveform, profile.timbre) * amplitude * Math.max(0, fade)
+    void loadWebPacingSample(profileId, kind).then((sample) => {
+      const context = audioContextRef.current
+      if (!sample || !context) return
+      if (replace) {
+        activeWebSoundSourcesRef.current.forEach((source) => { try { source.stop() } catch { /* source already finished */ } })
+        activeWebSoundSourcesRef.current = []
+      }
+      const source = context.createBufferSource()
+      const gain = context.createGain()
+      gain.gain.value = Math.min(1, Math.max(.08, soundVolume / 1000))
+      source.buffer = sample
+      source.connect(gain).connect(context.destination)
+      source.onended = () => { activeWebSoundSourcesRef.current = activeWebSoundSourcesRef.current.filter((item) => item !== source) }
+      activeWebSoundSourcesRef.current.push(source)
+      source.start()
     })
-    const source = context.createBufferSource()
-    source.buffer = buffer
-    source.connect(context.destination)
-    source.onended = () => { activeWebSoundSourcesRef.current = activeWebSoundSourcesRef.current.filter((item) => item !== source) }
-    activeWebSoundSourcesRef.current.push(source)
-    source.start()
   }
 
   function startNativePacingAudio() {
@@ -909,9 +885,9 @@ export default function App() {
 
   function scheduleNativeAutomaticPacing() {
     if (!soundEnabled || Capacitor.getPlatform() !== 'android' || pacingMode !== 'automatic' || pacingPlan.length === 0) return
-    const events: { delayMs: number; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] = []
+    const events: { delayMs: number; profile: SoundProfileId; kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep'; tones: number[]; waveform: OscillatorType; timbre: SoundTimbre; noteDurationMs: number; profileGain: number }[] = []
     const profile = SOUND_PROFILES[soundProfile]
-    const addEvent = (delayMs: number, kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep') => events.push({ delayMs, kind, tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume })
+    const addEvent = (delayMs: number, kind: 'warmup' | 'set' | 'rest' | 'complete' | 'rep') => events.push({ delayMs, profile: soundProfile, kind, tones: profile.notes[kind], waveform: profile.waveform, timbre: profile.timbre, noteDurationMs: Math.round(profile.noteSeconds * 1000), profileGain: profile.volume })
     let elapsedSeconds = DEFAULT_WARMUP_SECONDS
     pacingPlan.forEach((block, blockIndex) => {
       addEvent(elapsedSeconds * 1000, 'set')

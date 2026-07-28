@@ -51,9 +51,7 @@ public class PacingAudioPlugin extends Plugin {
         send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.UPDATE).putExtra("elapsed", call.getString("elapsed", "00:00")).putExtra("phase", call.getString("phase", "Cronômetro")).putExtra("progress", call.getString("progress", "Em andamento"))); call.resolve();
     }
     @PluginMethod public void signal(PluginCall call) {
-        org.json.JSONArray tones = call.getArray("tones"); int[] values = new int[tones == null ? 0 : tones.length()];
-        for (int i = 0; i < values.length; i++) values[i] = tones.optInt(i, 440);
-        send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.SIGNAL).putExtra("tones", values).putExtra("waveform", call.getString("waveform", "sine")).putExtra("timbre", call.getString("timbre", "clean")).putExtra("noteDurationMs", call.getInt("noteDurationMs", 120)).putExtra("profileGain", call.getDouble("profileGain", .06).floatValue()).putExtra("replace", call.getBoolean("replace", false)).putExtra("volume", call.getInt("volume", 100))); call.resolve();
+        send(new Intent(getContext(), PacingAudioService.class).setAction(PacingAudioService.SIGNAL).putExtra("profile", call.getString("profile", "precise")).putExtra("kind", call.getString("kind", "rep")).putExtra("replace", call.getBoolean("replace", false)).putExtra("volume", call.getInt("volume", 100))); call.resolve();
     }
     @PluginMethod public void schedule(PluginCall call) {
         org.json.JSONArray input = call.getArray("events"); if (input == null) { call.reject("Eventos ausentes."); return; }
